@@ -32,22 +32,26 @@ pub struct Alignment<'a> {
 impl<'a> Alignment<'a> {
     pub fn new(x: Vec<&'a str>, y: Vec<&'a str>) -> Self {
         let mut alignment = Self {
-            x: Vec::new(),
-            y: Vec::new(),
+            x,
+            y,
             table: Vec::new(),
             dim: [0, 0],
         };
-        alignment.reset(x, y);
+        alignment.reset_buffers();
         alignment
     }
 
-    /// Reset the alignment to new sequences, reusing the existing buffers when
-    /// they are large enough. Word-diff infers candidate pairings by running
-    /// this repeatedly, so avoiding a fresh table allocation per candidate is
-    /// the hot-path win.
-    pub fn reset(&mut self, x: Vec<&'a str>, y: Vec<&'a str>) {
-        self.x = x;
-        self.y = y;
+    /// Re-run the alignment on a new minus/plus line pair, tokenizing the lines
+    /// directly into the reused `x`/`y` buffers and reusing the table when it is
+    /// large enough. Word-diff infers candidate pairings by running this
+    /// repeatedly, so per-candidate allocations are avoided entirely.
+    pub fn reset_lines(&mut self, minus_line: &'a str, plus_line: &'a str) {
+        crate::edits::tokenize_into(minus_line, &mut self.x);
+        crate::edits::tokenize_into(plus_line, &mut self.y);
+        self.reset_buffers();
+    }
+
+    fn reset_buffers(&mut self) {
         self.dim = [self.y.len() + 1, self.x.len() + 1];
         let size = self.dim[0] * self.dim[1];
         if self.table.len() < size {
@@ -128,11 +132,12 @@ impl<'a> Alignment<'a> {
             }
     }
 
-    pub fn coalesced_operations(&self) -> Vec<(Operation, usize)> {
-        // Run-length encode the backtrace in a single pass, without building an
-        // intermediate Vec<Operation>. The backtrace is walked bottom-right to
-        // top-left; runs are pushed in reverse, then flipped at the end.
-        let mut encoded: Vec<(Operation, usize)> = Vec::new();
+    /// Run-length encode the backtrace into `encoded` in a single pass, without
+    /// building an intermediate `Vec<Operation>` and without allocating (the
+    /// buffer is cleared and reused by the caller). The backtrace is walked
+    /// bottom-right to top-left; runs are pushed in reverse, then flipped.
+    pub fn coalesced_operations_into(&self, encoded: &mut Vec<(Operation, usize)>) {
+        encoded.clear();
         let mut p = self.index(self.x.len(), self.y.len());
         let mut run: usize = 0;
         let mut curr_op = Operation::NoOp;
@@ -155,7 +160,6 @@ impl<'a> Alignment<'a> {
         }
         encoded.push((curr_op, run));
         encoded.reverse();
-        encoded
     }
 
     fn index(&self, i: usize, j: usize) -> usize {

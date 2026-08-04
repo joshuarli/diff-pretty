@@ -13,69 +13,70 @@ fn is_word_char(c: char) -> bool {
     c == '_' || c.is_alphanumeric()
 }
 
-/// Find `\w+` matches (ASCII-faithful approximation).
-fn regex_word_runs(line: &str) -> Vec<(usize, usize)> {
-    let mut out = Vec::new();
-    let chars: Vec<(usize, char)> = line.char_indices().collect();
-    let n = chars.len();
-    let mut i = 0;
-    while i < n {
-        if is_word_char(chars[i].1) {
-            let start = chars[i].0;
-            let mut end = start;
-            while i < n && is_word_char(chars[i].1) {
-                end = chars[i].0 + chars[i].1.len_utf8();
-                i += 1;
+/// Split `line` into tokens for alignment, replicating delta's `tokenize`, but
+/// writing into the caller-owned `tokens` buffer (cleared first). Word runs are
+/// found in a single pass and gap characters are pushed directly, so nothing is
+/// allocated. Token layout, matching delta exactly:
+///
+/// `tokens` starts as `[""]`; before the first word run an extra `""` is pushed
+/// when the run doesn't start at byte 0, each gap is pushed as one token per
+/// grapheme (char, for ASCII), then the word; the trailing gap (or the whole
+/// line when there are no words) is appended the same way.
+pub(crate) fn tokenize_into<'a>(line: &'a str, tokens: &mut Vec<&'a str>) {
+    tokens.clear();
+    tokens.push("");
+    let len = line.len();
+    let mut offset = 0usize;
+    let mut i = 0usize;
+    while i < len {
+        let c = line[i..].chars().next().expect("line is valid UTF-8");
+        let c_len = c.len_utf8();
+        if is_word_char(c) {
+            let start = i;
+            i += c_len;
+            while i < len {
+                let c2 = line[i..].chars().next().expect("line is valid UTF-8");
+                if is_word_char(c2) {
+                    i += c2.len_utf8();
+                } else {
+                    break;
+                }
             }
-            out.push((start, end));
+            let end = i;
+            if offset == 0 && start > 0 {
+                tokens.push("");
+            }
+            let gap = &line[offset..start];
+            let mut git = gap.char_indices().peekable();
+            while let Some((gi, gc)) = git.next() {
+                let gend = match git.peek() {
+                    Some((gj, _)) => *gj,
+                    None => gap.len(),
+                };
+                tokens.push(&line[offset + gi..offset + gend]);
+                let _ = gc;
+            }
+            tokens.push(&line[start..end]);
+            offset = end;
         } else {
-            i += 1;
+            i += c_len;
         }
     }
-    out
-}
-
-/// Split line into tokens for alignment, replicating delta's `tokenize`.
-fn tokenize<'a>(line: &'a str) -> Vec<&'a str> {
-    let mut tokens = vec![""];
-    let mut offset = 0;
-    for (start, end) in regex_word_runs(line) {
-        if offset == 0 && start > 0 {
-            tokens.push("");
-        }
-        for t in graphemes(&line[offset..start]) {
-            tokens.push(t);
-        }
-        tokens.push(&line[start..end]);
-        offset = end;
-    }
-    if offset < line.len() {
+    if offset < len {
         if offset == 0 {
             tokens.push("");
         }
-        for t in graphemes(&line[offset..]) {
-            tokens.push(t);
+        let tail = &line[offset..];
+        let mut tit = tail.char_indices().peekable();
+        while let Some((gi, gc)) = tit.next() {
+            let gend = match tit.peek() {
+                Some((gj, _)) => *gj,
+                None => tail.len(),
+            };
+            tokens.push(&line[offset + gi..offset + gend]);
+            let _ = gc;
         }
     }
-    tokens
-}
-
-/// Char-based grapheme splitter (exact for ASCII; graphemes == chars).
-fn graphemes(s: &str) -> Vec<&str> {
-    let mut out = Vec::new();
-    let mut iter = s.char_indices().peekable();
-    while let Some((i, c)) = iter.next() {
-        let end = match iter.peek() {
-            Some((j, _)) => *j,
-            None => s.len(),
-        };
-        out.push(&s[i..end]);
-        let _ = c;
-    }
-    if s.is_empty() {
-        return out;
-    }
-    out
 }
 
 fn width(s: &str) -> usize {
@@ -94,14 +95,21 @@ fn contents_before_trailing_whitespace(line: &str) -> Option<&str> {
     }
 }
 
-/// Annotate a paired minus/plus line into sections of (is_emph, text).
+/// Annotate a paired minus/plus line into sections of (is_emph, text), writing
+/// into the caller-owned `annotated_minus`/`annotated_plus` buffers (cleared
+/// first) so repeated candidate runs allocate nothing. Returns the change
+/// distance (fraction of emphasized width) used to decide whether the pairing
+/// is a match.
 fn annotate<'a>(
     alignment: &Alignment<'a>,
     minus_line: &'a str,
     plus_line: &'a str,
-) -> (Vec<(bool, &'a str)>, Vec<(bool, &'a str)>, f64) {
-    let mut annotated_minus = Vec::new();
-    let mut annotated_plus = Vec::new();
+    annotated_minus: &mut Vec<(bool, &'a str)>,
+    annotated_plus: &mut Vec<(bool, &'a str)>,
+    ops: &mut Vec<(Operation, usize)>,
+) -> f64 {
+    annotated_minus.clear();
+    annotated_plus.clear();
 
     let (mut x_offset, mut y_offset) = (0, 0);
     let (mut minus_line_offset, mut plus_line_offset) = (0, 0);
@@ -122,7 +130,8 @@ fn annotate<'a>(
     };
 
     let (mut minus_op_prev, mut plus_op_prev) = (false, false);
-    for (op, n) in alignment.coalesced_operations() {
+    alignment.coalesced_operations_into(ops);
+    for &(op, n) in ops.iter() {
         match op {
             Operation::Deletion => {
                 let ms = get_section(n, &mut minus_line_offset, &mut x_offset, &alignment.x, minus_line);
@@ -167,12 +176,11 @@ fn annotate<'a>(
             }
         }
     }
-    let distance = if d_denom > 0.0 {
+    if d_denom > 0.0 {
         d_numer / d_denom
     } else {
         0.0
-    };
-    (annotated_minus, annotated_plus, distance)
+    }
 }
 
 const MAX_LINE_DISTANCE: f64 = 0.6;
@@ -192,8 +200,12 @@ pub fn infer_edits<'a>(minus_lines: &[&'a str], plus_lines: &[&'a str]) -> EditR
 
     let mut plus_index = 0;
 
-    // Word-diff alignment buffers, reused across every candidate pairing.
+    // Word-diff alignment and annotation buffers, reused across every candidate
+    // pairing so failed candidates allocate nothing.
     let mut alignment = Alignment::new(Vec::new(), Vec::new());
+    let mut am: Vec<(bool, &'a str)> = Vec::new();
+    let mut ap: Vec<(bool, &'a str)> = Vec::new();
+    let mut ops: Vec<(Operation, usize)> = Vec::new();
 
     'minus_loop: for (minus_index, minus_line) in minus_lines.iter().enumerate() {
         let minus_line: &str = minus_line;
@@ -214,8 +226,8 @@ pub fn infer_edits<'a>(minus_lines: &[&'a str], plus_lines: &[&'a str]) -> EditR
                 plus_index += 1;
                 continue 'minus_loop;
             }
-            alignment.reset(tokenize(minus_line), tokenize(plus_line));
-            let (am, ap, distance) = annotate(&alignment, minus_line, plus_line);
+            alignment.reset_lines(minus_line, plus_line);
+            let distance = annotate(&alignment, minus_line, plus_line, &mut am, &mut ap, &mut ops);
             if (minus_lines.len() == plus_lines.len()
                 && distance <= MAX_LINE_DISTANCE_NAIVE)
                 || distance <= MAX_LINE_DISTANCE
@@ -228,6 +240,8 @@ pub fn infer_edits<'a>(minus_lines: &[&'a str], plus_lines: &[&'a str]) -> EditR
                 }
                 annotated_minus.push(am);
                 annotated_plus.push(ap);
+                am = Vec::new();
+                ap = Vec::new();
                 line_alignment.push((Some(minus_index), Some(plus_index)));
                 plus_index += 1;
                 continue 'minus_loop;

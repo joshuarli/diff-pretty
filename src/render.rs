@@ -254,8 +254,12 @@ impl Writer {
 /// trailing whitespace-only run of sections gets the whitespace-error style
 /// (delta does this for plus lines only). Empty sections are skipped, matching
 /// delta's `paint_line`.
+///
+/// `w` is a single line buffer reused across all hunk lines; `flush` clears it
+/// while retaining capacity, so the per-line `String` is allocated once.
 fn write_hunk_line(
     out: &mut String,
+    w: &mut Writer,
     width: usize,
     minus_style: Style,
     plus_style: Style,
@@ -275,8 +279,6 @@ fn write_hunk_line(
     } else {
         sections.len()
     };
-    let cap = 2 * width + 16 + sections.iter().map(|(_, t)| t.len()).sum::<usize>();
-    let mut w = Writer::with_capacity(cap);
     w.push(STYLE_BLUE, "");
     w.push_num(minus_style, minus_n, width);
     w.push(STYLE_BLUE, "");
@@ -301,17 +303,41 @@ fn write_hunk_line(
 
 /// Renders a `git show` buffer to a String.
 pub fn render(input: &str) -> String {
-    let mut out = String::new();
+    // Reserve roughly the input size up front: output adds line-number cells
+    // and SGR codes on top of the passthrough content, so this removes most of
+    // the geometric reallocation growth of `out`.
+    let mut out = String::with_capacity(input.len() + input.len() / 2);
     // git colorizes the diff it sends to its pager, so the input carries CSI
     // SGR codes. We keep the raw (possibly colored) lines for passthrough
     // regions that delta reproduces verbatim (commit meta), and a stripped copy
     // for parsing; hunk lines are re-styled by us regardless of input color.
     let raw_lines: Vec<&str> = input.lines().collect();
-    // The stripped copy is a `Cow`: lines without SGR codes are borrowed
-    // straight from `input` (the common case), so plain inputs allocate
-    // nothing per line.
-    let lines: Vec<Cow<str>> = raw_lines.iter().map(|l| strip_sgr(l)).collect();
+    // The stripped copy is borrowed where possible. Plain inputs (no ESC) are
+    // borrowed straight from `input` and allocate nothing; colorized inputs are
+    // stripped into a single scratch buffer, so the N per-line `String`s of the
+    // old approach collapse into one allocation. `scratch` is pre-sized to the
+    // input (stripping only removes bytes), so it never reallocates and the
+    // recorded byte ranges stay valid.
+    let mut scratch = String::new();
+    let lines: Vec<&str> = if input.as_bytes().contains(&b'\x1b') {
+        scratch.reserve(input.len());
+        let mut ranges: Vec<(usize, usize)> = Vec::with_capacity(raw_lines.len());
+        for l in &raw_lines {
+            let start = scratch.len();
+            strip_sgr_append(l, &mut scratch);
+            ranges.push((start, scratch.len()));
+        }
+        ranges
+            .iter()
+            .map(|&(s, e)| &scratch[s..e])
+            .collect()
+    } else {
+        raw_lines.clone()
+    };
     let mut i = 0;
+
+    // Single line buffer reused across every hunk line (flush clears it).
+    let mut line_writer = Writer::with_capacity(256);
 
     // ---- file / hunk sections ----
     let mut pending_file: Option<FileInfo> = None;
@@ -417,6 +443,7 @@ pub fn render(input: &str) -> String {
                         for sections in &res.minus_sections {
                             write_hunk_line(
                                 &mut out,
+                                &mut line_writer,
                                 cell_width,
                                 STYLE_MINUS_NUM,
                                 STYLE_PLUS_NUM,
@@ -435,6 +462,7 @@ pub fn render(input: &str) -> String {
                             // this for plus lines only).
                             write_hunk_line(
                                 &mut out,
+                                &mut line_writer,
                                 cell_width,
                                 STYLE_MINUS_NUM,
                                 STYLE_PLUS_NUM,
@@ -464,6 +492,7 @@ pub fn render(input: &str) -> String {
                     let body = expand_tabs(body);
                     write_hunk_line(
                         &mut out,
+                        &mut line_writer,
                         cell_width,
                         STYLE_ZERO,
                         STYLE_ZERO,
@@ -714,13 +743,14 @@ fn expand_tabs(s: &str) -> Cow<'_, str> {
 }
 
 /// Remove CSI SGR escape sequences (`ESC [ ... m`) from a line, so git's
-/// colorized pager input can be parsed the same as plain input. Lines without
-/// any escape sequence are returned borrowed.
-fn strip_sgr(s: &str) -> Cow<'_, str> {
+/// colorized pager input can be parsed the same as plain input. The stripped
+/// content is appended to `scratch`, a single buffer shared by every line, so
+/// colorized input costs one allocation total.
+fn strip_sgr_append(s: &str, scratch: &mut String) {
     if !s.as_bytes().contains(&b'\x1b') {
-        return Cow::Borrowed(s);
+        scratch.push_str(s);
+        return;
     }
-    let mut out = String::with_capacity(s.len());
     let mut chars = s.chars();
     while let Some(c) = chars.next() {
         if c == '\x1b' {
@@ -730,10 +760,9 @@ fn strip_sgr(s: &str) -> Cow<'_, str> {
                 }
             }
         } else {
-            out.push(c);
+            scratch.push(c);
         }
     }
-    Cow::Owned(out)
 }
 
 /// Emit the hunk-header box for `hunk-header-style = none` on a `@@` line that
