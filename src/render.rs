@@ -2,7 +2,7 @@
 //! the oracle byte-for-byte under the hardcoded config.
 
 use std::borrow::Cow;
-use std::io::{self, Write};
+use std::io::{self, BufRead, Write};
 
 use crate::config::*;
 
@@ -22,6 +22,26 @@ trait RenderSink {
 
     fn reset_style(&mut self) {
         self.push_ansi(sgr::RESET);
+    }
+}
+
+struct RenderState {
+    line_writer: Writer,
+    minus_buf: Vec<String>,
+    plus_buf: Vec<String>,
+    word_diff: crate::edits::WordDiffScratch,
+    pending_file: Option<FileInfo>,
+}
+
+impl RenderState {
+    fn new() -> Self {
+        Self {
+            line_writer: Writer::with_capacity(256),
+            minus_buf: Vec::new(),
+            plus_buf: Vec::new(),
+            word_diff: crate::edits::WordDiffScratch::new(),
+            pending_file: None,
+        }
     }
 }
 
@@ -109,6 +129,27 @@ impl RenderedDocument {
             last_span_offset: 0,
             last_span_sequence: 0,
         }
+    }
+
+    fn streaming() -> Self {
+        Self {
+            text: String::with_capacity(64 * 1024),
+            lines: Vec::with_capacity(1024),
+            spans: Vec::with_capacity(12 * 1024),
+            custom_ansi: Vec::new(),
+            ansi_bytes: 0,
+            last_span_start: None,
+            last_span_offset: 0,
+            last_span_sequence: 0,
+        }
+    }
+
+    fn reserve_input(&mut self, input: &str) {
+        let line_count = input.bytes().filter(|&byte| byte == b'\n').count();
+        let tab_count = input.bytes().filter(|&byte| byte == b'\t').count();
+        self.text.reserve(input.len() + 7 * tab_count);
+        self.lines.reserve(line_count);
+        self.spans.reserve(line_count.saturating_mul(12));
     }
 
     fn finish(mut self) -> Self {
@@ -238,6 +279,46 @@ impl RenderedDocument {
             &self.custom_ansi[sequence - KNOWN_ANSI.len()]
         } else {
             KNOWN_ANSI[sequence]
+        }
+    }
+}
+
+/// Incrementally builds a retained document from independently complete parser
+/// units. Completed lines are immediately available to the native pager.
+pub(crate) struct IncrementalDocumentRenderer {
+    document: RenderedDocument,
+    state: RenderState,
+    complete: bool,
+}
+
+impl IncrementalDocumentRenderer {
+    pub(crate) fn new() -> Self {
+        Self {
+            document: RenderedDocument::streaming(),
+            state: RenderState::new(),
+            complete: false,
+        }
+    }
+
+    pub(crate) fn push_chunk(&mut self, input: &str) {
+        self.document.reserve_input(input);
+        render_chunk(input, &mut self.document, &mut self.state, false);
+    }
+
+    pub(crate) fn document(&self) -> &RenderedDocument {
+        &self.document
+    }
+
+    pub(crate) fn finish(mut self) -> RenderedDocument {
+        self.complete();
+        self.document
+    }
+
+    pub(crate) fn complete(&mut self) {
+        if !self.complete {
+            render_chunk("", &mut self.document, &mut self.state, true);
+            self.document.finish_line();
+            self.complete = true;
         }
     }
 }
@@ -716,6 +797,62 @@ pub fn render_to<W: Write>(input: &str, output: &mut W) -> io::Result<()> {
     sink.finish()
 }
 
+/// Incrementally read and render input without retaining the complete input or
+/// output. Whole-hunk word-diff context is preserved by splitting only before
+/// commit and file boundaries.
+pub fn render_reader_to<R: BufRead, W: Write>(mut input: R, output: &mut W) -> io::Result<()> {
+    let mut sink = IoSink::new(output);
+    let mut state = RenderState::new();
+    for_each_render_chunk(&mut input, |chunk| {
+        render_chunk(chunk, &mut sink, &mut state, false);
+        match sink.error.take() {
+            Some(error) => Err(error),
+            None => Ok(()),
+        }
+    })?;
+    render_chunk("", &mut sink, &mut state, true);
+    sink.finish()
+}
+
+/// Incrementally read into a retained document. This is the non-terminal form
+/// of the live pager pipeline and avoids retaining the complete input.
+pub fn render_reader_document<R: BufRead>(mut input: R) -> io::Result<RenderedDocument> {
+    let mut renderer = IncrementalDocumentRenderer::new();
+    for_each_render_chunk(&mut input, |chunk| {
+        renderer.push_chunk(chunk);
+        Ok(())
+    })?;
+    Ok(renderer.finish())
+}
+
+pub(crate) fn for_each_render_chunk<R: BufRead>(
+    input: &mut R,
+    mut emit: impl FnMut(&str) -> io::Result<()>,
+) -> io::Result<()> {
+    let mut chunk = String::with_capacity(64 * 1024);
+    let mut line = String::new();
+    let mut stripped = String::new();
+    loop {
+        line.clear();
+        if input.read_line(&mut line)? == 0 {
+            break;
+        }
+        stripped.clear();
+        strip_sgr_append(line.trim_end_matches(['\r', '\n']), &mut stripped);
+        let starts_file = stripped.starts_with("diff --git");
+        let starts_section = starts_file || is_commit_header(&stripped);
+        if starts_section && !chunk.is_empty() {
+            emit(&chunk)?;
+            chunk.clear();
+        }
+        chunk.push_str(&line);
+    }
+    if !chunk.is_empty() {
+        emit(&chunk)?;
+    }
+    Ok(())
+}
+
 /// Render into the retained representation consumed directly by the pager.
 pub fn render_document(input: &str) -> RenderedDocument {
     let mut document = RenderedDocument::with_capacity(input);
@@ -736,6 +873,11 @@ pub fn render(input: &str) -> String {
 }
 
 fn render_into(input: &str, out: &mut impl RenderSink) {
+    let mut state = RenderState::new();
+    render_chunk(input, out, &mut state, true);
+}
+
+fn render_chunk(input: &str, out: &mut impl RenderSink, state: &mut RenderState, final_chunk: bool) {
     // git colorizes the diff it sends to its pager, so the input carries CSI
     // SGR codes. We keep the raw (possibly colored) lines for passthrough
     // regions that delta reproduces verbatim (commit meta), and a stripped copy
@@ -768,26 +910,32 @@ fn render_into(input: &str, out: &mut impl RenderSink) {
     let mut i = 0;
 
     // Single line buffer reused across every hunk line (flush clears it).
-    let mut line_writer = Writer::with_capacity(256);
+    let line_writer = &mut state.line_writer;
 
     // Buffers for a run of minus/plus lines awaiting word-diff inference,
     // hoisted to render scope so they are allocated once, not once per hunk.
-    let mut minus_buf: Vec<Cow<str>> = Vec::new();
-    let mut plus_buf: Vec<Cow<str>> = Vec::new();
+    let minus_buf = &mut state.minus_buf;
+    let plus_buf = &mut state.plus_buf;
 
     // Word-diff inference buffers, hoisted to render scope so per-hunk calls
     // reuse the per-line ranges, alignment table, and operation runs.
-    let mut word_diff = crate::edits::WordDiffScratch::new();
+    let word_diff = &mut state.word_diff;
 
     // ---- file / hunk sections ----
-    let mut pending_file: Option<FileInfo> = None;
+    let pending_file = &mut state.pending_file;
+
+    if lines.first().is_some_and(|line| is_commit_header(line))
+        && let Some(fi) = pending_file.take()
+    {
+        emit_file_decoration(out, &fi, None);
+    }
 
     // A plain unified diff (`diff -u`, no `diff --git`) starts with `---`,
     // followed by `+++` and `@@`. Detect it so we don't pass it through as
     // verbatim commit-meta, and seed the file so `---`/`+++` populate paths.
     let plain_unified = !lines.is_empty() && lines[0].starts_with("--- ");
     if plain_unified {
-        pending_file = Some(FileInfo::new_plain());
+        *pending_file = Some(FileInfo::new_plain());
     } else {
         // ---- commit / leading verbatim block ----
         while i < lines.len() && !lines[i].starts_with("diff --git") {
@@ -801,7 +949,10 @@ fn render_into(input: &str, out: &mut impl RenderSink) {
         let line = &lines[i];
 
         if line.starts_with("diff --git") {
-            pending_file = Some(FileInfo::from_diff_line(line));
+            if !final_chunk && let Some(fi) = pending_file.take() {
+                emit_file_decoration(out, &fi, None);
+            }
+            *pending_file = Some(FileInfo::from_diff_line(line));
             i += 1;
             continue;
         }
@@ -857,7 +1008,7 @@ fn render_into(input: &str, out: &mut impl RenderSink) {
             // the `@@` line carries a code fragment, a box (bullet + fragment,
             // no line number). No box otherwise.
             out.push('\n');
-            emit_hunk_box(out, &mut line_writer, line);
+                emit_hunk_box(out, line_writer, line);
             i += 1;
 
             // Parse hunk header for line counters.
@@ -877,11 +1028,11 @@ fn render_into(input: &str, out: &mut impl RenderSink) {
             macro_rules! flush_run {
                 () => {{
                     if !minus_buf.is_empty() || !plus_buf.is_empty() {
-                        let res = word_diff.infer_edits(&minus_buf, &plus_buf);
+                        let res = word_diff.infer_edits(minus_buf, plus_buf);
                         for &(start, len) in res.minus_ranges {
                             write_hunk_line(
                                 out,
-                                &mut line_writer,
+                                line_writer,
                                 cell_width,
                                 STYLE_MINUS_NUM,
                                 STYLE_PLUS_NUM,
@@ -900,7 +1051,7 @@ fn render_into(input: &str, out: &mut impl RenderSink) {
                             // this for plus lines only).
                             write_hunk_line(
                                 out,
-                                &mut line_writer,
+                                line_writer,
                                 cell_width,
                                 STYLE_MINUS_NUM,
                                 STYLE_PLUS_NUM,
@@ -927,15 +1078,15 @@ fn render_into(input: &str, out: &mut impl RenderSink) {
                 }
                 if let Some(body) = l.strip_prefix(' ') {
                     flush_run!();
-                    write_zero_line(out, &mut line_writer, cell_width, minus_n, plus_n, body);
+                    write_zero_line(out, line_writer, cell_width, minus_n, plus_n, body);
                     minus_n += 1;
                     plus_n += 1;
                     i += 1;
                 } else if let Some(body) = l.strip_prefix('-') {
-                    minus_buf.push(expand_tabs(body));
+                    minus_buf.push(expand_tabs(body).into_owned());
                     i += 1;
                 } else if let Some(body) = l.strip_prefix('+') {
-                    plus_buf.push(expand_tabs(body));
+                    plus_buf.push(expand_tabs(body).into_owned());
                     i += 1;
                 } else {
                     flush_run!();
@@ -960,7 +1111,7 @@ fn render_into(input: &str, out: &mut impl RenderSink) {
 
     // Any file that never produced a hunk (e.g. a pure rename or a file with
     // only metadata changes) still gets its decoration at end of input.
-    if let Some(fi) = pending_file {
+    if final_chunk && let Some(fi) = pending_file.take() {
         emit_file_decoration(out, &fi, None);
     }
 
@@ -1266,7 +1417,48 @@ fn is_commit_header(s: &str) -> bool {
         return false;
     };
     match rest.split_whitespace().next() {
-        Some(hash) if !hash.is_empty() => hash.chars().all(|c| c.is_ascii_hexdigit()),
+        Some(hash) if hash.len() >= 7 => hash.chars().all(|c| c.is_ascii_hexdigit()),
         _ => false,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn incremental_document_exposes_completed_chunks() {
+        let input = "commit 0123456\nmessage\ndiff --git a/a b/a\n--- a/a\n+++ b/a\n@@ -1 +1 @@\n-old\n+new\n";
+        let mut renderer = IncrementalDocumentRenderer::new();
+        let mut chunks = Vec::new();
+        for_each_render_chunk(&mut input.as_bytes(), |chunk| {
+            renderer.push_chunk(chunk);
+            chunks.push(renderer.document().line_count());
+            Ok(())
+        })
+        .unwrap();
+        let document = renderer.finish();
+        let mut output = Vec::new();
+        document.write_to(&mut output).unwrap();
+
+        assert!(chunks.len() > 1);
+        assert!(chunks[0] > 0);
+        assert_eq!(output, render(input).as_bytes());
+    }
+
+    #[test]
+    fn short_commit_text_is_not_a_stream_boundary() {
+        assert!(!is_commit_header("commit dead"));
+        assert!(is_commit_header("commit deadbee"));
+    }
+
+    #[test]
+    fn incremental_renderer_flushes_metadata_only_file_before_next_commit() {
+        let input = "commit 0123456\nmessage\ndiff --git a/old b/new\nsimilarity index 100%\nrename from old\nrename to new\ncommit 1234567\nnext\n";
+        let document = render_reader_document(input.as_bytes()).unwrap();
+        let mut output = Vec::new();
+        document.write_to(&mut output).unwrap();
+
+        assert_eq!(output, render(input).as_bytes());
     }
 }

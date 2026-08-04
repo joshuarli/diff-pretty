@@ -16,18 +16,26 @@ RED = "\033[31m"
 GREEN = "\033[32m"
 
 
-def read_baseline(path: Path) -> dict[str, tuple[float, float | None, float]]:
-    values: dict[str, tuple[float, float | None, float]] = {}
+def read_baseline(path: Path) -> dict[str, tuple[float, float | None, float, float | None]]:
+    values: dict[str, tuple[float, float | None, float, float | None]] = {}
     for line in path.read_text().splitlines():
         if not line or line.startswith("#"):
             continue
         columns = line.split("\t")
         if len(columns) == 3:
             name, median, allocations = columns
-            values[name] = (float(median), None, float(allocations))
-        else:
+            values[name] = (float(median), None, float(allocations), None)
+        elif len(columns) == 4:
             name, median, counts, allocations = columns
-            values[name] = (float(median), float(counts), float(allocations))
+            values[name] = (float(median), float(counts), float(allocations), None)
+        else:
+            name, median, counts, allocations, peak_live = columns
+            values[name] = (
+                float(median),
+                float(counts),
+                float(allocations),
+                float(peak_live),
+            )
     return values
 
 
@@ -73,13 +81,13 @@ def visible_width(value: str) -> int:
     return len(ANSI_RE.sub("", value))
 
 
-def print_table(rows: list[tuple[str, str, str, str]]) -> None:
-    headers = ("benchmark", "time", "memory", "allocs/op")
+def print_table(rows: list[tuple[str, str, str, str, str]]) -> None:
+    headers = ("benchmark", "time", "peak live", "total alloc", "allocs/op")
     preferred = [
         max(visible_width(row[index]) for row in rows + [headers])
         for index in range(len(headers))
     ]
-    minimum = [12, 12, 12, 12]
+    minimum = [12, 12, 12, 12, 12]
     terminal_width = shutil.get_terminal_size((120, 24)).columns
     available = max(4 * len(headers), terminal_width - (3 * len(headers) + 1))
     if available < sum(minimum):
@@ -144,14 +152,27 @@ def main() -> int:
     for name in sorted(set(baseline) | set(candidate)):
         old = baseline.get(name)
         new = candidate.get(name)
-        old_median, old_counts, old_allocations = old or (None, None, None)
-        new_median, new_counts, new_allocations = new or (None, None, None)
+        old_median, old_counts, old_allocations, old_peak_live = old or (
+            None,
+            None,
+            None,
+            None,
+        )
+        new_median, new_counts, new_allocations, new_peak_live = new or (
+            None,
+            None,
+            None,
+            None,
+        )
         rows.append(
             (
                 name,
                 f"{format_time(new_median)} ({format_delta(new_median, old_median, colors)})"
                 if new_median is not None
                 else "removed",
+                f"{format_bytes(new_peak_live)} ({format_delta(new_peak_live, old_peak_live, colors)})"
+                if new_peak_live is not None
+                else "unavailable",
                 f"{format_bytes(new_allocations)} ({format_delta(new_allocations, old_allocations, colors)})"
                 if new_allocations is not None
                 else "removed",
@@ -168,4 +189,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

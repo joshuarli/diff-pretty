@@ -1,5 +1,6 @@
 //! Curated divan benchmarks for diff-pretty's hot paths, adapted from `~/d/e`'s
-//! `benches/bench.rs` (divan + `AllocProfiler`, per-op median + alloc report).
+//! `benches/bench.rs` (divan + `AllocProfiler`, per-op median, peak-live memory,
+//! and allocation-volume report).
 //!
 //! What is curated here:
 //!
@@ -8,7 +9,8 @@
 //!   synthetic diffs scaled to 100KB / 1MB / 10MB. These are the LTO-relevant
 //!   numbers: the whole pipeline fuses only under `lto = "fat"`.
 //! - **Non-interactive `render_to()`** over the representative 1MB input,
-//!   measuring the sink architecture without retaining a complete ANSI buffer.
+//!   plus a 10MB scale case, measuring the sink architecture without retaining
+//!   a complete ANSI buffer.
 //! - **Synthetic variants that isolate hot sub-paths** inside `render`: a
 //!   colorized diff (SGR stripping) and a tab-heavy diff (`expand_tabs`).
 //! - **Word-diff inference** (`edits::infer_edits` / Needleman-Wunsch), the
@@ -27,10 +29,13 @@
 
 use std::path::PathBuf;
 use std::sync::OnceLock;
+use std::{io, io::Write};
 
 use divan::{AllocProfiler, Bencher, black_box};
 
-use diff_pretty::{config, edits, render, render_document, render_to};
+use diff_pretty::{
+    config, edits, render, render_document, render_reader_document, render_reader_to, render_to,
+};
 
 #[global_allocator]
 static ALLOC: AllocProfiler = AllocProfiler::system();
@@ -307,6 +312,47 @@ fn render_to_synthetic_1mb(b: Bencher) {
 }
 
 #[divan::bench]
+fn render_to_synthetic_10mb(b: Bencher) {
+    let input = synthetic_10mb();
+    b.bench_local(|| {
+        let mut output = std::io::sink();
+        render_to(input, &mut output).expect("sink writes cannot fail");
+        black_box(output)
+    });
+}
+
+#[divan::bench]
+fn render_reader_to_synthetic_10mb(b: Bencher) {
+    let input = synthetic_10mb();
+    b.bench_local(|| {
+        let mut output = std::io::sink();
+        render_reader_to(input.as_bytes(), &mut output).expect("sink writes cannot fail");
+        black_box(output)
+    });
+}
+
+struct StopAtFirstWrite;
+
+impl Write for StopAtFirstWrite {
+    fn write(&mut self, _buffer: &[u8]) -> io::Result<usize> {
+        Err(io::Error::new(io::ErrorKind::BrokenPipe, "first write"))
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
+#[divan::bench]
+fn render_reader_first_output_synthetic_10mb(b: Bencher) {
+    let input = synthetic_10mb();
+    b.bench_local(|| {
+        let error = render_reader_to(input.as_bytes(), &mut StopAtFirstWrite).unwrap_err();
+        black_box(error.kind())
+    });
+}
+
+#[divan::bench]
 fn render_synthetic_10mb(b: Bencher) {
     let input = synthetic_10mb();
     b.bench_local(|| black_box(render(input).len()));
@@ -332,6 +378,18 @@ fn render_synthetic_tabs_1mb(b: Bencher) {
 fn render_document_synthetic_1mb(b: Bencher) {
     let input = synthetic_1mb();
     b.bench_local(|| black_box(render_document(input)));
+}
+
+#[divan::bench]
+fn render_document_synthetic_10mb(b: Bencher) {
+    let input = synthetic_10mb();
+    b.bench_local(|| black_box(render_document(input)));
+}
+
+#[divan::bench]
+fn render_reader_document_synthetic_10mb(b: Bencher) {
+    let input = synthetic_10mb();
+    b.bench_local(|| black_box(render_reader_document(input.as_bytes()).unwrap()));
 }
 
 #[divan::bench]

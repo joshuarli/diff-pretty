@@ -7,9 +7,16 @@
 //! alternate screen. It does not handle resize signals, search, or horizontal
 //! scrolling.
 
-use std::io::{self, IsTerminal, Read, Write};
+use std::io::{self, BufRead, IsTerminal, Read, Write};
+use std::sync::mpsc::{self, Receiver, TryRecvError};
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
+};
+use std::thread;
+use std::time::{Duration, Instant};
 
-use crate::render::RenderedDocument;
+use crate::render::{IncrementalDocumentRenderer, RenderedDocument};
 
 #[cfg(unix)]
 use std::fs::{File, OpenOptions};
@@ -54,6 +61,48 @@ pub fn emit(document: &RenderedDocument, mode: PagingMode) -> io::Result<()> {
         Ok(()) => Ok(()),
         Err(_) => write_stdout(document),
     }
+}
+
+/// Stream input into the pager. The reader is bounded to a small number of
+/// complete render units, so rendering can begin before EOF without allowing
+/// either the input or output channel to grow with a large `git log`.
+pub fn emit_reader<R: BufRead + Send + 'static>(input: R, mode: PagingMode) -> io::Result<()> {
+    if !should_use_pager(mode) {
+        return write_reader_stdout(input);
+    }
+
+    run_native_pager_reader(input, mode)
+}
+
+fn write_reader_stdout<R: BufRead>(input: R) -> io::Result<()> {
+    let stdout = std::io::stdout();
+    let mut handle = stdout.lock();
+    crate::render::render_reader_to(input, &mut handle).and_then(|()| handle.flush())
+}
+
+enum LoadEvent {
+    Chunk(String),
+    Finished(io::Result<()>),
+}
+
+fn spawn_reader_with_cancel<R: BufRead + Send + 'static>(
+    input: R,
+    cancelled: Arc<AtomicBool>,
+) -> Receiver<LoadEvent> {
+    let (sender, receiver) = mpsc::sync_channel(2);
+    thread::spawn(move || {
+        let mut input = input;
+        let result = crate::render::for_each_render_chunk(&mut input, |chunk| {
+            if cancelled.load(Ordering::Relaxed) {
+                return Err(io::Error::new(io::ErrorKind::Interrupted, "pager quit"));
+            }
+            sender
+                .send(LoadEvent::Chunk(chunk.to_owned()))
+                .map_err(|_| io::Error::new(io::ErrorKind::BrokenPipe, "pager stopped reading"))
+        });
+        let _ = sender.send(LoadEvent::Finished(result));
+    });
+    receiver
 }
 
 fn write_stdout(document: &RenderedDocument) -> io::Result<()> {
@@ -127,6 +176,158 @@ fn run_native_pager(document: &RenderedDocument) -> io::Result<()> {
     result.and(leave_result)
 }
 
+#[cfg(unix)]
+fn run_native_pager_reader<R: BufRead + Send + 'static>(
+    input: R,
+    mode: PagingMode,
+) -> io::Result<()> {
+    let tty = match OpenOptions::new().read(true).open("/dev/tty") {
+        Ok(tty) => tty,
+        Err(_) => return write_reader_stdout(input),
+    };
+    let (rows, columns) = match terminal_size_for(&tty) {
+        Ok(size) => size,
+        Err(_) => return write_reader_stdout(input),
+    };
+    if rows == 0 || columns == 0 {
+        return write_reader_stdout(input);
+    }
+    let key_input = match tty.try_clone() {
+        Ok(key_input) => key_input,
+        Err(_) => return write_reader_stdout(input),
+    };
+    let cancelled = Arc::new(AtomicBool::new(false));
+    let load = spawn_reader_with_cancel(input, Arc::clone(&cancelled));
+    let mut renderer = IncrementalDocumentRenderer::new();
+    loop {
+        match load.recv() {
+            Ok(LoadEvent::Chunk(chunk)) => {
+                renderer.push_chunk(&chunk);
+                if mode == PagingMode::Always || renderer.document().line_count() > rows {
+                    break;
+                }
+            }
+            Ok(LoadEvent::Finished(result)) => {
+                result?;
+                let document = renderer.finish();
+                return write_stdout(&document);
+            }
+            Err(_) => return Ok(()),
+        }
+    }
+    let _raw_mode = RawMode::enter(&tty)?;
+    let stdout = std::io::stdout();
+    let mut handle = stdout.lock();
+    let mut screen = Screen::enter(&mut handle)?;
+    let keys = spawn_key_reader(key_input);
+    let result = run_live_viewer(&mut screen, rows, renderer, load, keys, &cancelled);
+    let leave_result = screen.leave();
+    result.and(leave_result)
+}
+
+#[cfg(unix)]
+fn spawn_key_reader(tty: File) -> Receiver<Key> {
+    let (sender, receiver) = mpsc::channel();
+    thread::spawn(move || {
+        let mut input = tty;
+        while let Ok(key) = read_key(&mut input) {
+            if sender.send(key).is_err() || key == Key::Quit {
+                break;
+            }
+        }
+    });
+    receiver
+}
+
+#[cfg(unix)]
+fn run_live_viewer(
+    screen: &mut Screen<'_>,
+    rows: usize,
+    mut renderer: IncrementalDocumentRenderer,
+    load: Receiver<LoadEvent>,
+    keys: Receiver<Key>,
+    cancelled: &AtomicBool,
+) -> io::Result<()> {
+    const FRAME_INTERVAL: Duration = Duration::from_millis(16);
+
+    let mut viewer = LiveViewer::new(rows);
+    let mut finished = false;
+    viewer.draw(screen, renderer.document(), false)?;
+    let mut last_draw = Instant::now();
+
+    while !finished {
+        let mut key_changed = false;
+        while let Ok(key) = keys.try_recv() {
+            if viewer.apply_key(key, renderer.document()) {
+                cancelled.store(true, Ordering::Relaxed);
+                return Ok(());
+            }
+            key_changed = true;
+        }
+        if key_changed {
+            viewer.draw(screen, renderer.document(), false)?;
+            last_draw = Instant::now();
+        }
+
+        let timeout = FRAME_INTERVAL.saturating_sub(last_draw.elapsed());
+        match load.recv_timeout(timeout) {
+            Ok(LoadEvent::Chunk(chunk)) => {
+                renderer.push_chunk(&chunk);
+                for _ in 0..64 {
+                    match load.try_recv() {
+                        Ok(LoadEvent::Chunk(chunk)) => renderer.push_chunk(&chunk),
+                        Ok(LoadEvent::Finished(result)) => {
+                            result?;
+                            renderer.complete();
+                            finished = true;
+                            break;
+                        }
+                        Err(TryRecvError::Empty | TryRecvError::Disconnected) => break,
+                    }
+                }
+            }
+            Ok(LoadEvent::Finished(result)) => {
+                result?;
+                renderer.complete();
+                finished = true;
+            }
+            Err(mpsc::RecvTimeoutError::Timeout) => {}
+            Err(mpsc::RecvTimeoutError::Disconnected) => {
+                return Err(io::Error::new(
+                    io::ErrorKind::UnexpectedEof,
+                    "input renderer stopped before EOF",
+                ));
+            }
+        }
+        if finished || last_draw.elapsed() >= FRAME_INTERVAL {
+            viewer.draw(screen, renderer.document(), finished)?;
+            last_draw = Instant::now();
+        }
+    }
+
+    loop {
+        let Ok(key) = keys.recv() else {
+            return Ok(());
+        };
+        if viewer.apply_key(key, renderer.document()) {
+            cancelled.store(true, Ordering::Relaxed);
+            return Ok(());
+        }
+        viewer.draw(screen, renderer.document(), true)?;
+    }
+}
+
+#[cfg(not(unix))]
+fn run_native_pager_reader<R: BufRead + Send + 'static>(
+    _input: R,
+    _mode: PagingMode,
+) -> io::Result<()> {
+    Err(io::Error::new(
+        io::ErrorKind::Unsupported,
+        "native pager is only implemented on Unix",
+    ))
+}
+
 #[cfg(not(unix))]
 fn run_native_pager(_document: &RenderedDocument) -> io::Result<()> {
     Err(io::Error::new(
@@ -173,14 +374,15 @@ struct Screen<'a> {
 impl<'a> Screen<'a> {
     fn enter(output: &'a mut dyn Write) -> io::Result<Self> {
         output.write_all(ACS_ENTER.as_bytes())?;
-        output.write_all(ANSI_WRAP_DISABLE)?;
-        output.write_all(ANSI_CURSOR_HIDE)?;
-        output.write_all(ANSI_CURSOR_HOME)?;
-        output.flush()?;
-        Ok(Self {
+        let screen = Self {
             output,
             active: true,
-        })
+        };
+        screen.output.write_all(ANSI_WRAP_DISABLE)?;
+        screen.output.write_all(ANSI_CURSOR_HIDE)?;
+        screen.output.write_all(ANSI_CURSOR_HOME)?;
+        screen.output.flush()?;
+        Ok(screen)
     }
 
     fn flush(&mut self) -> io::Result<()> {
@@ -215,6 +417,50 @@ struct Viewer<'a> {
     document: &'a RenderedDocument,
     rows: usize,
     top: usize,
+}
+
+struct LiveViewer {
+    rows: usize,
+    top: usize,
+}
+
+impl LiveViewer {
+    fn new(rows: usize) -> Self {
+        Self { rows, top: 0 }
+    }
+
+    fn content_rows(&self) -> usize {
+        self.rows.saturating_sub(1).max(1)
+    }
+
+    fn max_top(&self, document: &RenderedDocument) -> usize {
+        document.line_count().saturating_sub(self.content_rows())
+    }
+
+    fn apply_key(&mut self, key: Key, document: &RenderedDocument) -> bool {
+        match key {
+            Key::Quit => return true,
+            Key::Up => self.top = self.top.saturating_sub(1),
+            Key::Down => self.top = self.top.saturating_add(1),
+            Key::PageUp => self.top = self.top.saturating_sub(self.content_rows()),
+            Key::PageDown => self.top = self.top.saturating_add(self.content_rows()),
+            Key::Home => self.top = 0,
+            Key::End => self.top = self.max_top(document),
+            Key::Unknown => {}
+        }
+        false
+    }
+
+    fn draw(
+        &mut self,
+        screen: &mut Screen<'_>,
+        document: &RenderedDocument,
+        finished: bool,
+    ) -> io::Result<()> {
+        self.top = self.top.min(self.max_top(document));
+        document.write_viewport_with_status(screen.output, self.top, self.rows, !finished)?;
+        screen.flush()
+    }
 }
 
 impl<'a> Viewer<'a> {
@@ -283,6 +529,16 @@ impl RenderedDocument {
         top: usize,
         rows: usize,
     ) -> io::Result<()> {
+        self.write_viewport_with_status(output, top, rows, false)
+    }
+
+    fn write_viewport_with_status<W: Write + ?Sized>(
+        &self,
+        output: &mut W,
+        top: usize,
+        rows: usize,
+        loading: bool,
+    ) -> io::Result<()> {
         output.write_all(ANSI_CURSOR_HOME)?;
         let content_rows = if rows > 1 { rows - 1 } else { 1 };
         for row in 0..content_rows {
@@ -303,8 +559,9 @@ impl RenderedDocument {
             let last = (top + content_rows).min(self.line_count());
             write!(
                 output,
-                " diff-pretty  {first}-{last}/{}  ↑/↓ scroll  PgUp/PgDn page  q quit",
-                self.line_count()
+                " diff-pretty  {first}-{last}/{}{}  ↑/↓ scroll  PgUp/PgDn page  q quit",
+                self.line_count(),
+                if loading { "  loading" } else { "" }
             )?;
             output.write_all(ANSI_RESET)?;
         }
@@ -396,6 +653,23 @@ mod tests {
         let mut output = Vec::new();
         document.write_to(&mut output).unwrap();
         assert_eq!(output, b"one\ntwo\n");
+    }
+
+    #[test]
+    fn loading_status_is_replaced_when_input_finishes() {
+        let document = crate::render::render_document("one\ntwo\nthree\n");
+        let mut loading = Vec::new();
+        document
+            .write_viewport_with_status(&mut loading, 0, 3, true)
+            .unwrap();
+        let mut complete = Vec::new();
+        document
+            .write_viewport_with_status(&mut complete, 0, 3, false)
+            .unwrap();
+
+        assert!(String::from_utf8_lossy(&loading).contains("loading"));
+        assert!(!String::from_utf8_lossy(&complete).contains("loading"));
+        assert!(String::from_utf8_lossy(&loading).contains("1-2/4"));
     }
 
     #[test]

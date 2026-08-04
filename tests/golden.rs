@@ -40,7 +40,19 @@ fn golden_snapshot() {
         document.write_to(&mut retained).unwrap();
         let mut streamed = Vec::with_capacity(golden.len());
         diff_pretty::render_to(&input, &mut streamed).unwrap();
-        if rendered != golden || retained != golden.as_bytes() || streamed != golden.as_bytes() {
+        let mut incremental = Vec::with_capacity(golden.len());
+        diff_pretty::render_reader_to(input.as_bytes(), &mut incremental).unwrap();
+        let incremental_document = diff_pretty::render_reader_document(input.as_bytes()).unwrap();
+        let mut incremental_retained = Vec::with_capacity(incremental_document.len());
+        incremental_document
+            .write_to(&mut incremental_retained)
+            .unwrap();
+        if rendered != golden
+            || retained != golden.as_bytes()
+            || streamed != golden.as_bytes()
+            || incremental != golden.as_bytes()
+            || incremental_retained != golden.as_bytes()
+        {
             failures.push(base.to_string());
         }
     }

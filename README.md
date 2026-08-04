@@ -50,8 +50,8 @@ Behavioral facts pinned by the harness:
 ## Layout
 
 - `src/lib.rs`, `src/render.rs` — the shared renderer core, streaming
-  `render_to` sink, retained `RenderedDocument`, and compatibility
-  `render(&str) -> String` entry point.
+  `render_to` / `render_reader_to` sinks, retained `RenderedDocument`, and
+  compatibility `render(&str) -> String` entry point.
 - `src/config.rs` — hardcoded style SGR constants and line-number padding.
 - `src/align.rs`, `src/edits.rs` — Needleman–Wunsch alignment and word-diff edit
   inference, replicated from delta.
@@ -86,10 +86,11 @@ scripts/vendor-patches.sh     # (re)vendor the show_* fixtures from ~/d/delta
 
 `make bench` (or `scripts/bench-baseline.py`) runs the curated divan suite in
 `benches/bench.rs` and, on macOS, persists a per-host baseline under
-`benches/{host}-baseline.txt`, printing time / alloc bytes / alloc count per
-operation with the delta vs the previous run. Adapted from `~/d/e`'s `make
-bench`; `scripts/diff-baselines.py` compares two persisted baselines (e.g.
-before/after an optimization).
+`benches/{host}-baseline.txt`, printing time, peak simultaneously-live allocated
+bytes, total allocated bytes, and allocation count per operation with the delta
+vs the previous run. Adapted from `~/d/e`'s `make bench`;
+`scripts/diff-baselines.py` compares two persisted baselines (e.g. before/after
+an optimization).
 
 The suite is curated to what matters, and every bench calls into the crate from
 outside so results reflect the `lto = "fat"` build:
@@ -104,9 +105,9 @@ outside so results reflect the `lto = "fat"` build:
   76/4 greedy-pairing case, and a single long line.
 - **`config::pad_number`** — the per-hunk-line string primitive every render
   allocates through; a direct "alloc minimally" target.
-- **Native pager path** — retained-document rendering of a 1 MB input and one
-  fixed 24-row viewport draw. The viewport benchmark uses a preallocated sink,
-  so it measures pager formatting rather than terminal I/O.
+- **Output architecture** — streaming and retained-document rendering at 1 MB
+  and 10 MB, plus one fixed 24-row viewport draw. The viewport benchmark uses a
+  preallocated sink, so it measures pager formatting rather than terminal I/O.
 
 > **Diverging?** The goldens are frozen. Any intentional change to output will
 > (correctly) fail `cargo test` / `scripts/check.sh` until you update the
@@ -139,9 +140,15 @@ End, `g`, `G`, `b`, and Space provide vertical navigation. The input terminal
 is opened separately from stdin because stdin contains the diff pipe.
 
 Paging lives in `src/pager.rs` (`pager::emit`) and consumes `RenderedDocument`
-directly. Non-interactive output renders to stdout through `render_to` without
+directly. Non-interactive output renders to stdout through `render_reader_to`
+without
 materializing the complete ANSI output; rendering itself remains pure and never
-enters terminal mode.
+enters terminal mode. Terminal invocations use the incremental reader path:
+input is read through bounded complete parser units, the pager enters as soon as
+the output exceeds one viewport, and its status line updates the rendered line
+count while showing `loading` until EOF. The current unit boundary is a commit
+or file boundary so each unit retains the whole-hunk context required by
+word-diff pairing.
 
 ## History: where the goldens came from
 

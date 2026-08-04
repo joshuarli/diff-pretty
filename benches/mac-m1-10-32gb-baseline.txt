@@ -1,19 +1,25 @@
 # benchmark baseline
 # host: mac-m1-10-32gb
-# columns: benchmark median_ns alloc_count alloc_bytes
-infer_edits_balanced_200	867900	12	20142
-infer_edits_identical_200	3578	6	472
-infer_edits_imbalanced_76_4	19230	12	20142
-infer_edits_long_line	18270	12	72509
-pad_number_centered_10k	133000	1	32
-pager_index_synthetic_1mb	1218000	1	202547
-pager_viewport_synthetic_1mb	427	0	0
-render_log_000	498400	466	1086325
-render_log_000_color	529500	469	1140851
-render_plain_unified	1592	24	2356
-render_show_corpus	8088000	6288	17888707
-render_synthetic_100kb	1121000	1958	3406823
-render_synthetic_10mb	114000000	189043	330616013
-render_synthetic_1mb	11370000	19411	33889976
-render_synthetic_colorized_1mb	11150000	16965	31635538
-render_synthetic_tabs_1mb	18630000	30855	63543706
+# columns: benchmark median_ns alloc_count alloc_bytes peak_live_bytes
+infer_edits_balanced_200	855000	12	20142	87685
+infer_edits_identical_200	3703	6	472	29379
+infer_edits_imbalanced_76_4	18720	12	20142	30474
+infer_edits_long_line	17810	12	72509	74455
+pad_number_centered_10k	139400	1	32	32
+pager_viewport_synthetic_1mb	739	0	0	0
+render_document_synthetic_10mb	119100000	128070	331559731	33397146
+render_document_synthetic_1mb	11920000	13158	34005320	3494904
+render_log_000	486000	317	1092616	219034
+render_log_000_color	530300	320	1147142	262144
+render_plain_unified	1723	23	2790	2601
+render_reader_document_synthetic_10mb	130600000	195142	325058560	23184015
+render_reader_first_output_synthetic_10mb	941	8	67604	67768
+render_reader_to_synthetic_10mb	116900000	311001	330511155	95089
+render_show_corpus	8075000	4974	18045993	1367343
+render_synthetic_100kb	1141000	1333	3422552	410522
+render_synthetic_10mb	112500000	128068	331979162	37413192
+render_synthetic_1mb	11540000	13156	34036777	3879731
+render_synthetic_colorized_1mb	11520000	11500	31771853	5337252
+render_synthetic_tabs_1mb	18950000	24690	63690506	4128244
+render_to_synthetic_10mb	103200000	128067	315516518	4424991
+render_to_synthetic_1mb	10530000	13155	32390513	563712

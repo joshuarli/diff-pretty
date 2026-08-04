@@ -1,4 +1,4 @@
-use std::io::{Read, Write};
+use std::io::{BufReader, Write};
 
 use diff_pretty::pager::{self, PagingMode};
 
@@ -21,18 +21,13 @@ fn parse_paging() -> PagingMode {
 
 fn main() {
     let mode = parse_paging();
-    let mut input = String::new();
-    if std::io::stdin().read_to_string(&mut input).is_err() {
-        eprintln!("failed to read stdin");
-        std::process::exit(1);
-    }
     let result = if pager::should_use_pager(mode) {
-        let document = diff_pretty::render_document(&input);
-        pager::emit(&document, mode)
+        pager::emit_reader(BufReader::new(std::io::stdin()), mode)
     } else {
         let stdout = std::io::stdout();
         let mut output = stdout.lock();
-        diff_pretty::render_to(&input, &mut output).and_then(|()| output.flush())
+        diff_pretty::render_reader_to(BufReader::new(std::io::stdin()), &mut output)
+            .and_then(|()| output.flush())
     };
     if let Err(error) = result {
         eprintln!("failed to write output: {error}");

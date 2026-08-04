@@ -18,6 +18,7 @@ TIME_RE = re.compile(r"([0-9]+(?:\.[0-9]+)?)\s*(ns|µs|ms|s)")
 COUNT_RE = re.compile(r"^\s*(?:│\s*)?([0-9]+(?:\.[0-9]+)?)\s+│")
 BYTES_RE = re.compile(r"^\s*(?:│\s*)?([0-9]+(?:\.[0-9]+)?)\s+(B|KB|MB|GB)\s+│")
 ALLOC_RE = re.compile(r"^\s*(?:│\s*)?alloc:\s+│")
+MAX_ALLOC_RE = re.compile(r"^\s*(?:│\s*)?max alloc:\s+│")
 BENCH_RE = re.compile(r"^[├╰]─\s+(\S+)")
 ANSI_RE = re.compile(r"\033\[[0-9;]*m")
 
@@ -50,17 +51,19 @@ def byte_count(value: float, unit: str) -> float:
     return value * {"B": 1, "KB": 1024, "MB": 1 << 20, "GB": 1 << 30}[unit]
 
 
-def parse_report(output: str) -> dict[str, tuple[float, float, float]]:
-    values: dict[str, tuple[float, float, float]] = {}
+def parse_report(output: str) -> dict[str, tuple[float, float, float, float]]:
+    values: dict[str, tuple[float, float, float, float]] = {}
     current: str | None = None
     median: float | None = None
     allocation_count = 0.0
     allocation_bytes = 0.0
     allocation_state = 0
+    peak_live_bytes = 0.0
+    peak_state = 0
 
     def flush() -> None:
         if current is not None and median is not None:
-            values[current] = (median, allocation_count, allocation_bytes)
+            values[current] = (median, allocation_count, allocation_bytes, peak_live_bytes)
 
     for line in output.splitlines():
         match = BENCH_RE.match(line)
@@ -71,9 +74,25 @@ def parse_report(output: str) -> dict[str, tuple[float, float, float]]:
             allocation_count = 0.0
             allocation_bytes = 0.0
             allocation_state = 0
+            peak_live_bytes = 0.0
+            peak_state = 0
             pairs = TIME_RE.findall(line)
             if len(pairs) >= 3:
                 median = time_ns(float(pairs[2][0]), pairs[2][1])
+            continue
+
+        if MAX_ALLOC_RE.match(line):
+            peak_state = 1
+            continue
+        if peak_state == 1:
+            if COUNT_RE.match(line):
+                peak_state = 2
+            continue
+        if peak_state == 2:
+            match = BYTES_RE.match(line)
+            if match:
+                peak_live_bytes = byte_count(float(match.group(1)), match.group(2))
+            peak_state = 0
             continue
 
         if ALLOC_RE.match(line):
@@ -101,34 +120,49 @@ def parse_report(output: str) -> dict[str, tuple[float, float, float]]:
     return values
 
 
-def read_baseline(path: Path) -> dict[str, tuple[float, float | None, float]]:
+def read_baseline(path: Path) -> dict[str, tuple[float, float | None, float, float | None]]:
     if not path.exists():
         return {}
-    values: dict[str, tuple[float, float | None, float]] = {}
+    values: dict[str, tuple[float, float | None, float, float | None]] = {}
     for line in path.read_text().splitlines():
         if not line or line.startswith("#"):
             continue
         columns = line.split("\t")
         if len(columns) == 3:
             name, median, allocations = columns
-            values[name] = (float(median), None, float(allocations))
-        else:
+            values[name] = (float(median), None, float(allocations), None)
+        elif len(columns) == 4:
             name, median, counts, allocations = columns
-            values[name] = (float(median), float(counts), float(allocations))
+            values[name] = (float(median), float(counts), float(allocations), None)
+        else:
+            name, median, counts, allocations, peak_live = columns
+            values[name] = (
+                float(median),
+                float(counts),
+                float(allocations),
+                float(peak_live),
+            )
     return values
 
 
-def write_baseline(path: Path, host: str, values: dict[str, tuple[float, float, float]]) -> None:
+def write_baseline(
+    path: Path, host: str, values: dict[str, tuple[float, float, float, float]]
+) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, temporary = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
     try:
         with os.fdopen(fd, "w") as file:
             file.write("# benchmark baseline\n")
             file.write(f"# host: {host}\n")
-            file.write("# columns: benchmark median_ns alloc_count alloc_bytes\n")
+            file.write(
+                "# columns: benchmark median_ns alloc_count alloc_bytes peak_live_bytes\n"
+            )
             for name in sorted(values):
-                median, counts, allocations = values[name]
-                file.write(f"{name}\t{median:.0f}\t{counts:.0f}\t{allocations:.0f}\n")
+                median, counts, allocations, peak_live = values[name]
+                file.write(
+                    f"{name}\t{median:.0f}\t{counts:.0f}\t{allocations:.0f}"
+                    f"\t{peak_live:.0f}\n"
+                )
         os.replace(temporary, path)
     except BaseException:
         os.unlink(temporary)
@@ -200,13 +234,13 @@ def wrap_cell(value: str, width: int) -> list[str]:
     return lines
 
 
-def print_table(rows: list[tuple[str, str, str, str]]) -> None:
-    headers = ("benchmark", "time", "memory", "allocs/op")
+def print_table(rows: list[tuple[str, str, str, str, str]]) -> None:
+    headers = ("benchmark", "time", "peak live", "total alloc", "allocs/op")
     preferred = [
         max(visible_width(row[index]) for row in rows + [headers])
         for index in range(len(headers))
     ]
-    minimum = [12, 12, 12, 12]
+    minimum = [12, 12, 12, 12, 12]
     terminal_width = shutil.get_terminal_size((120, 24)).columns
     available = max(4 * len(headers), terminal_width - (3 * len(headers) + 1))
     if available < sum(minimum):
@@ -301,16 +335,20 @@ def main() -> int:
     colors = sys.stdout.isatty() and "NO_COLOR" not in os.environ
     rows = []
     for name in sorted(current):
-        median, counts, allocations = current[name]
-        old_median, old_counts, old_allocations = previous.get(name, (None, None, None))
+        median, counts, allocations, peak_live = current[name]
+        old_median, old_counts, old_allocations, old_peak_live = previous.get(
+            name, (None, None, None, None)
+        )
         time_change = format_delta(median, old_median, colors)
-        memory_change = format_delta(allocations, old_allocations, colors)
+        peak_change = format_delta(peak_live, old_peak_live, colors)
+        allocation_change = format_delta(allocations, old_allocations, colors)
         alloc_change = format_delta(counts, old_counts, colors)
         rows.append(
             (
                 benchmark_name(name) + "-" + str(cpus),
                 f"{format_time(median)} ({time_change})",
-                f"{format_bytes(allocations)} ({memory_change})",
+                f"{format_bytes(peak_live)} ({peak_change})",
+                f"{format_bytes(allocations)} ({allocation_change})",
                 f"{counts:.0f} allocs/op ({alloc_change})",
             )
         )
