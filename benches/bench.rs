@@ -15,6 +15,9 @@
 //!   long line (wide alignment table).
 //! - **The per-line number primitive** (`config::pad_number`): every hunk line
 //!   allocates through this, so it is a direct "alloc minimally" target.
+//! - **Native pager overhead**: line-index construction over a rendered 1MB
+//!   document and one 24-row viewport draw, isolating the interactive path
+//!   from the renderer and terminal syscalls.
 //!
 //! Setup (fixture loads, synthetic generation) happens once outside the
 //! measured closure, so the medians and alloc counts are the steady-state cost
@@ -25,7 +28,7 @@ use std::sync::OnceLock;
 
 use divan::{AllocProfiler, Bencher, black_box};
 
-use diff_pretty::{config, edits, render};
+use diff_pretty::{config, edits, pager, render};
 
 #[global_allocator]
 static ALLOC: AllocProfiler = AllocProfiler::system();
@@ -205,6 +208,11 @@ fn synthetic_tabs_1mb() -> &'static str {
     once_leaked(&CACHE, || make_diff(1024 * 1024, false, true))
 }
 
+fn rendered_synthetic_1mb() -> &'static str {
+    static CACHE: OnceLock<&'static str> = OnceLock::new();
+    once_leaked(&CACHE, || render(synthetic_1mb()))
+}
+
 // ---------------------------------------------------------------------------
 // Word-diff / line-number fixtures
 // ---------------------------------------------------------------------------
@@ -307,6 +315,30 @@ fn render_synthetic_colorized_1mb(b: Bencher) {
 fn render_synthetic_tabs_1mb(b: Bencher) {
     let input = synthetic_tabs_1mb();
     b.bench_local(|| black_box(render(input).len()));
+}
+
+// ---------------------------------------------------------------------------
+// Native pager overhead
+// ---------------------------------------------------------------------------
+
+#[divan::bench]
+fn pager_index_synthetic_1mb(b: Bencher) {
+    let output = rendered_synthetic_1mb();
+    b.bench_local(|| black_box(pager::PagerDocument::new(output)));
+}
+
+#[divan::bench]
+fn pager_viewport_synthetic_1mb(b: Bencher) {
+    let output = rendered_synthetic_1mb();
+    let document = pager::PagerDocument::new(output);
+    let mut terminal = Vec::with_capacity(16 * 1024);
+    b.bench_local(|| {
+        terminal.clear();
+        document
+            .write_viewport(&mut terminal, 0, 24)
+            .expect("writing to a Vec cannot fail");
+        black_box(terminal.len())
+    });
 }
 
 // ---------------------------------------------------------------------------

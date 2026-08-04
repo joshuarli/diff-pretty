@@ -102,6 +102,9 @@ outside so results reflect the `lto = "fat"` build:
   76/4 greedy-pairing case, and a single long line.
 - **`config::pad_number`** — the per-hunk-line string primitive every render
   allocates through; a direct "alloc minimally" target.
+- **Native pager overhead** — line-index construction over a rendered 1 MB
+  document and one fixed 24-row viewport draw. The viewport benchmark uses a
+  preallocated sink, so it measures pager formatting rather than terminal I/O.
 
 > **Diverging?** The goldens are frozen. Any intentional change to output will
 > (correctly) fail `cargo test` / `scripts/check.sh` until you update the
@@ -114,31 +117,27 @@ The binary pages like delta when attached to a terminal:
 
 - `--paging=auto` *(default)* — page only when stdout is a terminal; stdout is
   unchanged (pipes, redirection, tests, benchmarks) when not.
-- `--paging=always` — always spawn the pager (the pager passes bytes through
-  when non-interactive).
+- `--paging=always` — use the native pager when stdout is a terminal; write
+  directly to stdout otherwise.
 - `--paging=never` / `--no-pager` — always write to stdout.
 
-The pager is `$PAGER` (default `less -R`; `-R` is added for `less` when missing).
+The pager is built into the binary and does not consult `$PAGER`.
 
 In `--paging=auto` (the default), output that fits on one screen is written
 straight to stdout, so it stays in the terminal scrollback like delta. Only
 **multi-screen** output pages, and it is wrapped in the alternate screen buffer
-(`\x1b[?1049h` / `\x1b[?1049l`, with `less -X` so the pager doesn't manage the
-screen itself), so the paged output is discarded on quit and never pollutes the
-scrollback. This avoids the "content blinks out and reverts" problem that the
-alternate screen alone causes for small diffs (with `less -F` facing-terminal
-behavior). Terminal height comes from the `TIOCGWINSZ` ioctl; paging only
-happens when a height is available. Piping/redirection (`--paging=always` on a
-non-tty) emits no alternate-screen sequences.
+(`\x1b[?1049h` / `\x1b[?1049l`), so the paged output is discarded on quit and
+never pollutes the scrollback. Terminal dimensions are captured when the pager
+starts; it intentionally does not handle resize signals. Long lines are clipped
+at the terminal edge rather than horizontally scrolled. Piping/redirection
+(`--paging=always` on a non-tty) emits no alternate-screen sequences.
 
-**Quitting the pager.** When the user quits the pager, the write to its stdin
-gets a broken pipe; we treat that as a clean stop (matching delta's
-`BrokenPipe => return Ok(0)`) rather than dumping the remaining output to
-stdout. Only a failure to *spawn* the pager (e.g. `$PAGER` pointing at a
-missing binary) falls back to writing to stdout.
+**Navigation.** `q` and Ctrl-C quit. Arrow keys, `j`/`k`, Page Up/Down, Home,
+End, `g`, `G`, `b`, and Space provide vertical navigation. The input terminal
+is opened separately from stdin because stdin contains the diff pipe.
 
 Paging lives in `src/pager.rs` (`pager::emit`); `render()` itself is pure and
-never spawns a process, so the benchmark and the golden tests are pager-free.
+never enters terminal mode, so the benchmark and golden tests are pager-free.
 
 ## History: where the goldens came from
 
@@ -173,3 +172,8 @@ Known residual differences from delta (tracked in `TODO.md`):
   19K-line log) differ in emphasis.
 - **Other delta modes** — `git blame`, `git grep`/ripgrep, merge/combined
   diffs — are not implemented (inputs without `diff --git` are passed through).
+- **Retained-document renderer** — deferred performance work. The native pager
+  currently indexes the rendered ANSI string; replacing that with retained
+  styled lines or spans would require preserving byte-identical non-pager
+  output and random-access paging, so it is tracked in `TODO.md` rather than
+  folded into the current pager implementation.

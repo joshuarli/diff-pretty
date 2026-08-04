@@ -1,17 +1,25 @@
-//! Minimal pager handling, mirroring the relevant part of delta's `OutputType`.
+//! Minimal native pager handling.
 //!
 //! The renderer (`render()`) is pure and never pages; the decision to page and
-//! the pager child-process plumbing live here so the benchmark and the
-//! byte-for-byte oracle tests are never affected by paging.
+//! the terminal session live here so the benchmark and byte-for-byte oracle
+//! tests remain pager-free. The native pager intentionally keeps a narrow
+//! feature set: fixed terminal dimensions, vertical navigation, and an
+//! alternate screen. It does not handle resize signals, search, or horizontal
+//! scrolling.
 
-use std::io::{IsTerminal, Write};
-use std::process::{Command, Stdio};
+use std::io::{self, IsTerminal, Read, Write};
+
+#[cfg(unix)]
+use std::fs::{File, OpenOptions};
+
+#[cfg(unix)]
+use rustix::termios::{self, OptionalActions, Termios};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum PagingMode {
     /// Page only when stdout is a terminal (delta's `auto`).
     Auto,
-    /// Always page (delta's `always`).
+    /// Use the native pager when a terminal is available.
     Always,
     /// Never page; write to stdout (delta's `never`).
     Never,
@@ -20,101 +28,69 @@ pub enum PagingMode {
 /// Whether a pager will be used for this invocation.
 pub fn should_use_pager(mode: PagingMode) -> bool {
     match mode {
-        PagingMode::Always => true,
+        PagingMode::Always => std::io::stdout().is_terminal(),
         PagingMode::Never => false,
         PagingMode::Auto => std::io::stdout().is_terminal(),
     }
 }
 
-/// Emit `output`, optionally through a pager child process. Falls back to
-/// writing to stdout if paging was requested but the pager cannot be run.
-pub fn emit(output: &str, mode: PagingMode) -> std::io::Result<()> {
+/// Emit `output`, optionally through the native pager. If the terminal cannot
+/// be opened or configured, fall back to writing the rendered output to stdout.
+pub fn emit(output: &str, mode: PagingMode) -> io::Result<()> {
     if !should_use_pager(mode) {
-        let stdout = std::io::stdout();
-        let mut h = stdout.lock();
-        h.write_all(output.as_bytes())?;
-        h.flush()?;
-        return Ok(());
+        return write_stdout(output);
     }
+
     // In `auto` mode, a diff that fits on one screen is written straight to
-    // stdout (so it stays in the terminal like delta; we don't page it or wrap
-    // it in the alternate screen, which would make it vanish on `less -F`
-    // quit-if-one-screen). Only multi-screen output gets the alternate-screen
-    // pager.
+    // stdout so it stays in terminal scrollback. Only multi-screen output gets
+    // the alternate-screen pager.
     if mode == PagingMode::Auto && fits_on_one_screen(output) {
-        let stdout = std::io::stdout();
-        let mut h = stdout.lock();
-        h.write_all(output.as_bytes())?;
-        h.flush()?;
-        return Ok(());
+        return write_stdout(output);
     }
-    match run_pager(output) {
+
+    match run_native_pager(output) {
         Ok(()) => Ok(()),
-        Err(_) => {
-            // Fall back to plain stdout (mirrors delta's pager fallback).
-            let stdout = std::io::stdout();
-            let mut h = stdout.lock();
-            h.write_all(output.as_bytes())?;
-            h.flush()
-        }
+        Err(_) => write_stdout(output),
     }
 }
 
+fn write_stdout(output: &str) -> io::Result<()> {
+    let stdout = std::io::stdout();
+    let mut handle = stdout.lock();
+    handle.write_all(output.as_bytes())?;
+    handle.flush()
+}
+
 /// Whether the rendered output is short enough to display without paging. We
-/// estimate the display height as the number of lines and compare it with the
-/// terminal's row count.
+/// estimate the display height as the number of logical lines and compare it
+/// with the terminal's row count.
 fn fits_on_one_screen(output: &str) -> bool {
-    let Some(rows) = terminal_rows() else {
-        // Can't determine terminal size: conservatively page.
+    let Some((rows, _)) = terminal_size() else {
         return false;
     };
     if rows == 0 {
         return false;
     }
-    let lines = output.bytes().filter(|&b| b == b'\n').count() + 1;
-    lines <= rows as usize
+    line_count(output) <= rows
 }
 
-/// Number of rows in the terminal (from the `TIOCGWINSZ` ioctl on stdout).
+fn line_count(output: &str) -> usize {
+    output.bytes().filter(|&byte| byte == b'\n').count() + 1
+}
+
+/// Number of rows and columns in stdout's terminal.
 #[cfg(unix)]
-fn terminal_rows() -> Option<u16> {
-    use std::os::fd::AsRawFd;
-
-    #[repr(C)]
-    struct WinSize {
-        ws_row: u16,
-        ws_col: u16,
-        ws_xpixel: u16,
-        ws_ypixel: u16,
-    }
-    #[cfg(target_os = "macos")]
-    const TIOCGWINSZ: u64 = 0x40087468; // _IOR('t', 104, struct winsize)
-    #[cfg(target_os = "linux")]
-    const TIOCGWINSZ: u64 = 0x5413;
-
-    unsafe extern "C" {
-        #[link_name = "ioctl"]
-        fn ioctl(fd: i32, request: u64, ...) -> i32;
-    }
-
-    let mut ws = WinSize {
-        ws_row: 0,
-        ws_col: 0,
-        ws_xpixel: 0,
-        ws_ypixel: 0,
-    };
-    let fd = std::io::stdout().as_raw_fd();
-    let rc = unsafe { ioctl(fd, TIOCGWINSZ, &mut ws as *mut WinSize) };
-    if rc == 0 && ws.ws_row > 0 {
-        Some(ws.ws_row)
-    } else {
-        None
-    }
+fn terminal_size() -> Option<(usize, usize)> {
+    let stdout = std::io::stdout();
+    let size = termios::tcgetwinsize(&stdout).ok()?;
+    Some((size.ws_row as usize, size.ws_col as usize))
 }
 
 #[cfg(not(unix))]
-fn terminal_rows() -> Option<u16> {
-    std::env::var("LINES").ok().and_then(|s| s.parse().ok())
+fn terminal_size() -> Option<(usize, usize)> {
+    let rows = std::env::var("LINES").ok()?.parse().ok()?;
+    let columns = std::env::var("COLUMNS").ok()?.parse().ok()?;
+    Some((rows, columns))
 }
 
 /// Enter / leave the alternate screen buffer, so the pager's content never
@@ -122,63 +98,377 @@ fn terminal_rows() -> Option<u16> {
 pub const ACS_ENTER: &str = "\x1b[?1049h";
 pub const ACS_EXIT: &str = "\x1b[?1049l";
 
-/// Spawn the pager (env `PAGER`, default `less -R`), feed it the output, wait.
-/// When stdout is a terminal we wrap the whole session in the alternate screen
-/// buffer so the paged content is discarded on exit.
-fn run_pager(output: &str) -> std::io::Result<()> {
-    let use_acs = std::io::stdout().is_terminal();
-    let pager = std::env::var("PAGER").unwrap_or_else(|_| "less -R".to_string());
+const ANSI_CLEAR_LINE: &[u8] = b"\x1b[2K\r";
+const ANSI_CURSOR_HOME: &[u8] = b"\x1b[H";
+const ANSI_CURSOR_HIDE: &[u8] = b"\x1b[?25l";
+const ANSI_CURSOR_SHOW: &[u8] = b"\x1b[?25h";
+const ANSI_RESET: &[u8] = b"\x1b[0m";
+const ANSI_WRAP_DISABLE: &[u8] = b"\x1b[?7l";
+const ANSI_WRAP_ENABLE: &[u8] = b"\x1b[?7h";
+const ANSI_STATUS: &[u8] = b"\x1b[7m";
 
-    let mut parts = pager.split_whitespace();
-    let prog = parts.next().unwrap_or("less").to_string();
-    let mut args: Vec<String> = parts.map(str::to_string).collect();
-    let prog_is_less = prog.rsplit('/').next().unwrap_or(&prog) == "less";
-
-    if prog_is_less {
-        // `less` needs -R to interpret the ANSI color codes we emit.
-        if !args.iter().any(|a| a.starts_with("-R") || a == "-r") {
-            args.insert(0, "-R".into());
-        }
-        // We own the alternate screen: tell less not to run its own termcap
-        // init/deinit so it does not fight us over screen control.
-        if use_acs && !args.iter().any(|a| a == "-X" || a == "--no-init") {
-            args.push("-X".into());
-        }
+#[cfg(unix)]
+fn run_native_pager(output: &str) -> io::Result<()> {
+    let tty = OpenOptions::new().read(true).open("/dev/tty")?;
+    let (rows, columns) = terminal_size_for(&tty)?;
+    if rows == 0 || columns == 0 {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "terminal has no usable dimensions",
+        ));
     }
 
-    let mut stdout = std::io::stdout();
-    if use_acs {
-        stdout.write_all(ACS_ENTER.as_bytes())?;
-        stdout.flush()?;
+    let _raw_mode = RawMode::enter(&tty)?;
+    let stdout = std::io::stdout();
+    let mut handle = stdout.lock();
+    let mut screen = Screen::enter(&mut handle)?;
+    let mut viewer = Viewer::new(output, rows);
+    let mut input = &tty;
+    let result = viewer.run(&mut screen, &mut input);
+    let leave_result = screen.leave();
+    result.and(leave_result)
+}
+
+#[cfg(not(unix))]
+fn run_native_pager(_output: &str) -> io::Result<()> {
+    Err(io::Error::new(
+        io::ErrorKind::Unsupported,
+        "native pager is only implemented on Unix",
+    ))
+}
+
+#[cfg(unix)]
+fn terminal_size_for(tty: &File) -> io::Result<(usize, usize)> {
+    let size = termios::tcgetwinsize(tty)?;
+    Ok((size.ws_row as usize, size.ws_col as usize))
+}
+
+#[cfg(unix)]
+struct RawMode<'a> {
+    tty: &'a File,
+    original: Termios,
+}
+
+#[cfg(unix)]
+impl<'a> RawMode<'a> {
+    fn enter(tty: &'a File) -> io::Result<Self> {
+        let original = termios::tcgetattr(tty)?;
+        let mut raw = original.clone();
+        raw.make_raw();
+        termios::tcsetattr(tty, OptionalActions::Now, &raw)?;
+        Ok(Self { tty, original })
+    }
+}
+
+#[cfg(unix)]
+impl Drop for RawMode<'_> {
+    fn drop(&mut self) {
+        let _ = termios::tcsetattr(self.tty, OptionalActions::Now, &self.original);
+    }
+}
+
+struct Screen<'a> {
+    output: &'a mut dyn Write,
+    active: bool,
+}
+
+impl<'a> Screen<'a> {
+    fn enter(output: &'a mut dyn Write) -> io::Result<Self> {
+        output.write_all(ACS_ENTER.as_bytes())?;
+        output.write_all(ANSI_WRAP_DISABLE)?;
+        output.write_all(ANSI_CURSOR_HIDE)?;
+        output.write_all(ANSI_CURSOR_HOME)?;
+        output.flush()?;
+        Ok(Self {
+            output,
+            active: true,
+        })
     }
 
-    let result = (|| -> std::io::Result<()> {
-        let mut child = match Command::new(&prog)
-            .args(&args)
-            .stdin(Stdio::piped())
-            .spawn()
-        {
-            Ok(c) => c,
-            // Only a failure to *spawn* the pager (e.g. binary not found) is a
-            // real error that should fall back to writing to stdout.
-            Err(e) => return Err(e),
-        };
-        // The user may quit the pager partway through the write: `less` exits,
-        // its stdin pipe breaks, and `write_all` returns a broken-pipe error.
-        // delta treats that as a clean stop (`BrokenPipe => return Ok(0)`),
-        // NOT as a reason to dump the remaining output to stdout.
-        if let Some(mut stdin) = child.stdin.take() {
-            let _ = stdin.write_all(output.as_bytes());
-            // Dropping stdin closes the pipe so less sees end of input.
+    fn flush(&mut self) -> io::Result<()> {
+        self.output.flush()
+    }
+
+    fn leave(mut self) -> io::Result<()> {
+        self.restore()
+    }
+
+    fn restore(&mut self) -> io::Result<()> {
+        if !self.active {
+            return Ok(());
         }
-        let _ = child.wait();
+        self.output.write_all(ANSI_RESET)?;
+        self.output.write_all(ANSI_WRAP_ENABLE)?;
+        self.output.write_all(ANSI_CURSOR_SHOW)?;
+        self.output.write_all(ACS_EXIT.as_bytes())?;
+        self.output.flush()?;
+        self.active = false;
         Ok(())
-    })();
-
-    if use_acs {
-        // Always leave the alternate screen, even if the pager failed partway.
-        let _ = stdout.write_all(ACS_EXIT.as_bytes());
-        let _ = stdout.flush();
     }
-    result
+}
+
+impl Drop for Screen<'_> {
+    fn drop(&mut self) {
+        let _ = self.restore();
+    }
+}
+
+struct Viewer<'a> {
+    document: PagerDocument<'a>,
+    rows: usize,
+    top: usize,
+}
+
+impl<'a> Viewer<'a> {
+    fn new(output: &'a str, rows: usize) -> Self {
+        Self {
+            document: PagerDocument::new(output),
+            rows,
+            top: 0,
+        }
+    }
+
+    fn run<R: Read>(&mut self, screen: &mut Screen<'_>, input: &mut R) -> io::Result<()> {
+        self.draw(screen)?;
+        loop {
+            match read_key(input)? {
+                Key::Quit => return Ok(()),
+                Key::Up => self.scroll_up(1),
+                Key::Down => self.scroll_down(1),
+                Key::PageUp => self.scroll_up(self.content_rows()),
+                Key::PageDown => self.scroll_down(self.content_rows()),
+                Key::Home => self.top = 0,
+                Key::End => self.top = self.max_top(),
+                Key::Unknown => continue,
+            }
+            self.draw(screen)?;
+        }
+    }
+
+    fn content_rows(&self) -> usize {
+        if self.rows > 1 {
+            self.rows - 1
+        } else {
+            1
+        }
+    }
+
+    fn max_top(&self) -> usize {
+        self.document
+            .line_count()
+            .saturating_sub(self.content_rows())
+    }
+
+    fn scroll_up(&mut self, amount: usize) {
+        self.top = self.top.saturating_sub(amount);
+    }
+
+    fn scroll_down(&mut self, amount: usize) {
+        self.top = self.top.saturating_add(amount).min(self.max_top());
+    }
+
+    fn draw(&self, screen: &mut Screen<'_>) -> io::Result<()> {
+        self.document
+            .write_viewport(screen.output, self.top, self.rows)?;
+        screen.flush()
+    }
+}
+
+/// Borrowed rendered output plus a zero-copy line index for the native pager.
+///
+/// The document owns only the line-start offsets; the rendered bytes remain in
+/// the caller's `String`. This is the pager's setup allocation boundary.
+pub struct PagerDocument<'a> {
+    output: &'a str,
+    line_starts: Vec<usize>,
+}
+
+impl<'a> PagerDocument<'a> {
+    /// Index a rendered output buffer without copying its contents.
+    pub fn new(output: &'a str) -> Self {
+        let mut line_starts = Vec::with_capacity(line_count(output));
+        line_starts.push(0);
+        for (index, byte) in output.bytes().enumerate() {
+            if byte == b'\n' {
+                line_starts.push(index + 1);
+            }
+        }
+        Self {
+            output,
+            line_starts,
+        }
+    }
+
+    /// Number of logical lines in the rendered output.
+    pub fn line_count(&self) -> usize {
+        self.line_starts.len()
+    }
+
+    fn line(&self, index: usize) -> Option<&str> {
+        let start = *self.line_starts.get(index)?;
+        let end = self.output[start..]
+            .find('\n')
+            .map_or(self.output.len(), |offset| start + offset);
+        Some(&self.output[start..end])
+    }
+
+    /// Draw one fixed-height viewport to `output`.
+    ///
+    /// The native pager disables terminal wrapping before calling this method,
+    /// so long lines are clipped by the terminal rather than wrapped.
+    pub fn write_viewport<W: Write + ?Sized>(
+        &self,
+        output: &mut W,
+        top: usize,
+        rows: usize,
+    ) -> io::Result<()> {
+        output.write_all(ANSI_CURSOR_HOME)?;
+        let content_rows = if rows > 1 { rows - 1 } else { 1 };
+        for row in 0..content_rows {
+            output.write_all(ANSI_CLEAR_LINE)?;
+            if let Some(line) = self.line(top + row) {
+                output.write_all(line.as_bytes())?;
+                output.write_all(ANSI_RESET)?;
+            }
+            if row + 1 < content_rows {
+                output.write_all(b"\n")?;
+            }
+        }
+
+        if rows > 1 {
+            output.write_all(b"\n")?;
+            output.write_all(ANSI_CLEAR_LINE)?;
+            output.write_all(ANSI_STATUS)?;
+            let first = if self.line_count() == 0 { 0 } else { top + 1 };
+            let last = (top + content_rows).min(self.line_count());
+            write!(
+                output,
+                " diff-pretty  {first}-{last}/{}  ↑/↓ scroll  PgUp/PgDn page  q quit",
+                self.line_count()
+            )?;
+            output.write_all(ANSI_RESET)?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Key {
+    Quit,
+    Up,
+    Down,
+    PageUp,
+    PageDown,
+    Home,
+    End,
+    Unknown,
+}
+
+fn read_key<R: Read>(input: &mut R) -> io::Result<Key> {
+    let byte = read_byte(input)?;
+    match byte {
+        b'q' | b'Q' | 3 => Ok(Key::Quit),
+        b'k' => Ok(Key::Up),
+        b'j' => Ok(Key::Down),
+        b'b' => Ok(Key::PageUp),
+        b' ' => Ok(Key::PageDown),
+        b'g' => Ok(Key::Home),
+        b'G' => Ok(Key::End),
+        0x1b => read_escape_key(input),
+        _ => Ok(Key::Unknown),
+    }
+}
+
+fn read_escape_key<R: Read>(input: &mut R) -> io::Result<Key> {
+    match read_byte(input)? {
+        b'[' => {
+            let byte = read_byte(input)?;
+            match byte {
+                b'A' => Ok(Key::Up),
+                b'B' => Ok(Key::Down),
+                b'H' => Ok(Key::Home),
+                b'F' => Ok(Key::End),
+                b'1' | b'4' | b'5' | b'6' => read_csi_tilde_key(input, byte),
+                _ => Ok(Key::Unknown),
+            }
+        }
+        b'O' => match read_byte(input)? {
+            b'A' => Ok(Key::Up),
+            b'B' => Ok(Key::Down),
+            b'H' => Ok(Key::Home),
+            b'F' => Ok(Key::End),
+            _ => Ok(Key::Unknown),
+        },
+        _ => Ok(Key::Unknown),
+    }
+}
+
+fn read_csi_tilde_key<R: Read>(input: &mut R, first: u8) -> io::Result<Key> {
+    let mut byte = read_byte(input)?;
+    while byte != b'~' {
+        byte = read_byte(input)?;
+    }
+    match first {
+        b'1' => Ok(Key::Home),
+        b'4' => Ok(Key::End),
+        b'5' => Ok(Key::PageUp),
+        b'6' => Ok(Key::PageDown),
+        _ => Ok(Key::Unknown),
+    }
+}
+
+fn read_byte<R: Read>(input: &mut R) -> io::Result<u8> {
+    let mut byte = [0; 1];
+    input.read_exact(&mut byte)?;
+    Ok(byte[0])
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+
+    #[test]
+    fn document_indexes_trailing_empty_line() {
+        let document = PagerDocument::new("one\ntwo\n");
+
+        assert_eq!(document.line_count(), 3);
+        assert_eq!(document.line(0), Some("one"));
+        assert_eq!(document.line(1), Some("two"));
+        assert_eq!(document.line(2), Some(""));
+    }
+
+    #[test]
+    fn document_keeps_rendered_output_borrowed() {
+        let output = String::from("first\nsecond");
+        let document = PagerDocument::new(&output);
+
+        assert_eq!(document.line(0), Some("first"));
+        assert_eq!(document.line(1), Some("second"));
+    }
+
+    #[test]
+    fn reads_navigation_keys() {
+        let mut input = Cursor::new(b"kj bgGq".to_vec());
+
+        assert_eq!(read_key(&mut input).unwrap(), Key::Up);
+        assert_eq!(read_key(&mut input).unwrap(), Key::Down);
+        assert_eq!(read_key(&mut input).unwrap(), Key::PageDown);
+        assert_eq!(read_key(&mut input).unwrap(), Key::PageUp);
+        assert_eq!(read_key(&mut input).unwrap(), Key::Home);
+        assert_eq!(read_key(&mut input).unwrap(), Key::End);
+        assert_eq!(read_key(&mut input).unwrap(), Key::Quit);
+    }
+
+    #[test]
+    fn reads_arrow_and_page_escape_sequences() {
+        let mut input = Cursor::new(b"\x1b[A\x1b[B\x1b[5~\x1b[6~\x1b[H\x1b[F".to_vec());
+
+        assert_eq!(read_key(&mut input).unwrap(), Key::Up);
+        assert_eq!(read_key(&mut input).unwrap(), Key::Down);
+        assert_eq!(read_key(&mut input).unwrap(), Key::PageUp);
+        assert_eq!(read_key(&mut input).unwrap(), Key::PageDown);
+        assert_eq!(read_key(&mut input).unwrap(), Key::Home);
+        assert_eq!(read_key(&mut input).unwrap(), Key::End);
+    }
 }

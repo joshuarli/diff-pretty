@@ -57,6 +57,7 @@ name = "diff-pretty"
 version = "0.0.1"
 dependencies = [
  "divan",
+ "rustix",
 ]
 
 [[package]]

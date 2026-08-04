@@ -28,6 +28,6 @@ fn main() {
     }
     let out = diff_pretty::render(&input);
     // Paging only happens through `emit` (and only when a terminal is attached
-    // for `auto`); the render itself is pure and never spawns a pager.
+    // for `auto`); the render itself is pure and never enters terminal mode.
     let _ = pager::emit(&out, mode);
 }
