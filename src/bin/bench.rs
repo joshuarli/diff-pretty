@@ -1,10 +1,7 @@
-//! In-process wall-time benchmark: render every vendored patch and report
+//! In-process wall-time benchmark: render every vendored fixture and report
 //! throughput. `cargo run --release --bin bench [iterations]`.
 //!
-//! This measures only the render function (no process startup), matching the
-//! "in-process" wall-time requirement. Compare against the oracle by piping the
-//! concatenated corpus through `/opt/homebrew/bin/delta` once (see
-//! `scripts/bench.sh`).
+//! This measures only the render function (no process startup).
 
 use std::path::PathBuf;
 use std::time::Instant;

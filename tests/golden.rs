@@ -1,18 +1,21 @@
-//! Differential oracle test: render every vendored fixture with our library and
-//! compare byte-for-byte against the golden oracle output (rendered by
-//! `/opt/homebrew/bin/delta` with the pinned config, checked in under
-//! `fixtures/oracle/`).
+//! Golden snapshot regression test.
+//!
+//! Render every vendored fixture and compare byte-for-byte against the checked-in
+//! goldens under `fixtures/oracle/`. The goldens are a **frozen baseline**
+//! originally produced by delta (the reference implementation) — they are what
+//! the implementation is expected to match.
 //!
 //! Inputs: `fixtures/*.patch` — `show_*` = `git show` (100 commits), `log_*` =
 //! `git log -p` (plain + colorized), `plain_unified.patch` = `diff -u`.
 //!
-//! The goldens are self-contained, so this test does not require delta to be
-//! installed. Regenerate with `scripts/render-oracle.sh`.
+//! This is intentionally independent of delta: it reads only the checked-in
+//! goldens. As the implementation intentionally diverges, update the matching
+//! golden(s) in `fixtures/oracle/` to reflect the new expected output.
 
 use std::path::PathBuf;
 
 #[test]
-fn oracle_byte_for_byte() {
+fn golden_snapshot() {
     let fixtures = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("fixtures");
     let goldens = fixtures.join("oracle");
 
@@ -38,7 +41,7 @@ fn oracle_byte_for_byte() {
 
     assert!(
         failures.is_empty(),
-        "{} fixture(s) failed byte-for-byte: {}",
+        "{} fixture(s) differ from the golden baseline; update fixtures/oracle/ if the change is intentional: {}",
         failures.len(),
         failures.join(" ")
     );

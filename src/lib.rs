@@ -1,9 +1,11 @@
 //! diff-pretty: a from-scratch, bone-stripped reimplementation of a strict
 //! subset of `delta` (https://github.com/dandavison/delta).
 //!
-//! The target contract is byte-for-byte equality with the oracle delta
-//! (`/opt/homebrew/bin/delta`) for the input produced by `git show`, under
-//! exactly this configuration (hardcoded here as the default behavior):
+//! The starting contract was byte-for-byte equality with delta for git-named
+//! input (`git show`/`git log`/`git diff`); that behavior is frozen in the
+//! golden baselines under `fixtures/oracle/` (see `tests/golden.rs`), and is
+//! now independent of delta. The configuration (hardcoded as the default
+//! behavior) is:
 //!
 //! ```text
 //! [delta]
@@ -19,10 +21,9 @@
 //!     word-diff-regex = \w+
 //! ```
 //!
-//! delta reads its configuration only from a git repo's config, so the test
-//! harness renders the oracle from inside a synthetic repo carrying the above
-//! config. When stdout is a pipe (not a tty) delta fixes terminal width at 80,
-//! which we hardcode as `WIDTH`.
+//! The goldens were originally produced by running delta inside a synthetic git
+//! repo carrying the above config. When stdout is a pipe (not a tty) delta (and
+//! we) use terminal width 80, hardcoded as `WIDTH`.
 
 pub mod align;
 pub mod config;

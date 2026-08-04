@@ -59,22 +59,28 @@ Behavioral facts pinned by the harness:
   100 oldest commits of `~/d/delta` (text-only; not the 100 most recent, which
   are ~92% merges); `log_000*.patch` = multi-commit `git log -p` (plain +
   colorized); `plain_unified.patch` = `diff -u`.
-- `fixtures/oracle/*.out` — golden renders from `/opt/homebrew/bin/delta` with
-  the exact config, checked in so tests don't require delta.
-- `tests/oracle.rs` — differential test: our render vs golden, byte for byte.
-- `scripts/` — `vendor-patches.sh`, `render-oracle.sh`, `check.sh`, `diff.sh`,
-  `bench.sh`.
+- `fixtures/oracle/*.out` — frozen golden baselines (originally rendered by
+  delta with the exact config, captured once). The project is now independent:
+  nothing invokes delta. The goldens are an intentional-divergence contract —
+  update them in `fixtures/oracle/` when you deliberately change output.
+- `tests/golden.rs` — golden snapshot test: our render vs the baseline, byte
+  for byte.
+- `scripts/` — `vendor-patches.sh` (re-vendor the show_* fixtures, needs the
+  `~/d/delta` source checkout), `check.sh`, `diff.sh`.
 
 ## Commands
 
 ```sh
-cargo test --release          # differential oracle test (must pass)
+cargo test --release          # golden snapshot test (must pass)
 scripts/check.sh              # byte-for-byte check over every fixture
-scripts/diff.sh show_003      # ANSI-stripped diff of one fixture vs oracle
-scripts/bench.sh              # our in-process throughput vs the oracle
-scripts/render-oracle.sh      # (re)generate goldens from the oracle
-scripts/vendor-patches.sh     # (re)vendor the corpus from ~/d/delta
+scripts/diff.sh show_003      # ANSI-stripped diff of one fixture vs its golden
+scripts/vendor-patches.sh     # (re)vendor the show_* fixtures from ~/d/delta
 ```
+
+> **Diverging?** The goldens are frozen. Any intentional change to output will
+> (correctly) fail `cargo test` / `scripts/check.sh` until you update the
+> affected `.out` files under `fixtures/oracle/` — treat those edits as the way
+> you record the new contract.
 
 ## Paging
 
@@ -106,21 +112,22 @@ stdout. Only a failure to *spawn* the pager (e.g. `$PAGER` pointing at a
 missing binary) falls back to writing to stdout.
 
 Paging lives in `src/pager.rs` (`pager::emit`); `render()` itself is pure and
-never spawns a process, so the benchmark and the oracle tests are pager-free.
+never spawns a process, so the benchmark and the golden tests are pager-free.
 
-## How the oracle is isolated
+## History: where the goldens came from
 
-delta reads its configuration only from a git repo's `.git/config`; a bare git
-config file or `HOME` is not honored. So the harness renders the oracle from
-*inside* a throwaway repo whose `.git/config` carries the exact contract above,
-feeding each patch on stdin with `--width 80`. This is fully deterministic and
-independent of `~/d/delta`'s own config. The same config bytes are hardcoded in
-`src/config.rs` / `src/render.rs` for our implementation.
+The baselines in `fixtures/oracle/` were captured once by running delta from
+*inside* a throwaway git repo whose `.git/config` carried the config above
+(delta reads config only from a repo's `.git/config`, not a bare file), feeding
+each fixture on stdin at `--width 80`. That oracle scaffolding
+(`render-oracle.sh`) has since been removed: the project no longer invokes
+delta. The same config bytes remain hardcoded in `src/config.rs` /
+`src/render.rs`.
 
 ## Coverage & known gaps
 
-Locked in byte-for-byte (via `oracle/` + `fixtures/oracle/` goldens, run by
-`scripts/check.sh` and `tests/oracle.rs`):
+Locked in byte-for-byte (via the `fixtures/oracle/` goldens, run by
+`scripts/check.sh` and `tests/golden.rs`):
 
 - `git show` — 100 construction commits (new/renamed/deleted/binary files,
   code/docs, word diff, hunk boxes).

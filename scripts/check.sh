@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Differential check: render every vendored fixture with our binary and compare
-# byte-for-byte against the oracle goldens under fixtures/oracle/.
+# byte-for-byte against the golden baselines under fixtures/oracle/.
 #
 # Usage: scripts/check.sh [BIN]
 #   BIN  our binary (default: ./target/release/diff-pretty)
