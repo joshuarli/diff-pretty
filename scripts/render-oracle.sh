@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Render every vendored patch with the oracle delta and store golden output.
+# Render every vendored fixture with the oracle delta and store golden output.
 #
 # The oracle is /opt/homebrew/bin/delta, configured EXACTLY as the target
 # contract. delta reads its config only from a git repo's config (a bare git
@@ -8,20 +8,24 @@
 # stdout is a pipe (not a tty) => terminal width is fixed at 80; we also pass
 # --width 80 explicitly for determinism (verified identical to the default).
 #
+# Inputs:  fixtures/*.patch            (git show / git log / diff -u fixtures)
+# Goldens: fixtures/oracle/<name>.out
+#
 # Usage: scripts/render-oracle.sh [DELTA_BIN]
 #   DELTA_BIN  oracle binary (default: /opt/homebrew/bin/delta)
 set -euo pipefail
 
 DELTA="${1:-/opt/homebrew/bin/delta}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-PATCHES="$ROOT/patches"
-ORACLE="$ROOT/oracle"
+FIXTURES="$ROOT/fixtures"
+ORACLE="$FIXTURES/oracle"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
 mkdir -p "$ORACLE"
 
-# Synthetic repo that carries the exact target configuration.
+# Synthetic repo that carries the exact target configuration (the user's live
+# config, aligned by request).
 (
   cd "$TMP"
   git init -q
@@ -42,25 +46,11 @@ mkdir -p "$ORACLE"
   git config delta.decorations.hunk-header-style none
 ) >/dev/null
 
-render_one() {
-  local src="$1" outdir="$2"
-  local base="$(basename "$src" .patch)"
-  (cd "$TMP" && "$DELTA" --width 80 < "$src") > "$outdir/$base.out"
-}
-
 n=0
-for p in "$PATCHES"/*.patch; do
-  render_one "$p" "$ORACLE"
+for p in "$FIXTURES"/*.patch; do
+  base="$(basename "$p" .patch)"
+  (cd "$TMP" && "$DELTA" --width 80 < "$p") > "$ORACLE/$base.out"
   n=$((n+1))
 done
 
-# Multi-commit `git log -p` fixtures (plain + colorized).
-if [ -d "$ROOT/fixtures" ]; then
-  mkdir -p "$ROOT/fixtures/oracle"
-  for p in "$ROOT"/fixtures/*.patch; do
-    render_one "$p" "$ROOT/fixtures/oracle"
-    n=$((n+1))
-  done
-fi
-
-echo "rendered $n oracle outputs from $DELTA -> $ORACLE (+ fixtures/oracle)"
+echo "rendered $n oracle outputs from $DELTA -> $ORACLE"

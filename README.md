@@ -55,11 +55,12 @@ Behavioral facts pinned by the harness:
   inference, replicated from delta.
 - `src/main.rs` — stdin → stdout binary.
 - `src/bin/bench.rs` — in-process wall-time benchmark.
-- `patches/NNN.patch` — vendored corpus: `git show` output for the 100 oldest
-  commits of `~/d/delta` (text-only; not the 100 most recent, which are ~92%
-  merges).
-- `oracle/NNN.out` — golden renders from `/opt/homebrew/bin/delta` with the
-  exact config, checked in so tests don't require delta.
+- `fixtures/*.patch` — vendored inputs: `show_NNN.patch` = `git show` of the
+  100 oldest commits of `~/d/delta` (text-only; not the 100 most recent, which
+  are ~92% merges); `log_000*.patch` = multi-commit `git log -p` (plain +
+  colorized); `plain_unified.patch` = `diff -u`.
+- `fixtures/oracle/*.out` — golden renders from `/opt/homebrew/bin/delta` with
+  the exact config, checked in so tests don't require delta.
 - `tests/oracle.rs` — differential test: our render vs golden, byte for byte.
 - `scripts/` — `vendor-patches.sh`, `render-oracle.sh`, `check.sh`, `diff.sh`,
   `bench.sh`.
@@ -68,8 +69,8 @@ Behavioral facts pinned by the harness:
 
 ```sh
 cargo test --release          # differential oracle test (must pass)
-scripts/check.sh              # byte-for-byte check over every patch
-scripts/diff.sh NNN           # ANSI-stripped diff of one patch vs oracle
+scripts/check.sh              # byte-for-byte check over every fixture
+scripts/diff.sh show_003      # ANSI-stripped diff of one fixture vs oracle
 scripts/bench.sh              # our in-process throughput vs the oracle
 scripts/render-oracle.sh      # (re)generate goldens from the oracle
 scripts/vendor-patches.sh     # (re)vendor the corpus from ~/d/delta
@@ -90,9 +91,16 @@ When stdout is a terminal, the whole pager session is wrapped in the alternate
 screen buffer (`\x1b[?1049h` / `\x1b[?1049l`, with `less -X` so it doesn't manage
 the screen itself), so the paged output is discarded on quit and never pollutes
 the terminal scrollback. Piping/redirection (`--paging=always` on a non-tty)
-emits no such sequences. Paging lives in `src/pager.rs` (`pager::emit`);
-`render()` itself is pure and never spawns a process, so the benchmark and the
-oracle tests are pager-free.
+emits no such sequences.
+
+**Quitting the pager.** When the user quits the pager, the write to its stdin
+gets a broken pipe; we treat that as a clean stop (matching delta's
+`BrokenPipe => return Ok(0)`) rather than dumping the remaining output to
+stdout. Only a failure to *spawn* the pager (e.g. `$PAGER` pointing at a
+missing binary) falls back to writing to stdout.
+
+Paging lives in `src/pager.rs` (`pager::emit`); `render()` itself is pure and
+never spawns a process, so the benchmark and the oracle tests are pager-free.
 
 ## How the oracle is isolated
 

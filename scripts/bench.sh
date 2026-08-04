@@ -15,8 +15,8 @@ echo "=== ours (in-process, release) ==="
 
 echo
 echo "=== oracle (/opt/homebrew/bin/delta) ==="
-# Build one large unified input by concatenating the patches.
-cat "$ROOT"/patches/*.patch > /tmp/dp_corpus.txt
+# Build one large unified input by concatenating the fixtures.
+cat "$ROOT"/fixtures/*.patch > /tmp/dp_corpus.txt
 INPUT=$(wc -c < /tmp/dp_corpus.txt)
 # delta reads config only from a git repo config; use the harness's synthetic repo.
 ORACLE_REPO=$(mktemp -d)

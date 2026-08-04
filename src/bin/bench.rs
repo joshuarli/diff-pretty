@@ -16,7 +16,7 @@ fn main() {
         .unwrap_or(200);
 
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let mut patches: Vec<(String, String)> = std::fs::read_dir(root.join("patches"))
+    let mut patches: Vec<(String, String)> = std::fs::read_dir(root.join("fixtures"))
         .unwrap()
         .filter_map(|e| e.ok())
         .filter(|e| e.path().extension().map_or(false, |x| x == "patch"))
