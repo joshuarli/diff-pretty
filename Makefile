@@ -1,15 +1,14 @@
-# diff-pretty developer commands. Adapted from `~/d/e`'s Makefile: the `bench`
-# target runs the curated divan suite (benches/bench.rs) through
-# scripts/bench-baseline.py, which persists a per-host baseline and prints the
-# delta vs the previous run.
-
-.PHONY: test check diff bench bench-diff
+.PHONY: test check lint diff bench bench-diff
 
 test:
 	cargo test --release
 
 check:
 	@scripts/check.sh
+
+lint:
+	cargo fmt --all
+	cargo clippy --fix --allow-dirty --all-targets --all-features -- --deny warnings
 
 # Usage: scripts/diff.sh <FIXTURE_NAME>
 diff:

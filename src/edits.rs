@@ -134,7 +134,13 @@ fn annotate<'a>(
     for &(op, n) in ops.iter() {
         match op {
             Operation::Deletion => {
-                let ms = get_section(n, &mut minus_line_offset, &mut x_offset, &alignment.x, minus_line);
+                let ms = get_section(
+                    n,
+                    &mut minus_line_offset,
+                    &mut x_offset,
+                    &alignment.x,
+                    minus_line,
+                );
                 let n_d = width(ms.trim()) as f64;
                 d_denom += n_d;
                 d_numer += n_d;
@@ -142,20 +148,29 @@ fn annotate<'a>(
                 minus_op_prev = true;
             }
             Operation::NoOp => {
-                let ms = get_section(n, &mut minus_line_offset, &mut x_offset, &alignment.x, minus_line);
+                let ms = get_section(
+                    n,
+                    &mut minus_line_offset,
+                    &mut x_offset,
+                    &alignment.x,
+                    minus_line,
+                );
                 let n_d = width(ms.trim()) as f64;
                 d_denom += 2.0 * n_d;
                 let is_space = ms.trim().is_empty();
                 let coalesce = is_space
-                    && ((minus_op_prev && plus_op_prev
-                        && (x_offset < alignment.x.len() - 1
-                            || y_offset < alignment.y.len() - 1))
+                    && ((minus_op_prev
+                        && plus_op_prev
+                        && (x_offset < alignment.x.len() - 1 || y_offset < alignment.y.len() - 1))
                         || (!minus_op_prev && !plus_op_prev));
-                annotated_minus.push((
-                    if coalesce { minus_op_prev } else { false },
-                    ms,
-                ));
-                let ps = get_section(n, &mut plus_line_offset, &mut y_offset, &alignment.y, plus_line);
+                annotated_minus.push((if coalesce { minus_op_prev } else { false }, ms));
+                let ps = get_section(
+                    n,
+                    &mut plus_line_offset,
+                    &mut y_offset,
+                    &alignment.y,
+                    plus_line,
+                );
                 let op = if coalesce { plus_op_prev } else { false };
                 if let Some(non_ws) = contents_before_trailing_whitespace(ps) {
                     annotated_plus.push((op, non_ws));
@@ -167,7 +182,13 @@ fn annotate<'a>(
                 plus_op_prev = false;
             }
             Operation::Insertion => {
-                let ps = get_section(n, &mut plus_line_offset, &mut y_offset, &alignment.y, plus_line);
+                let ps = get_section(
+                    n,
+                    &mut plus_line_offset,
+                    &mut y_offset,
+                    &alignment.y,
+                    plus_line,
+                );
                 let n_d = width(ps.trim()) as f64;
                 d_denom += n_d;
                 d_numer += n_d;
@@ -265,7 +286,8 @@ impl WordDiffScratch {
         annotated_plus.reserve(plus_lines.len() * 2);
         self.minus_ranges.reserve(minus_lines.len());
         self.plus_ranges.reserve(plus_lines.len());
-        self.line_alignment.reserve(minus_lines.len() + plus_lines.len());
+        self.line_alignment
+            .reserve(minus_lines.len() + plus_lines.len());
 
         let mut plus_index = 0;
 
@@ -282,86 +304,93 @@ impl WordDiffScratch {
 
         'minus_loop: for (minus_index, minus_line) in minus_lines.iter().enumerate() {
             let minus_line: &'h str = minus_line.as_ref();
-        let mut considered = 0;
+            let mut considered = 0;
+            for plus_line in &plus_lines[plus_index..] {
+                let plus_line: &'h str = plus_line.as_ref();
+                // Identical lines always align with distance 0.0, so they can be
+                // annotated directly without running the NW table (they are the
+                // first candidate, so no backtracking is affected).
+                if plus_line == minus_line {
+                    let start = annotated_minus.len();
+                    annotated_minus.push((false, minus_line));
+                    self.minus_ranges.push((start, 1));
+                    let start = annotated_plus.len();
+                    if let Some(content) = contents_before_trailing_whitespace(minus_line) {
+                        annotated_plus.push((false, content));
+                        annotated_plus.push((false, &minus_line[content.len()..]));
+                        self.plus_ranges.push((start, 2));
+                    } else {
+                        annotated_plus.push((false, minus_line));
+                        self.plus_ranges.push((start, 1));
+                    }
+                    self.line_alignment
+                        .push((Some(minus_index), Some(plus_index)));
+                    plus_index += 1;
+                    continue 'minus_loop;
+                }
+                alignment.reset_lines(minus_line, plus_line);
+                let distance = annotate(
+                    &alignment,
+                    minus_line,
+                    plus_line,
+                    &mut am,
+                    &mut ap,
+                    &mut self.ops,
+                );
+                if (minus_lines.len() == plus_lines.len() && distance <= MAX_LINE_DISTANCE_NAIVE)
+                    || distance <= MAX_LINE_DISTANCE
+                {
+                    for pl in &plus_lines[plus_index..(plus_index + considered)] {
+                        let pl: &'h str = pl.as_ref();
+                        let start = annotated_plus.len();
+                        annotated_plus.push((false, pl));
+                        self.plus_ranges.push((start, 1));
+                        self.line_alignment.push((None, Some(plus_index)));
+                        plus_index += 1;
+                    }
+                    let start = annotated_minus.len();
+                    annotated_minus.extend_from_slice(&am);
+                    self.minus_ranges.push((start, am.len()));
+                    let start = annotated_plus.len();
+                    annotated_plus.extend_from_slice(&ap);
+                    self.plus_ranges.push((start, ap.len()));
+                    self.line_alignment
+                        .push((Some(minus_index), Some(plus_index)));
+                    plus_index += 1;
+                    continue 'minus_loop;
+                } else {
+                    considered += 1;
+                }
+            }
+            let start = annotated_minus.len();
+            annotated_minus.push((false, minus_line));
+            self.minus_ranges.push((start, 1));
+            self.line_alignment.push((Some(minus_index), None));
+        }
         for plus_line in &plus_lines[plus_index..] {
             let plus_line: &'h str = plus_line.as_ref();
-            // Identical lines always align with distance 0.0, so they can be
-            // annotated directly without running the NW table (they are the
-            // first candidate, so no backtracking is affected).
-            if plus_line == minus_line {
-                let start = annotated_minus.len();
-                annotated_minus.push((false, minus_line));
-                self.minus_ranges.push((start, 1));
-                let start = annotated_plus.len();
-                if let Some(content) = contents_before_trailing_whitespace(minus_line) {
-                    annotated_plus.push((false, content));
-                    annotated_plus.push((false, &minus_line[content.len()..]));
-                    self.plus_ranges.push((start, 2));
-                } else {
-                    annotated_plus.push((false, minus_line));
-                    self.plus_ranges.push((start, 1));
-                }
-                self.line_alignment.push((Some(minus_index), Some(plus_index)));
-                plus_index += 1;
-                continue 'minus_loop;
-            }
-            alignment.reset_lines(minus_line, plus_line);
-            let distance =
-                annotate(&alignment, minus_line, plus_line, &mut am, &mut ap, &mut self.ops);
-            if (minus_lines.len() == plus_lines.len()
-                && distance <= MAX_LINE_DISTANCE_NAIVE)
-                || distance <= MAX_LINE_DISTANCE
-            {
-                for pl in &plus_lines[plus_index..(plus_index + considered)] {
-                    let pl: &'h str = pl.as_ref();
-                    let start = annotated_plus.len();
-                    annotated_plus.push((false, pl));
-                    self.plus_ranges.push((start, 1));
-                    self.line_alignment.push((None, Some(plus_index)));
-                    plus_index += 1;
-                }
-                let start = annotated_minus.len();
-                annotated_minus.extend_from_slice(&am);
-                self.minus_ranges.push((start, am.len()));
-                let start = annotated_plus.len();
-                annotated_plus.extend_from_slice(&ap);
-                self.plus_ranges.push((start, ap.len()));
-                self.line_alignment.push((Some(minus_index), Some(plus_index)));
-                plus_index += 1;
-                continue 'minus_loop;
+            let start = annotated_plus.len();
+            if let Some(content) = contents_before_trailing_whitespace(plus_line) {
+                annotated_plus.push((false, content));
+                annotated_plus.push((false, &plus_line[content.len()..]));
+                self.plus_ranges.push((start, 2));
             } else {
-                considered += 1;
+                annotated_plus.push((false, plus_line));
+                self.plus_ranges.push((start, 1));
             }
+            self.line_alignment.push((None, Some(plus_index)));
+            plus_index += 1;
         }
-        let start = annotated_minus.len();
-        annotated_minus.push((false, minus_line));
-        self.minus_ranges.push((start, 1));
-        self.line_alignment.push((Some(minus_index), None));
-    }
-    for plus_line in &plus_lines[plus_index..] {
-        let plus_line: &'h str = plus_line.as_ref();
-        let start = annotated_plus.len();
-        if let Some(content) = contents_before_trailing_whitespace(plus_line) {
-            annotated_plus.push((false, content));
-            annotated_plus.push((false, &plus_line[content.len()..]));
-            self.plus_ranges.push((start, 2));
-        } else {
-            annotated_plus.push((false, plus_line));
-            self.plus_ranges.push((start, 1));
+
+        self.cells = alignment.take_cells();
+
+        InferOut {
+            minus_sections: annotated_minus,
+            plus_sections: annotated_plus,
+            minus_ranges: &self.minus_ranges,
+            plus_ranges: &self.plus_ranges,
         }
-        self.line_alignment.push((None, Some(plus_index)));
-        plus_index += 1;
     }
-
-    self.cells = alignment.take_cells();
-
-    InferOut {
-        minus_sections: annotated_minus,
-        plus_sections: annotated_plus,
-        minus_ranges: &self.minus_ranges,
-        plus_ranges: &self.plus_ranges,
-    }
-}
 }
 
 /// Pair and annotate buffered minus/plus lines (order preserved) for callers
@@ -376,10 +405,7 @@ impl WordDiffScratch {
 /// `&[String]`, or `&[Cow<str>]` directly — no intermediate `&str` slice is
 /// collected. The section runs are stored flat (one `Vec` total) with
 /// per-line `(start, len)` ranges, so no per-line `Vec` is heap-allocated.
-pub fn infer_edits<'a, S: AsRef<str>>(
-    minus_lines: &'a [S],
-    plus_lines: &'a [S],
-) -> EditResult<'a> {
+pub fn infer_edits<'a, S: AsRef<str>>(minus_lines: &'a [S], plus_lines: &'a [S]) -> EditResult<'a> {
     let mut annotated_minus: Vec<(bool, &'a str)> = Vec::new();
     let mut annotated_plus: Vec<(bool, &'a str)> = Vec::new();
     let mut minus_ranges: Vec<(usize, usize)> = Vec::new();
@@ -421,9 +447,10 @@ pub fn infer_edits<'a, S: AsRef<str>>(
                 continue 'minus_loop;
             }
             alignment.reset_lines(minus_line, plus_line);
-            let distance = annotate(&alignment, minus_line, plus_line, &mut am, &mut ap, &mut ops);
-            if (minus_lines.len() == plus_lines.len()
-                && distance <= MAX_LINE_DISTANCE_NAIVE)
+            let distance = annotate(
+                &alignment, minus_line, plus_line, &mut am, &mut ap, &mut ops,
+            );
+            if (minus_lines.len() == plus_lines.len() && distance <= MAX_LINE_DISTANCE_NAIVE)
                 || distance <= MAX_LINE_DISTANCE
             {
                 for pl in &plus_lines[plus_index..(plus_index + considered)] {
