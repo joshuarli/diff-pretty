@@ -86,9 +86,10 @@ remain behind the existing Unix gates.
 - Entering search mode immediately clears the previous query, compiled regex,
   match cache, pending search state, and visible search highlights.
 - The first typed **character** after `/` is consumed and discarded. It is not
-  placed in the query and does not cause a search. Control keys do not count as
-  the first character. The first Unicode scalar value counts as one character,
-  even if its UTF-8 representation contains multiple bytes.
+  placed in the compiled query and does not cause a search, but it remains
+  visible in the search input prompt. Control keys do not count as the first
+  character. The first Unicode scalar value counts as one character, even if
+  its UTF-8 representation contains multiple bytes.
 - Subsequent printable input is appended to the query exactly as typed.
 - Backspace/Delete removes the last Unicode scalar value from the query.
 - Ctrl-U clears the current input query and resets the first-character discard

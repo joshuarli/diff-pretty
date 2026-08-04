@@ -315,7 +315,7 @@ def main() -> int:
         print(baseline_path)
         return 0
     completed = subprocess.run(
-        ["cargo", "bench", "--bench", "bench"],
+        ["cargo", "bench", "--features", "bench-internals", "--bench", "bench"],
         cwd=root,
         text=True,
         stdout=subprocess.PIPE,

@@ -3,6 +3,9 @@ name = "diff-pretty"
 version = "0.0.1"
 edition = "2024"
 
+[features]
+bench-internals = []
+
 [dependencies]
 regex-lite = "0.1.9"
 
@@ -10,11 +13,12 @@ regex-lite = "0.1.9"
 divan = "0.1"
 
 [target.'cfg(unix)'.dependencies]
-rustix = { version = "1.1", features = ["termios"] }
+rustix = { version = "1.1", features = ["event", "termios"] }
 
 [[bench]]
 name = "bench"
 harness = false
+required-features = ["bench-internals"]
 
 [profile.dev]
 debug = 0

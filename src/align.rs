@@ -98,11 +98,8 @@ impl<'a> Alignment<'a> {
         }
         for (i, x_i) in self.x.iter().enumerate() {
             for (j, y_j) in self.y.iter().enumerate() {
-                let (left, diag, up) = (
-                    self.index(i, j + 1),
-                    self.index(i, j),
-                    self.index(i + 1, j),
-                );
+                let (left, diag, up) =
+                    (self.index(i, j + 1), self.index(i, j), self.index(i + 1, j));
                 let candidates = [
                     Cell {
                         parent: up,
@@ -125,11 +122,7 @@ impl<'a> Alignment<'a> {
                     },
                 ];
                 let index = self.index(i + 1, j + 1);
-                self.table[index] = candidates
-                    .iter()
-                    .min_by_key(|cell| cell.cost)
-                    .unwrap()
-                    .clone();
+                self.table[index] = *candidates.iter().min_by_key(|cell| cell.cost).unwrap();
             }
         }
     }

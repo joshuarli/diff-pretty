@@ -33,6 +33,7 @@ use std::{io, io::Write};
 
 use divan::{AllocProfiler, Bencher, black_box};
 
+use diff_pretty::pager::bench_internals::{LiveSearchViewport, SearchViewport};
 use diff_pretty::{
     config, edits, render, render_document, render_reader_document, render_reader_to, render_to,
 };
@@ -53,7 +54,7 @@ fn corpus() -> &'static [(String, String)] {
         let mut patches: Vec<(String, String)> = std::fs::read_dir(&root)
             .unwrap()
             .filter_map(|e| e.ok())
-            .filter(|e| e.path().extension().map_or(false, |x| x == "patch"))
+            .filter(|e| e.path().extension().is_some_and(|x| x == "patch"))
             .map(|e| {
                 let stem = e.path().file_stem().unwrap().to_str().unwrap().to_string();
                 let input = std::fs::read_to_string(e.path()).unwrap();
@@ -105,7 +106,10 @@ fn minus_line(hunk: usize, i: usize, tabs: bool) -> String {
     match i % 5 {
         0 => format!("{t}    let line_{hunk}_{i} = read_stdin_line()?;"),
         1 => format!("{t}    let tokens_{hunk}_{i} = tokenize(&line_{hunk}_{i});"),
-        2 => format!("{t}    let expanded = expand_tabs(&tokens_{hunk}_{i}, {}) ;", hunk % 8),
+        2 => format!(
+            "{t}    let expanded = expand_tabs(&tokens_{hunk}_{i}, {}) ;",
+            hunk % 8
+        ),
         3 => format!("{t}    paint_line(&mut output, &tokens_{hunk}_{i});"),
         _ => format!("{t}    flush_sink(&mut sink, &tokens_{hunk}_{i});"),
     }
@@ -116,7 +120,10 @@ fn plus_line(hunk: usize, i: usize, tabs: bool) -> String {
     match i % 5 {
         0 => format!("{t}    let line_{hunk}_{i} = read_stdin_bytes()?;"),
         1 => format!("{t}    let tokens_{hunk}_{i} = tokenize_all(&line_{hunk}_{i});"),
-        2 => format!("{t}    let expanded = expand_tabs(&tokens_{hunk}_{i}, {}) + 1;", hunk % 8),
+        2 => format!(
+            "{t}    let expanded = expand_tabs(&tokens_{hunk}_{i}, {}) + 1;",
+            hunk % 8
+        ),
         3 => format!("{t}    paint_line(&mut output, &tokens_{hunk}_{i});"),
         _ => format!("{t}    flush_sink(&mut sink, &tokens_{hunk}_{i});"),
     }
@@ -126,9 +133,13 @@ fn append_hunk(buf: &mut String, hunk: usize, color: bool, tabs: bool) {
     let base = hunk * 40 + 1;
     // Even hunks: balanced 5/5 (full word-diff pairing). Odd hunks: imbalanced
     // 7/2 (the greedy-pairing path from `TODO.md`).
-    let (minus_count, plus_count) = if hunk % 2 == 0 { (5, 5) } else { (7, 2) };
+    let (minus_count, plus_count) = if hunk.is_multiple_of(2) {
+        (5, 5)
+    } else {
+        (7, 2)
+    };
     // Every 4th hunk carries a code fragment (drawn box); the rest have none.
-    let frag = if hunk % 4 == 0 {
+    let frag = if hunk.is_multiple_of(4) {
         format!(" fn process_{hunk}() -> Result<(), Error>")
     } else {
         String::new()
@@ -156,16 +167,31 @@ fn append_hunk(buf: &mut String, hunk: usize, color: bool, tabs: bool) {
 fn append_commit(buf: &mut String, file: usize, color: bool, tabs: bool, hunk: &mut usize) {
     let hash = format!("{file:040x}");
     push_line(buf, &format!("commit {hash}"), color, "33");
-    push_line(buf, "Author:     Bench Builder <bench@example.com>", false, "");
+    push_line(
+        buf,
+        "Author:     Bench Builder <bench@example.com>",
+        false,
+        "",
+    );
     push_line(buf, "AuthorDate: Mon Aug 3 12:00:00 2026 -0400", false, "");
-    push_line(buf, "Commit:     Bench Builder <bench@example.com>", false, "");
+    push_line(
+        buf,
+        "Commit:     Bench Builder <bench@example.com>",
+        false,
+        "",
+    );
     push_line(buf, "CommitDate: Mon Aug 3 12:00:00 2026 -0400", false, "");
     buf.push('\n');
     push_line(buf, &format!("    synthesize module_{file:02}"), false, "");
     buf.push('\n');
     let path = format!("src/module_{file:02}/module_{file:02}.rs");
     push_line(buf, &format!("diff --git a/{path} b/{path}"), color, "1");
-    push_line(buf, &format!("index 0000000..{file:07x} 100644"), color, "1");
+    push_line(
+        buf,
+        &format!("index 0000000..{file:07x} 100644"),
+        color,
+        "1",
+    );
     push_line(buf, &format!("--- a/{path}"), color, "1");
     push_line(buf, &format!("+++ b/{path}"), color, "1");
     for _ in 0..2 {
@@ -406,23 +432,77 @@ fn pager_viewport_synthetic_1mb(b: Bencher) {
 }
 
 #[divan::bench]
-fn pager_search_viewport_synthetic_1mb(b: Bencher) {
+fn pager_search_initial_early_synthetic_1mb(b: Bencher) {
     let document = render_document(synthetic_1mb());
-    let mut terminal = Vec::with_capacity(128 * 1024);
+    b.bench_local(|| black_box(SearchViewport::new(&document, "tokens", 24, 80)));
+}
+
+#[divan::bench]
+fn pager_search_initial_no_match_synthetic_1mb(b: Bencher) {
+    let document = render_document(synthetic_1mb());
     b.bench_local(|| {
-        terminal.clear();
-        diff_pretty::pager::benchmark_search_viewport(
+        black_box(SearchViewport::new(
             &document,
-            "tokens",
-            500,
+            "pattern-that-is-absent",
             24,
             80,
-            32,
-            &mut terminal,
-        )
-        .expect("writing to a Vec cannot fail");
+        ))
+    });
+}
+
+#[divan::bench]
+fn pager_search_redraw_synthetic_1mb(b: Bencher) {
+    let document = render_document(synthetic_1mb());
+    let viewport = SearchViewport::new(&document, "tokens", 24, 80);
+    let mut terminal = Vec::with_capacity(16 * 1024);
+    b.bench_local(|| {
+        terminal.clear();
+        viewport
+            .draw(&mut terminal)
+            .expect("writing to a Vec cannot fail");
         black_box(terminal.len())
     });
+}
+
+#[divan::bench]
+fn pager_search_redraw_synthetic_10mb(b: Bencher) {
+    let document = render_document(synthetic_10mb());
+    let viewport = SearchViewport::new(&document, "tokens", 24, 80);
+    let mut terminal = Vec::with_capacity(16 * 1024);
+    b.bench_local(|| {
+        terminal.clear();
+        viewport
+            .draw(&mut terminal)
+            .expect("writing to a Vec cannot fail");
+        black_box(terminal.len())
+    });
+}
+
+#[divan::bench]
+fn pager_search_scroll_synthetic_1mb(b: Bencher) {
+    let document = render_document(synthetic_1mb());
+    let mut viewport = SearchViewport::new(&document, "tokens", 24, 80);
+    viewport.set_top(500);
+    b.bench_local(|| {
+        viewport.scroll_down();
+        black_box(viewport.top())
+    });
+}
+
+#[divan::bench]
+fn pager_search_cached_navigation_synthetic_1mb(b: Bencher) {
+    let document = render_document(synthetic_1mb());
+    let mut viewport = SearchViewport::new(&document, "tokens", 24, 80);
+    b.bench_local(|| {
+        viewport.next_match();
+        black_box(viewport.top())
+    });
+}
+
+#[divan::bench]
+fn pager_search_live_growth(b: Bencher) {
+    let mut viewport = LiveSearchViewport::new("one\ntwo\n", "absent", 24, 80);
+    b.bench_local(|| black_box(viewport.push_chunk_and_advance("another live line\n")));
 }
 
 // ---------------------------------------------------------------------------

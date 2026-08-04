@@ -78,10 +78,10 @@ impl<'a, W: Write> IoSink<'a, W> {
 
 impl<W: Write> RenderSink for IoSink<'_, W> {
     fn push_str(&mut self, text: &str) {
-        if self.error.is_none() {
-            if let Err(error) = self.output.write_all(text.as_bytes()) {
-                self.error = Some(error);
-            }
+        if self.error.is_none()
+            && let Err(error) = self.output.write_all(text.as_bytes())
+        {
+            self.error = Some(error);
         }
     }
 
@@ -110,7 +110,7 @@ pub struct RenderedDocument {
     ansi_bytes: usize,
     last_span_start: Option<usize>,
     last_span_offset: usize,
-    last_span_sequence: u8,
+    last_span_sequence: usize,
 }
 
 impl RenderedDocument {
@@ -182,31 +182,24 @@ impl RenderedDocument {
             Some(sequence) => sequence,
             None => {
                 let index = self
-                .custom_ansi
-                .iter()
-                .position(|candidate| candidate == sequence)
-                .unwrap_or_else(|| {
-                    if self.custom_ansi.len() == 256 - KNOWN_ANSI.len() {
-                        return usize::MAX;
-                    }
-                    self.custom_ansi.push(sequence.to_owned());
-                    self.custom_ansi.len() - 1
-                });
-                if index == usize::MAX {
-                    self.text.push_str(sequence);
-                    return;
-                }
-                (KNOWN_ANSI.len() + index) as u8
+                    .custom_ansi
+                    .iter()
+                    .position(|candidate| candidate == sequence)
+                    .unwrap_or_else(|| {
+                        self.custom_ansi.push(sequence.to_owned());
+                        self.custom_ansi.len() - 1
+                    });
+                KNOWN_ANSI.len() + index
             }
         };
         self.retain_sequence(sequence);
     }
 
-    fn retain_sequence(&mut self, sequence: u8) {
+    fn retain_sequence(&mut self, sequence: usize) {
         self.ansi_bytes += self.ansi_sequence(sequence).len();
         let span_start = self.spans.len();
         push_varint(&mut self.spans, self.text.len() - self.last_span_offset);
-        self.spans.push(sequence);
+        push_varint(&mut self.spans, sequence);
         self.last_span_start = Some(span_start);
         self.last_span_offset = self.text.len();
         self.last_span_sequence = sequence;
@@ -232,9 +225,7 @@ impl RenderedDocument {
 
     /// Exact number of bytes produced when the document is serialized.
     pub fn len(&self) -> usize {
-        self.text.len()
-            + self.ansi_bytes
-            + self.lines.len().saturating_sub(1)
+        self.text.len() + self.ansi_bytes + self.lines.len().saturating_sub(1)
     }
 
     pub fn is_empty(&self) -> bool {
@@ -271,14 +262,14 @@ impl RenderedDocument {
         while span_cursor < span_end {
             let (delta, next) = decode_varint(&self.spans, span_cursor);
             span_cursor = next;
-            let sequence = self.spans[span_cursor];
-            span_cursor += 1;
+            let (sequence, next) = decode_varint(&self.spans, span_cursor);
+            span_cursor = next;
             let span_offset = text_offset + delta;
-            output.write_all(self.text[text_offset..span_offset].as_bytes())?;
+            output.write_all(&self.text.as_bytes()[text_offset..span_offset])?;
             output.write_all(self.ansi_sequence(sequence).as_bytes())?;
             text_offset = span_offset;
         }
-        output.write_all(self.text[text_offset..end.text as usize].as_bytes())?;
+        output.write_all(&self.text.as_bytes()[text_offset..end.text as usize])?;
         if end.spans & FINAL_RESET_BIT != 0 {
             output.write_all(sgr::RESET.as_bytes())?;
         }
@@ -314,13 +305,15 @@ impl RenderedDocument {
         let mut next_span = decode_line_span(self, &mut span_cursor, span_end, text_offset);
         let mut range_index = 0;
         let mut active_end = None;
-        let mut base_sequences = Vec::new();
-        let mut base_reverse = false;
+        let mut base_style = PagerSgrState::default();
+        let mut overlay = None;
 
         while text_offset < line_end || next_span.is_some() || active_end.is_some() {
+            let relative = text_offset - line_start;
             while range_index < ranges.len()
                 && (ranges[range_index].start >= ranges[range_index].end
-                    || ranges[range_index].start > line_len)
+                    || ranges[range_index].start > line_len
+                    || ranges[range_index].end <= relative)
             {
                 range_index += 1;
             }
@@ -339,13 +332,14 @@ impl RenderedDocument {
                     .min(next_range_end)
                     .min(next_span_offset - line_start);
             if text_offset < boundary {
-                output.write_all(self.text[text_offset..boundary].as_bytes())?;
+                output.write_all(&self.text.as_bytes()[text_offset..boundary])?;
                 text_offset = boundary;
             }
 
             let relative = text_offset - line_start;
             if active_end == Some(relative) {
-                restore_base_style(output, &base_sequences)?;
+                remove_search_overlay(output, overlay, base_style)?;
+                overlay = None;
                 active_end = None;
                 range_index += 1;
                 continue;
@@ -357,11 +351,13 @@ impl RenderedDocument {
                     break;
                 }
                 let sequence = self.ansi_sequence(sequence);
-                output.write_all(sequence.as_bytes())?;
-                base_sequences.push(sequence);
-                update_reverse(sequence, &mut base_reverse);
                 if active_end.is_some() {
-                    write_search_overlay(output, base_reverse)?;
+                    remove_search_overlay(output, overlay, base_style)?;
+                }
+                output.write_all(sequence.as_bytes())?;
+                base_style.apply(sequence);
+                if active_end.is_some() {
+                    overlay = Some(write_search_overlay(output, base_style)?);
                 }
                 next_span = decode_line_span(self, &mut span_cursor, span_end, span_offset);
                 wrote_span = true;
@@ -375,7 +371,7 @@ impl RenderedDocument {
                 && range.start == relative
                 && range.start < range.end
             {
-                write_search_overlay(output, base_reverse)?;
+                overlay = Some(write_search_overlay(output, base_style)?);
                 active_end = Some(range.end.min(line_len));
                 continue;
             }
@@ -386,10 +382,10 @@ impl RenderedDocument {
         }
 
         if text_offset < line_end {
-            output.write_all(self.text[text_offset..line_end].as_bytes())?;
+            output.write_all(&self.text.as_bytes()[text_offset..line_end])?;
         }
         if active_end.is_some() {
-            restore_base_style(output, &base_sequences)?;
+            remove_search_overlay(output, overlay, base_style)?;
         }
         if end.spans & FINAL_RESET_BIT != 0 {
             output.write_all(sgr::RESET.as_bytes())?;
@@ -397,8 +393,7 @@ impl RenderedDocument {
         Ok(true)
     }
 
-    fn ansi_sequence(&self, sequence: u8) -> &str {
-        let sequence = sequence as usize;
+    fn ansi_sequence(&self, sequence: usize) -> &str {
         if sequence >= KNOWN_ANSI.len() {
             &self.custom_ansi[sequence - KNOWN_ANSI.len()]
         } else {
@@ -418,54 +413,162 @@ fn decode_line_span(
     cursor: &mut usize,
     end: usize,
     previous_offset: usize,
-) -> Option<(usize, u8)> {
+) -> Option<(usize, usize)> {
     if *cursor >= end {
         return None;
     }
     let (delta, next) = decode_varint(&document.spans, *cursor);
-    let sequence = document.spans[next];
-    *cursor = next + 1;
+    let (sequence, next) = decode_varint(&document.spans, next);
+    *cursor = next;
     Some((previous_offset + delta, sequence))
 }
 
-fn restore_base_style<W: Write + ?Sized>(
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum PagerOverlay {
+    Reverse,
+    Background,
+}
+
+fn write_search_overlay<W: Write + ?Sized>(
     output: &mut W,
-    base_sequences: &[&str],
-) -> io::Result<()> {
-    output.write_all(sgr::RESET.as_bytes())?;
-    for sequence in base_sequences {
-        output.write_all(sequence.as_bytes())?;
-    }
-    Ok(())
-}
-
-fn write_search_overlay<W: Write + ?Sized>(output: &mut W, base_reverse: bool) -> io::Result<()> {
-    if base_reverse {
+    base: PagerSgrState,
+) -> io::Result<PagerOverlay> {
+    if base.reverse {
         // Reverse video cannot visually distinguish an already-reversed span.
-        output.write_all(b"\x1b[48;5;240m")
+        output.write_all(b"\x1b[48;5;240m")?;
+        Ok(PagerOverlay::Background)
     } else {
-        output.write_all(b"\x1b[7m")
+        output.write_all(b"\x1b[7m")?;
+        Ok(PagerOverlay::Reverse)
     }
 }
 
-fn update_reverse(sequence: &str, reverse: &mut bool) {
-    let Some(parameters) = sequence
-        .strip_prefix("\x1b[")
-        .and_then(|sequence| sequence.strip_suffix('m'))
-    else {
-        return;
-    };
-    if parameters.is_empty() {
-        *reverse = false;
-        return;
+fn remove_search_overlay<W: Write + ?Sized>(
+    output: &mut W,
+    overlay: Option<PagerOverlay>,
+    base: PagerSgrState,
+) -> io::Result<()> {
+    match overlay {
+        Some(PagerOverlay::Reverse) => output.write_all(b"\x1b[27m"),
+        Some(PagerOverlay::Background) => base.background.write(output),
+        None => Ok(()),
     }
-    for parameter in parameters.split(';') {
-        match parameter.parse::<u16>() {
-            Ok(0) => *reverse = false,
-            Ok(7) => *reverse = true,
-            Ok(27) => *reverse = false,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+struct PagerSgrState {
+    reverse: bool,
+    background: PagerColor,
+}
+
+impl PagerSgrState {
+    fn apply(&mut self, sequence: &str) {
+        let Some(parameters) = sequence
+            .strip_prefix("\x1b[")
+            .and_then(|sequence| sequence.strip_suffix('m'))
+        else {
+            return;
+        };
+        if parameters.is_empty() {
+            *self = Self::default();
+            return;
+        }
+        let mut parameters = parameters.split(';').peekable();
+        while let Some(parameter) = parameters.next() {
+            if parameter.contains(':') {
+                self.apply_colon_parameter(parameter);
+                continue;
+            }
+            let Ok(code) = parameter.parse::<u16>() else {
+                continue;
+            };
+            match code {
+                0 => *self = Self::default(),
+                7 => self.reverse = true,
+                27 => self.reverse = false,
+                40..=47 | 100..=107 => {
+                    self.background = PagerColor::Basic(code);
+                }
+                49 => self.background = PagerColor::Default,
+                38 | 48 | 58 => {
+                    let target_background = code == 48;
+                    if let Some(color) = parse_extended_color(&mut parameters)
+                        && target_background
+                    {
+                        self.background = color;
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+
+    fn apply_colon_parameter(&mut self, parameter: &str) {
+        let mut fields = parameter.split(':');
+        match fields.next().and_then(|field| field.parse::<u16>().ok()) {
+            Some(0) => *self = Self::default(),
+            Some(7) => self.reverse = true,
+            Some(27) => self.reverse = false,
+            Some(48) => {
+                if let Some(color) = parse_colon_color(&mut fields) {
+                    self.background = color;
+                }
+            }
+            Some(49) => self.background = PagerColor::Default,
             _ => {}
         }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+enum PagerColor {
+    #[default]
+    Default,
+    Basic(u16),
+    Indexed(u8),
+    Rgb(u8, u8, u8),
+}
+
+impl PagerColor {
+    fn write<W: Write + ?Sized>(self, output: &mut W) -> io::Result<()> {
+        match self {
+            Self::Default => output.write_all(b"\x1b[49m"),
+            Self::Basic(code) => write!(output, "\x1b[{code}m"),
+            Self::Indexed(index) => write!(output, "\x1b[48;5;{index}m"),
+            Self::Rgb(red, green, blue) => write!(output, "\x1b[48;2;{red};{green};{blue}m"),
+        }
+    }
+}
+
+fn parse_extended_color<'a>(parameters: &mut impl Iterator<Item = &'a str>) -> Option<PagerColor> {
+    match parameters.next()?.parse::<u8>().ok()? {
+        5 => Some(PagerColor::Indexed(parameters.next()?.parse().ok()?)),
+        2 => Some(PagerColor::Rgb(
+            parameters.next()?.parse().ok()?,
+            parameters.next()?.parse().ok()?,
+            parameters.next()?.parse().ok()?,
+        )),
+        _ => None,
+    }
+}
+
+fn parse_colon_color<'a>(fields: &mut impl Iterator<Item = &'a str>) -> Option<PagerColor> {
+    match fields.next()?.parse::<u8>().ok()? {
+        5 => Some(PagerColor::Indexed(fields.next()?.parse().ok()?)),
+        2 => {
+            let color_space = fields.next()?;
+            if !color_space.is_empty() && color_space != "0" {
+                return None;
+            }
+            let red = fields.next()?.parse().ok()?;
+            let green = fields.next()?.parse().ok()?;
+            let blue = fields.next()?.parse().ok()?;
+            fields
+                .next()
+                .is_none()
+                .then_some(PagerColor::Rgb(red, green, blue))
+        }
+        _ => None,
     }
 }
 
@@ -522,15 +625,16 @@ impl RenderSink for RenderedDocument {
                 text_start = index;
                 continue;
             }
-            if bytes[index] == b'\x1b' && bytes.get(index + 1) == Some(&b'[') {
-                if let Some(relative_end) = bytes[index + 2..].iter().position(|&byte| byte == b'm') {
-                    let end = index + 2 + relative_end + 1;
-                    self.push_text(&value[text_start..index]);
-                    self.retain_ansi(&value[index..end]);
-                    index = end;
-                    text_start = index;
-                    continue;
-                }
+            if bytes[index] == b'\x1b'
+                && bytes.get(index + 1) == Some(&b'[')
+                && let Some(relative_end) = bytes[index + 2..].iter().position(|&byte| byte == b'm')
+            {
+                let end = index + 2 + relative_end + 1;
+                self.push_text(&value[text_start..index]);
+                self.retain_ansi(&value[index..end]);
+                index = end;
+                text_start = index;
+                continue;
             }
             index += 1;
         }
@@ -582,14 +686,13 @@ const KNOWN_ANSI: &[&str] = &[
     "\x1b[1;7;32m",
 ];
 
-fn known_ansi(sequence: &str) -> Option<u8> {
+fn known_ansi(sequence: &str) -> Option<usize> {
     KNOWN_ANSI
         .iter()
         .position(|&candidate| candidate == sequence)
-        .map(|index| index as u8)
 }
 
-fn known_style(style: Style) -> Option<u8> {
+fn known_style(style: Style) -> Option<usize> {
     match style {
         STYLE_BLUE => Some(1),
         STYLE_ZERO => Some(2),
@@ -887,6 +990,12 @@ impl Writer {
         self.started = false;
     }
 }
+
+impl Default for Writer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 /// Write one hunk body line: the two blue-bordered line-number cells (minus /
 /// plus) and the content sections, styled and emitted directly into `out`.
 ///
@@ -898,6 +1007,7 @@ impl Writer {
 ///
 /// `w` is a single line buffer reused across all hunk lines; `flush` clears it
 /// while retaining capacity, so the per-line `String` is allocated once.
+#[allow(clippy::too_many_arguments)]
 fn write_hunk_line(
     out: &mut impl RenderSink,
     w: &mut Writer,
@@ -1063,7 +1173,12 @@ fn render_into(input: &str, out: &mut impl RenderSink) {
     render_chunk(input, out, &mut state, true);
 }
 
-fn render_chunk(input: &str, out: &mut impl RenderSink, state: &mut RenderState, final_chunk: bool) {
+fn render_chunk(
+    input: &str,
+    out: &mut impl RenderSink,
+    state: &mut RenderState,
+    final_chunk: bool,
+) {
     // git colorizes the diff it sends to its pager, so the input carries CSI
     // SGR codes. We keep the raw (possibly colored) lines for passthrough
     // regions that delta reproduces verbatim (commit meta), and a stripped copy
@@ -1151,12 +1266,9 @@ fn render_chunk(input: &str, out: &mut impl RenderSink, state: &mut RenderState,
                 let inner = line
                     .trim_start_matches("Binary files ")
                     .trim_end_matches(" differ");
-                match inner.split_once(" and ") {
-                    Some((a, b)) => {
-                        fi.minus_file = strip_ab(a);
-                        fi.plus_file = strip_ab(b);
-                    }
-                    None => {}
+                if let Some((a, b)) = inner.split_once(" and ") {
+                    fi.minus_file = strip_ab(a);
+                    fi.plus_file = strip_ab(b);
                 }
                 emit_file_decoration(out, &fi, Some("binary file"));
             }
@@ -1194,7 +1306,7 @@ fn render_chunk(input: &str, out: &mut impl RenderSink, state: &mut RenderState,
             // the `@@` line carries a code fragment, a box (bullet + fragment,
             // no line number). No box otherwise.
             out.push('\n');
-                emit_hunk_box(out, line_writer, line);
+            emit_hunk_box(out, line_writer, line);
             i += 1;
 
             // Parse hunk header for line counters.
@@ -1300,7 +1412,6 @@ fn render_chunk(input: &str, out: &mut impl RenderSink, state: &mut RenderState,
     if final_chunk && let Some(fi) = pending_file.take() {
         emit_file_decoration(out, &fi, None);
     }
-
 }
 
 #[derive(Debug)]
@@ -1332,7 +1443,10 @@ impl FileInfo {
         }
     }
     fn new_plain() -> Self {
-        Self { plain: true, ..Self::empty() }
+        Self {
+            plain: true,
+            ..Self::empty()
+        }
     }
 
     fn from_diff_line(line: &str) -> Self {
@@ -1421,7 +1535,7 @@ fn parse_hunk_numbers(line: &str) -> (usize, usize, usize, usize) {
         let len: usize = it.next().and_then(|x| x.parse().ok()).unwrap_or(1);
         nums.push((start, len));
     }
-    if nums.len() >= 1 {
+    if !nums.is_empty() {
         coords.0 = nums[0].0;
         coords.1 = nums[0].1;
     }
@@ -1433,7 +1547,8 @@ fn parse_hunk_numbers(line: &str) -> (usize, usize, usize, usize) {
 }
 
 /// The file-decoration underline: a fixed full-width (80) run of `─`.
-const BORDER_80: &str = "────────────────────────────────────────────────────────────────────────────────";
+const BORDER_80: &str =
+    "────────────────────────────────────────────────────────────────────────────────";
 
 fn emit_file_decoration(out: &mut impl RenderSink, fi: &FileInfo, addendum: Option<&str>) {
     out.push('\n'); // delta writes a blank line before every file decoration
@@ -1590,7 +1705,10 @@ fn push_border(out: &mut impl RenderSink, count: usize) {
 /// Extract the code fragment (everything after the final `@@`) with leading
 /// whitespace preserved and trailing whitespace stripped.
 fn hunk_fragment(hunk_line: &str) -> &str {
-    let idx = hunk_line.rfind("@@").map(|i| i + 2).unwrap_or(hunk_line.len());
+    let idx = hunk_line
+        .rfind("@@")
+        .map(|i| i + 2)
+        .unwrap_or(hunk_line.len());
     let rest = &hunk_line[idx..];
     rest.trim_end()
 }
@@ -1630,6 +1748,25 @@ mod tests {
         assert!(chunks.len() > 1);
         assert!(chunks[0] > 0);
         assert_eq!(output, render(input).as_bytes());
+    }
+
+    #[test]
+    fn custom_ansi_table_never_spills_control_bytes_into_visible_text() {
+        let mut document = RenderedDocument::streaming();
+        let mut expected = Vec::new();
+        for index in 0..300 {
+            let sequence = format!("\x1b[38;5;{};{}m", index % 256, index);
+            document.retain_ansi(&sequence);
+            document.push_text("x");
+            expected.extend_from_slice(sequence.as_bytes());
+            expected.push(b'x');
+        }
+        document.finish_line();
+
+        assert!(!document.line_text(0).unwrap().contains('\u{1b}'));
+        let mut output = Vec::new();
+        document.write_line(&mut output, 0).unwrap();
+        assert_eq!(output, expected);
     }
 
     #[test]

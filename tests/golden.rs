@@ -22,11 +22,15 @@ fn golden_snapshot() {
     let mut entries: Vec<_> = std::fs::read_dir(&fixtures)
         .expect("fixtures/ dir")
         .filter_map(|e| e.ok())
-        .filter(|e| e.path().extension().map_or(false, |x| x == "patch"))
+        .filter(|e| e.path().extension().is_some_and(|x| x == "patch"))
         .collect();
     entries.sort_by_key(|e| e.file_name());
 
-    assert!(!entries.is_empty(), "no fixtures under {}", fixtures.display());
+    assert!(
+        !entries.is_empty(),
+        "no fixtures under {}",
+        fixtures.display()
+    );
 
     let mut failures = Vec::new();
     for entry in entries {
