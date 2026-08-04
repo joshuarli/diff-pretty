@@ -1,6 +1,4 @@
-//! Curated divan benchmarks for diff-pretty's hot paths, adapted from `~/d/e`'s
-//! `benches/bench.rs` (divan + `AllocProfiler`, per-op median, peak-live memory,
-//! and allocation-volume report).
+//! Curated divan benchmarks for diff-pretty's hot paths.
 //!
 //! What is curated here:
 //!

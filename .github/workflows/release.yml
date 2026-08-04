@@ -1,0 +1,115 @@
+name: release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: write
+
+concurrency:
+  group: release-${{ github.sha }}
+  cancel-in-progress: false
+
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_PROFILE_DEV_DEBUG: 0
+
+jobs:
+  build:
+    name: Build (${{ matrix.runner }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: bash -euo pipefail {0}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-26
+            target: aarch64-apple-darwin
+          - runner: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+          - runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-musl
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        if: endsWith(matrix.target, '-linux-musl')
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Linux release image
+        if: endsWith(matrix.target, '-linux-musl')
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          load: true
+          tags: diff-pretty-builder:${{ matrix.target }}
+          cache-from: type=gha,scope=diff-pretty-${{ matrix.target }}
+          cache-to: type=gha,mode=max,scope=diff-pretty-${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        if: endsWith(matrix.target, '-apple-darwin')
+        with:
+          key: ${{ matrix.runner }}-${{ matrix.target }}
+
+      - name: Build macOS release
+        if: endsWith(matrix.target, '-apple-darwin')
+        run: make release-pgo TARGET=${{ matrix.target }}
+
+      - name: Run macOS tests
+        if: endsWith(matrix.target, '-apple-darwin')
+        run: make test-ci TARGET=${{ matrix.target }}
+
+      - name: Build and verify Linux releases
+        if: endsWith(matrix.target, '-linux-musl')
+        run: |
+          docker run --rm --init \
+            --volume "$GITHUB_WORKSPACE:/diff-pretty" \
+            --workdir /diff-pretty \
+            "diff-pretty-builder:${{ matrix.target }}" \
+            sh -ec '
+              make release-pgo-linux TARGET=${{ matrix.target }}
+              make verify-release-dynamic TARGET=${{ matrix.target }}
+              make test-ci TARGET=${{ matrix.target }}
+              cp "target/${{ matrix.target }}/release/diff-pretty" "diff-pretty-${{ matrix.target }}"
+              make release-pgo-linux-static TARGET=${{ matrix.target }}
+              make verify-release TARGET=${{ matrix.target }}
+              cp "target/${{ matrix.target }}/release/diff-pretty" "diff-pretty-${{ matrix.target }}-static"
+            '
+
+      - name: Save macOS release
+        if: endsWith(matrix.target, '-apple-darwin')
+        run: cp "target/${{ matrix.target }}/release/diff-pretty" "diff-pretty-${{ matrix.target }}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: diff-pretty-${{ matrix.target }}
+          path: diff-pretty-*
+
+  release:
+    name: Create pre-release
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: diff-pretty-*
+          path: dist
+          merge-multiple: true
+
+      - name: Create pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: release-${{ github.sha }}
+        run: |
+          gh release create "$RELEASE_TAG" dist/diff-pretty-* \
+            --repo "$GITHUB_REPOSITORY" \
+            --prerelease \
+            --target "$GITHUB_SHA" \
+            --title "$RELEASE_TAG"

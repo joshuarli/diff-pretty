@@ -85,7 +85,35 @@ make check                    # byte-for-byte binary check over every fixture
 make diff FIXTURE=show_003    # ANSI-stripped diff for one fixture
 make bench                    # run benchmarks and persist a host baseline
 make bench-diff AFTER=...     # compare a candidate baseline with the saved one
+make release                  # release build (no PGO): build-std + aggressive flags
+make pgo-profile              # collect equally weighted profiles from the bench suite
+make release-pgo              # PGO-optimized release for the host target
+make release-pgo-linux        # PGO + dynamically linked musl (Linux only)
+make release-pgo-linux-static # PGO + statically linked musl (Linux only)
+make bench-pgo                # benchmark regular vs PGO and compare baselines
+make verify-release           # ELF checks for the static musl release
+make verify-release-dynamic   # ELF checks for the dynamic musl release
 ```
+
+PGO release targets:
+
+- `pgo-profile` runs `cargo bench --bench bench -- --sample-size 1` with
+  `-Cprofile-generate` and merges the profiles with
+  `$(LLVM_BIN)/llvm-profdata`. No `build-std` or `-Cpanic=immediate-abort`
+  here: the profiler runtime needs unwinding.
+- `release-pgo` (and the Linux variants) rebuild with `-Cprofile-use` plus
+  `-Zlocation-detail=none -Zunstable-options -Cpanic=immediate-abort` and
+  `build-std`. Linux builds need the `diff-pretty-crt` stub objects and the
+  clang/musl toolchain provided by the `Dockerfile`; the dynamic variant links
+  against the musl loader, the static variant does not.
+- `bench-pgo` compares a persisted regular baseline against a `pgo` variant
+  baseline (`benches/<host>-baseline.txt` vs `benches/<host>-pgo-baseline.txt`)
+  via `scripts/diff-baselines.py`.
+
+The release workflow (`.github/workflows/release.yml`, manual dispatch) builds
+macOS and Linux artifacts inside the `Dockerfile` image on each target, runs
+`make verify-release[-dynamic]` and `make test-ci`, then uploads the binaries
+and creates a pre-release.
 
 The binary reads from stdin and writes to stdout:
 
