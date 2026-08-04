@@ -1,0 +1,68 @@
+commit f2a9c6650ada53d5e809cd0d39b3ba5105ae0420
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Sun Jun 23 21:29:51 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Mon Jun 24 10:34:24 2019 -0400
+
+    Handle error conditions
+
+
+[34mΔ src/main.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m[38;2;68;68;68m  1 [34m[38;2;68;68;68m  1 [34m[0mextern crate unidiff;
+[34m[38;2;68;68;68m  2 [34m[38;2;68;68;68m  2 [34m[0m
+[34m[38;5;88m  3 [34m[38;5;28m    [34m[31muse std::io::{self, Read[1;7m, Write[0m[31m};[0m
+[34m[38;5;88m    [34m[38;5;28m  3 [34m[32muse std::io::{self, Read};[0m
+[34m[38;2;68;68;68m  4 [34m[38;2;68;68;68m  4 [34m[0muse std::path::Path;
+[34m[38;2;68;68;68m  5 [34m[38;2;68;68;68m  5 [34m[0m
+[34m[38;2;68;68;68m  6 [34m[38;2;68;68;68m  6 [34m[0muse syntect::easy::HighlightLines;
+
+[34m───────────────[0m[34m┐[0m
+[34m•[0m  fn main() { [34m│[0m
+[34m───────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 14 [34m[38;2;68;68;68m 14 [34m[0m    let ts = ThemeSet::load_defaults();
+[34m[38;2;68;68;68m 15 [34m[38;2;68;68;68m 15 [34m[0m
+[34m[38;2;68;68;68m 16 [34m[38;2;68;68;68m 16 [34m[0m    let mut input = String::new();
+[34m[38;5;88m 17 [34m[38;5;28m    [34m[31m    io::stdin().read_to_string(&mut input);[0m
+[34m[38;5;88m    [34m[38;5;28m 17 [34m[32m    io::stdin().read_to_string(&mut input)[1;7m.expect("Error reading input")[0m[32m;[0m
+[34m[38;2;68;68;68m 18 [34m[38;2;68;68;68m 18 [34m[0m    let mut patch_set = PatchSet::new();
+[34m[38;5;88m 19 [34m[38;5;28m    [34m[31m    patch_set.parse(&mut input).ok().expect("Error parsing diff");[0m
+[34m[38;5;88m    [34m[38;5;28m 19 [34m[32m    patch_set.parse(&mut input).ok().expect("Error parsing [1;7minput as a [0m[32mdiff");[0m
+[34m[38;2;68;68;68m 20 [34m[38;2;68;68;68m 20 [34m[0m    for patched_file in patch_set {
+[34m[38;2;68;68;68m 21 [34m[38;2;68;68;68m 21 [34m[0m        let path = Path::new(&patched_file.source_file);
+[34m[38;5;88m 22 [34m[38;5;28m    [34m[31m        let [1;7msyntax[0m[31m = [1;7mps.find_syntax_by_extension(path.[0m[31mextension[1;7m().unwrap()[0m[31m.to_str().unwrap()[1;7m).unwrap()[0m[31m;[0m
+[34m[38;5;88m 23 [34m[38;5;28m    [34m[31m        let mut [1;7mh[0m[31m = HighlightLines::new(syntax, &ts.themes["base16-ocean.dark"]);[0m
+[34m[38;5;88m 24 [34m[38;5;28m    [34m[31m        io::stdout().write_all(format!("\n<<<<<<<<<<<<<<<<<<<<<< file: {}\n", patched_file.source_file).as_bytes());[0m
+[34m[38;5;88m 25 [34m[38;5;28m    [34m[31m        for hunk in patched_file {[0m
+[34m[38;5;88m 26 [34m[38;5;28m    [34m[31m            for line in LinesWithEndings::from(&hunk.to_string()) {[0m
+[34m[38;5;88m 27 [34m[38;5;28m    [34m[31m                let ranges: Vec<(Style, &str)> = [1;7mh[0m[31m.highlight(line, &ps);[0m
+[34m[38;5;88m 28 [34m[38;5;28m    [34m[31m                let escaped = as_24_bit_terminal_escaped(&ranges[..], true);[0m
+[34m[38;5;88m 29 [34m[38;5;28m    [34m[31m                [1;7mprintln[0m[31m!("{}", escaped);[0m
+[34m[38;5;88m    [34m[38;5;28m 22 [34m[32m        let extension = path.extension()[0m
+[34m[38;5;88m    [34m[38;5;28m 23 [34m[32m            .expect(format!("Error determining file type: {}", path.to_str().unwrap()).as_str());[0m
+[34m[38;5;88m    [34m[38;5;28m 24 [34m[32m        let [1;7mextension_str[0m[32m = extension.to_str().unwrap();[0m
+[34m[38;5;88m    [34m[38;5;28m 25 [34m[32m        let syntax = ps.find_syntax_by_extension(extension_str);[0m
+[34m[38;5;88m    [34m[38;5;28m 26 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 27 [34m[32m        match syntax {[0m
+[34m[38;5;88m    [34m[38;5;28m 28 [34m[32m            Some(syntax) => {[0m
+[34m[38;5;88m    [34m[38;5;28m 29 [34m[32m        [1;7m        [0m[32mlet mut [1;7mhighlighter[0m[32m = HighlightLines::new(syntax, &ts.themes["base16-ocean.dark"]);[0m
+[34m[38;5;88m    [34m[38;5;28m 30 [34m[32m        [1;7m        [0m[32mfor hunk in patched_file {[0m
+[34m[38;5;88m    [34m[38;5;28m 31 [34m[32m            [1;7m        [0m[32mfor line in LinesWithEndings::from(&hunk.to_string()) {[0m
+[34m[38;5;88m    [34m[38;5;28m 32 [34m[32m                [1;7m        [0m[32mlet ranges: Vec<(Style, &str)> = [1;7mhighlighter[0m[32m.highlight(line, &ps);[0m
+[34m[38;5;88m    [34m[38;5;28m 33 [34m[32m                [1;7m        [0m[32mlet escaped = as_24_bit_terminal_escaped(&ranges[..], true);[0m
+[34m[38;5;88m    [34m[38;5;28m 34 [34m[32m                [1;7m        print[0m[32m!("{}", escaped);[0m
+[34m[38;5;88m    [34m[38;5;28m 35 [34m[32m                    }[0m
+[34m[38;5;88m    [34m[38;5;28m 36 [34m[32m                }[0m
+[34m[38;5;88m    [34m[38;5;28m 37 [34m[32m            },[0m
+[34m[38;5;88m    [34m[38;5;28m 38 [34m[32m            None => {[0m
+[34m[38;5;88m    [34m[38;5;28m 39 [34m[32m                for hunk in patched_file {[0m
+[34m[38;5;88m    [34m[38;5;28m 40 [34m[32m                    for line in LinesWithEndings::from(&hunk.to_string()) {[0m
+[34m[38;5;88m    [34m[38;5;28m 41 [34m[32m                        print!("{}", line);[0m
+[34m[38;5;88m    [34m[38;5;28m 42 [34m[32m                    }[0m
+[34m[38;5;88m    [34m[38;5;28m 43 [34m[32m                }[0m
+[34m[38;2;68;68;68m 30 [34m[38;2;68;68;68m 44 [34m[0m            }
+[34m[38;2;68;68;68m 31 [34m[38;2;68;68;68m 45 [34m[0m        }
+[34m[38;2;68;68;68m 32 [34m[38;2;68;68;68m 46 [34m[0m    }
+[34m[38;5;88m    [34m[38;5;28m 47 [34m[32m    println!("");[0m
+[34m[38;2;68;68;68m 33 [34m[38;2;68;68;68m 48 [34m[0m}

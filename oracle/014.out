@@ -1,0 +1,27 @@
+commit d216fb3f03641b52b24fb05931b45328bbbff1fa
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Tue Jun 25 09:29:03 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Tue Jun 25 09:29:03 2019 -0400
+
+    Separate files in output
+
+
+[34mΔ src/main.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m───────────────[0m[34m┐[0m
+[34m•[0m  fn main() { [34m│[0m
+[34m───────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 51 [34m[38;2;68;68;68m 51 [34m[0m        let extension_str = extension.to_str().unwrap();
+[34m[38;2;68;68;68m 52 [34m[38;2;68;68;68m 52 [34m[0m        let syntax = ps.find_syntax_by_extension(extension_str);
+[34m[38;2;68;68;68m 53 [34m[38;2;68;68;68m 53 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 54 [34m[32m        print!([0m
+[34m[38;5;88m    [34m[38;5;28m 55 [34m[32m            "\n{}\n{}\n\n",[0m
+[34m[38;5;88m    [34m[38;5;28m 56 [34m[32m            "__________________________________________________________________",[0m
+[34m[38;5;88m    [34m[38;5;28m 57 [34m[32m            path.display(),[0m
+[34m[38;5;88m    [34m[38;5;28m 58 [34m[32m        );[0m
+[34m[38;5;88m    [34m[38;5;28m 59 [34m[0m
+[34m[38;2;68;68;68m 54 [34m[38;2;68;68;68m 60 [34m[0m        match syntax {
+[34m[38;2;68;68;68m 55 [34m[38;2;68;68;68m 61 [34m[0m            Some(syntax) => {
+[34m[38;2;68;68;68m 56 [34m[38;2;68;68;68m 62 [34m[0m                let mut highlighter = HighlightLines::new(syntax, theme);

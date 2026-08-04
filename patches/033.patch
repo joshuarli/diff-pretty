@@ -1,0 +1,21 @@
+commit 9f173e03c86cef6c8bc5df61d456797b8a55ca1f
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Wed Jun 26 12:51:59 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Wed Jun 26 12:51:59 2019 -0400
+
+    Fix doc comment
+
+diff --git a/src/main.rs b/src/main.rs
+index 7dd53bc..4ad7569 100644
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -178,7 +178,7 @@ fn get_file_extension_from_diff_line(line: &str) -> Option<&str> {
+ }
+ 
+ /// Given input like "diff --git a/src/main.rs b/src/main.rs"
+-/// return ("src/main.rs", "src/main.rs").
++/// return ("rs", "rs").
+ fn get_file_extensions_from_diff_line(line: &str) -> (Option<&str>, Option<&str>) {
+     let mut iter = line.split(" ");
+     iter.next(); // diff

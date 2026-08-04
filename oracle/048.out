@@ -1,0 +1,118 @@
+commit 6fcc5562bd7d2b3b68253d3b795041cdcf4c8953
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Thu Jun 27 11:23:11 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Thu Jun 27 11:41:07 2019 -0400
+
+    README
+
+
+[34mΔ README.md[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m[38;2;68;68;68m  6 [34m[38;2;68;68;68m  6 [34m[0m## Usage
+[34m[38;2;68;68;68m  7 [34m[38;2;68;68;68m  7 [34m[0m```
+[34m[38;2;68;68;68m  8 [34m[38;2;68;68;68m  8 [34m[0mdelta 0.1.0
+[34m[38;5;88m  9 [34m[38;5;28m    [34m[31mDan Davison <dandavison7@gmail.com>[0m
+[34m[38;2;68;68;68m 10 [34m[38;2;68;68;68m  9 [34m[0mAdds language-specific syntax highlighting to git output. Use 'delta | less -R' as core.pager in .gitconfig
+[34m[38;2;68;68;68m 11 [34m[38;2;68;68;68m 10 [34m[0m
+[34m[38;2;68;68;68m 12 [34m[38;2;68;68;68m 11 [34m[0mUSAGE:
+
+[34m────────────[0m[34m┐[0m
+[34m•[0m  OPTIONS: [34m│[0m
+[34m────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 32 [34m[38;2;68;68;68m 31 [34m[0m
+[34m[38;2;68;68;68m 33 [34m[38;2;68;68;68m 32 [34m[0m## Installation
+[34m[38;2;68;68;68m 34 [34m[38;2;68;68;68m 33 [34m[0m
+[34m[38;5;88m 35 [34m[38;5;28m    [34m[31m#### 0. Use a terminal that supports 24 bit colors[0m
+[34m[38;5;88m 36 [34m[38;5;28m    [34m[31m  See https://gist.github.com/XVilka/8346728[0m
+[34m[38;5;88m    [34m[38;5;28m 34 [34m[32m1. **Install the Rust development environment:**<br>[0m
+[34m[38;5;88m    [34m[38;5;28m 35 [34m[32m    See https://www.rust-lang.org/tools/install.[0m
+[34m[38;2;68;68;68m 37 [34m[38;2;68;68;68m 36 [34m[0m
+[34m[38;5;88m 38 [34m[38;5;28m    [34m[31m  For example, on macos, iTerm2 works but Terminal.app does not. If you are using tmux, see the section at the bottom.[0m
+[34m[38;5;88m    [34m[38;5;28m 37 [34m[32m2. **Clone this repo**<br>[0m
+[34m[38;2;68;68;68m 39 [34m[38;2;68;68;68m 38 [34m[0m
+[34m[38;5;88m 40 [34m[38;5;28m    [34m[31m#### 1. Install the Rust development environment.[0m
+[34m[38;5;88m 41 [34m[38;5;28m    [34m[31m  See https://www.rust-lang.org/tools/install.[0m
+[34m[38;5;88m    [34m[38;5;28m 39 [34m[32m3. **Build the executable:**<br>[0m
+[34m[38;5;88m    [34m[38;5;28m 40 [34m[32m    ```sh[0m
+[34m[38;5;88m    [34m[38;5;28m 41 [34m[32m    cd delta[0m
+[34m[38;5;88m    [34m[38;5;28m 42 [34m[32m    cargo build[0m
+[34m[38;5;88m    [34m[38;5;28m 43 [34m[32m    ```[0m
+[34m[38;5;88m    [34m[38;5;28m 44 [34m[32m    This creates an executable inside the repo at `target/debug/delta`. Make sure this executable is found on your shell[0m
+[34m[38;5;88m    [34m[38;5;28m 45 [34m[32m    `$PATH`.[0m
+[34m[38;2;68;68;68m 42 [34m[38;2;68;68;68m 46 [34m[0m
+[34m[38;5;88m 43 [34m[38;5;28m    [34m[31m#### 2. Clone this repo.[0m
+[34m[38;5;88m    [34m[38;5;28m 47 [34m[32m    For example, if `~/bin` is in your `$PATH`, then you could use a symlink:[0m
+[34m[38;5;88m    [34m[38;5;28m 48 [34m[32m    ```[0m
+[34m[38;5;88m    [34m[38;5;28m 49 [34m[32m    cd ~/bin[0m
+[34m[38;5;88m    [34m[38;5;28m 50 [34m[32m    ln -s /path/to/delta/target/debug/delta delta[0m
+[34m[38;5;88m    [34m[38;5;28m 51 [34m[32m    ```[0m
+[34m[38;2;68;68;68m 44 [34m[38;2;68;68;68m 52 [34m[0m
+[34m[38;5;88m 45 [34m[38;5;28m    [34m[31m#### 3. Build the executable:[0m
+[34m[38;5;88m 46 [34m[38;5;28m    [34m[31m  ```sh[0m
+[34m[38;5;88m 47 [34m[38;5;28m    [34m[31m  cd delta[0m
+[34m[38;5;88m 48 [34m[38;5;28m    [34m[31m  cargo build[0m
+[34m[38;5;88m 49 [34m[38;5;28m    [34m[31m  ```[0m
+[34m[38;5;88m 50 [34m[38;5;28m    [34m[31m  This creates an executable inside the repo at `target/debug/delta`. Make sure this executable is found on your shell[0m
+[34m[38;5;88m 51 [34m[38;5;28m    [34m[31m  `$PATH`.[0m
+[34m[38;5;88m    [34m[38;5;28m 53 [34m[32m    Alternatively, you can ignore `$PATH` and use[0m
+[34m[38;5;88m    [34m[38;5;28m 54 [34m[32m    `/path/to/delta/target/debug/delta | less -R` in the next step.[0m
+[34m[38;2;68;68;68m 52 [34m[38;2;68;68;68m 55 [34m[0m
+[34m[38;5;88m 53 [34m[38;5;28m    [34m[31m  For example, if `~/bin` is in your `$PATH`, then you could use a symlink:[0m
+[34m[38;5;88m 54 [34m[38;5;28m    [34m[31m  ```[0m
+[34m[38;5;88m 55 [34m[38;5;28m    [34m[31m  cd ~/bin[0m
+[34m[38;5;88m 56 [34m[38;5;28m    [34m[31m  ln -s /path/to/delta/target/debug/delta delta[0m
+[34m[38;5;88m 57 [34m[38;5;28m    [34m[31m  ```[0m
+[34m[38;5;88m 58 [34m[38;5;28m    [34m[0m
+[34m[38;5;88m 59 [34m[38;5;28m    [34m[31m  Alternatively, you can ignore `$PATH` and use[0m
+[34m[38;5;88m 60 [34m[38;5;28m    [34m[31m  `/path/to/delta/target/debug/delta | less -R` in the next step.[0m
+[34m[38;5;88m 61 [34m[38;5;28m    [34m[0m
+[34m[38;5;88m 62 [34m[38;5;28m    [34m[31m#### 4. Configure git to use delta:[0m
+[34m[38;5;88m 63 [34m[38;5;28m    [34m[31m  Edit your `~/.gitconfig`:[0m
+[34m[38;5;88m 64 [34m[38;5;28m    [34m[31m  ```[0m
+[34m[38;5;88m 65 [34m[38;5;28m    [34m[31m  [core][0m
+[34m[38;5;88m 66 [34m[38;5;28m    [34m[31m      pager [1;7m= [0m[31mdelta | less -R[0m
+[34m[38;5;88m 67 [34m[38;5;28m    [34m[31m  ```[0m
+[34m[38;5;88m 68 [34m[38;5;28m    [34m[31m  Alternatively, run this command:[0m
+[34m[38;5;88m 69 [34m[38;5;28m    [34m[31m  ```[0m
+[34m[38;5;88m 70 [34m[38;5;28m    [34m[31m  git config --global core.pager 'delta | less -R'[0m
+[34m[38;5;88m 71 [34m[38;5;28m    [34m[31m  ```[0m
+[34m[38;5;88m    [34m[38;5;28m 56 [34m[32m4. **Configure git to use delta:**<br>[0m
+[34m[38;5;88m    [34m[38;5;28m 57 [34m[32m    Edit your `~/.gitconfig`:[0m
+[34m[38;5;88m    [34m[38;5;28m 58 [34m[32m  [1;7m  [0m[32m```[0m
+[34m[38;5;88m    [34m[38;5;28m 59 [34m[32m    [core][0m
+[34m[38;5;88m    [34m[38;5;28m 60 [34m[32m        pager = delta | less -R[0m
+[34m[38;5;88m    [34m[38;5;28m 61 [34m[32m  [1;7m  [0m[32m```[0m
+[34m[38;5;88m    [34m[38;5;28m 62 [34m[32m    Alternatively, run this command:[0m
+[34m[38;5;88m    [34m[38;5;28m 63 [34m[32m  [1;7m  [0m[32m```[0m
+[34m[38;5;88m    [34m[38;5;28m 64 [34m[32m    [1;7mgit config[0m[32m [1;7m--global[0m[32m [1;7mcore.[0m[32mpager [1;7m'[0m[32mdelta | less -R[1;7m'[0m
+[34m[38;5;88m    [34m[38;5;28m 65 [34m[32m  [1;7m  [0m[32m```[0m
+[34m[38;2;68;68;68m 72 [34m[38;2;68;68;68m 66 [34m[0m
+[34m[38;2;68;68;68m 73 [34m[38;2;68;68;68m 67 [34m[0mAll git commands that display diff output should now display syntax-highlighted output. For example:
+[34m[38;2;68;68;68m 74 [34m[38;2;68;68;68m 68 [34m[0m  - `git diff`
+
+[34m───────────────────────────────────────────────────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  All git commands that display diff output should now display syntax-highlighted [34m│[0m
+[34m───────────────────────────────────────────────────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 76 [34m[38;2;68;68;68m 70 [34m[0m  - `git log -p`
+[34m[38;2;68;68;68m 77 [34m[38;2;68;68;68m 71 [34m[0m  - `git stash show -p`
+[34m[38;2;68;68;68m 78 [34m[38;2;68;68;68m 72 [34m[0m
+[34m[38;5;88m 79 [34m[38;5;28m    [34m[31m#### Tmux 24bit color configuration[0m
+[34m[38;5;88m 80 [34m[38;5;28m    [34m[31m If you're using tmux, it's worth checking that 24 bit color is  working correctly. For example, run a color test script like [this  one](https://gist.githubusercontent.com/lifepillar/09a44b8cf0f9397465614e622979107f/raw/24-bit-color.sh),  or the others listed at https://gist.github.com/XVilka/8346728. If  you do not see smooth color gradients, see the discussion at  [tmux#696](https://github.com/tmux/tmux/issues/696). The short  version is you need something like this in your `~/.tmux.conf`:[0m
+[34m[38;5;88m 81 [34m[38;5;28m    [34m[31m ```[0m
+[34m[38;5;88m 82 [34m[38;5;28m    [34m[31m set -ga terminal-overrides ",xterm-256color:Tc"[0m
+[34m[38;5;88m 83 [34m[38;5;28m    [34m[31m ```[0m
+[34m[38;5;88m 84 [34m[38;5;28m    [34m[31m and you may then  need to quit tmux completely for it to take effect.[0m
+[34m[38;5;88m    [34m[38;5;28m 73 [34m[32m## 24 bit color[0m
+[34m[38;5;88m    [34m[38;5;28m 74 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 75 [34m[32m  delta works best if your terminal application supports 24 bit colors. See https://gist.github.com/XVilka/8346728. For example, on macos, iTerm2 works but Terminal.app does not.[0m
+[34m[38;5;88m    [34m[38;5;28m 76 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 77 [34m[32m [1;7m [0m[32mIf you're using tmux, it's worth checking that 24 bit color is  working correctly. For example, run a color test script like [this  one](https://gist.githubusercontent.com/lifepillar/09a44b8cf0f9397465614e622979107f/raw/24-bit-color.sh),  or the others listed at https://gist.github.com/XVilka/8346728. If  you do not see smooth color gradients, see the discussion at  [tmux#696](https://github.com/tmux/tmux/issues/696). The short  version is you need something like this in your `~/.tmux.conf`:[0m
+[34m[38;5;88m    [34m[38;5;28m 78 [34m[32m [1;7m [0m[32m```[0m
+[34m[38;5;88m    [34m[38;5;28m 79 [34m[32m [1;7m [0m[32mset -ga terminal-overrides ",xterm-256color:Tc"[0m
+[34m[38;5;88m    [34m[38;5;28m 80 [34m[32m [1;7m [0m[32m```[0m
+[34m[38;5;88m    [34m[38;5;28m 81 [34m[32m [1;7m [0m[32mand you may then  need to quit tmux completely for it to take effect.[0m
+[34m[38;2;68;68;68m 85 [34m[38;2;68;68;68m 82 [34m[0m
+[34m[38;2;68;68;68m 86 [34m[38;2;68;68;68m 83 [34m[0m## Credit
+[34m[38;2;68;68;68m 87 [34m[38;2;68;68;68m 84 [34m[0m  https://github.com/trishume/syntect<br>

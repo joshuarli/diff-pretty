@@ -1,0 +1,40 @@
+commit 8f16a88b20cf8f0267214302babdb1ce4439fb2b
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Thu Jun 27 15:50:54 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Thu Jun 27 15:50:54 2019 -0400
+
+    README: passing arguments in .gitconfig
+
+
+[34mΔ README.md[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m────────────[0m[34m┐[0m
+[34m•[0m  OPTIONS: [34m│[0m
+[34m────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 58 [34m[38;2;68;68;68m 58 [34m[0m    `/path/to/delta/target/debug/delta | less -R` in the next step.
+[34m[38;2;68;68;68m 59 [34m[38;2;68;68;68m 59 [34m[0m
+[34m[38;2;68;68;68m 60 [34m[38;2;68;68;68m 60 [34m[0m4. **Configure git to use delta:**<br>
+[34m[38;5;88m 61 [34m[38;5;28m    [34m[31m    (Note that delta defaults to a light theme, so if you're using a dark terminal background, you'll want to use `--dark` or `--theme[1;7m [0m[31m<theme-name>`.)[0m
+[34m[38;5;88m    [34m[38;5;28m 61 [34m[32m    (Note that delta defaults to a light theme, so if you're using a dark terminal background, you'll want to use `--dark` or `--theme[1;7m=[0m[32m<theme-name>`.)[0m
+[34m[38;2;68;68;68m 62 [34m[38;2;68;68;68m 62 [34m[0m
+[34m[38;2;68;68;68m 63 [34m[38;2;68;68;68m 63 [34m[0m    Edit your `~/.gitconfig`:
+[34m[38;2;68;68;68m 64 [34m[38;2;68;68;68m 64 [34m[0m    ```
+
+[34m────────────[0m[34m┐[0m
+[34m•[0m  OPTIONS: [34m│[0m
+[34m────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 70 [34m[38;2;68;68;68m 70 [34m[0m    git config --global core.pager 'delta | less -R'
+[34m[38;2;68;68;68m 71 [34m[38;2;68;68;68m 71 [34m[0m    ```
+[34m[38;2;68;68;68m 72 [34m[38;2;68;68;68m 72 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 73 [34m[32m    You can pass arguments to delta in your `.gitconfig`. An example is[0m
+[34m[38;5;88m    [34m[38;5;28m 74 [34m[32m    ```[0m
+[34m[38;5;88m    [34m[38;5;28m 75 [34m[32m    [core][0m
+[34m[38;5;88m    [34m[38;5;28m 76 [34m[32m        pager = delta --width=100 --plus-color="#012800" --minus-color="#340001" --theme="base16-ocean.dark" | less -R[0m
+[34m[38;5;88m    [34m[38;5;28m 77 [34m[32m    ```[0m
+[34m[38;5;88m    [34m[38;5;28m 78 [34m[32m    Please include the `=` characters; I'm not sure why yet, but they're necessary when writing a delta command line in `.gitconfig`![0m
+[34m[38;5;88m    [34m[38;5;28m 79 [34m[0m
+[34m[38;2;68;68;68m 73 [34m[38;2;68;68;68m 80 [34m[0mAll git commands that display diff output should now display syntax-highlighted output. For example:
+[34m[38;2;68;68;68m 74 [34m[38;2;68;68;68m 81 [34m[0m  - `git diff`
+[34m[38;2;68;68;68m 75 [34m[38;2;68;68;68m 82 [34m[0m  - `git show`

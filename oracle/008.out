@@ -1,0 +1,39 @@
+commit 0c9c948113df0b5fa64bb901a603880822801e7d
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Mon Jun 24 08:07:25 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Mon Jun 24 10:34:24 2019 -0400
+
+    Theme
+
+
+[34mΔ src/main.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  use syntect::parsing::SyntaxSet; [34m│[0m
+[34m────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m  9 [34m[38;2;68;68;68m  9 [34m[0muse syntect::util::{as_24_bit_terminal_escaped, LinesWithEndings};
+[34m[38;2;68;68;68m 10 [34m[38;2;68;68;68m 10 [34m[0muse unidiff::PatchSet;
+[34m[38;2;68;68;68m 11 [34m[38;2;68;68;68m 11 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 12 [34m[32mpub const DELTA_THEME_DEFAULT: &str = "InspiredGitHub";  // base16-mocha.dark[0m
+[34m[38;5;88m    [34m[38;5;28m 13 [34m[0m
+[34m[38;2;68;68;68m 12 [34m[38;2;68;68;68m 14 [34m[0mfn main() {
+[34m[38;2;68;68;68m 13 [34m[38;2;68;68;68m 15 [34m[0m    let ps = SyntaxSet::load_defaults_newlines();
+[34m[38;2;68;68;68m 14 [34m[38;2;68;68;68m 16 [34m[0m    let ts = ThemeSet::load_defaults();
+[34m[38;5;88m    [34m[38;5;28m 17 [34m[32m    let theme = &ts.themes[DELTA_THEME_DEFAULT];[0m
+[34m[38;2;68;68;68m 15 [34m[38;2;68;68;68m 18 [34m[0m
+[34m[38;2;68;68;68m 16 [34m[38;2;68;68;68m 19 [34m[0m    let mut input = String::new();
+[34m[38;2;68;68;68m 17 [34m[38;2;68;68;68m 20 [34m[0m    io::stdin().read_to_string(&mut input).expect("Error reading input");
+
+[34m───────────────[0m[34m┐[0m
+[34m•[0m  fn main() { [34m│[0m
+[34m───────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 26 [34m[38;2;68;68;68m 29 [34m[0m
+[34m[38;2;68;68;68m 27 [34m[38;2;68;68;68m 30 [34m[0m        match syntax {
+[34m[38;2;68;68;68m 28 [34m[38;2;68;68;68m 31 [34m[0m            Some(syntax) => {
+[34m[38;5;88m 29 [34m[38;5;28m    [34m[31m                let mut highlighter = HighlightLines::new(syntax, [1;7m&ts.themes["base16-ocean.dark"][0m[31m);[0m
+[34m[38;5;88m    [34m[38;5;28m 32 [34m[32m                let mut highlighter = HighlightLines::new(syntax, [1;7mtheme[0m[32m);[0m
+[34m[38;2;68;68;68m 30 [34m[38;2;68;68;68m 33 [34m[0m                for hunk in patched_file {
+[34m[38;2;68;68;68m 31 [34m[38;2;68;68;68m 34 [34m[0m                    for line in LinesWithEndings::from(&hunk.to_string()) {
+[34m[38;2;68;68;68m 32 [34m[38;2;68;68;68m 35 [34m[0m                        let ranges: Vec<(Style, &str)> = highlighter.highlight(line, &ps);

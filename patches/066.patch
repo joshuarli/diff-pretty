@@ -1,0 +1,48 @@
+commit 51485cfb35a4fa41fc0a2922194fb9b5a1bc8103
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Sat Jun 29 18:07:52 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Sat Jun 29 18:13:03 2019 -0400
+
+    Add list_themes from bat
+
+diff --git a/src/assets.rs b/src/assets.rs
+index b5adafb..e869d85 100644
+--- a/src/assets.rs
++++ b/src/assets.rs
+@@ -116,3 +116,35 @@ pub fn list_languages() -> std::io::Result<()> {
+ 
+     Ok(())
+ }
++
++pub fn list_themes(cfg: &Config) -> Result<()> {
++    let assets = HighlightingAssets::new();
++    let themes = &assets.theme_set.themes;
++    let mut config = cfg.clone();
++    let mut style = HashSet::new();
++    style.insert(OutputComponent::Plain);
++    config.files = vec![InputFile::ThemePreviewFile];
++    config.output_components = OutputComponents(style);
++
++    let stdout = io::stdout();
++    let mut stdout = stdout.lock();
++
++    if config.colored_output {
++        for (theme, _) in themes.iter() {
++            writeln!(
++                stdout,
++                "Theme: {}\n",
++                Style::new().bold().paint(theme.to_string())
++            )?;
++            config.theme = theme.to_string();
++            let _controller = Controller::new(&config, &assets).run();
++            writeln!(stdout)?;
++        }
++    } else {
++        for (theme, _) in themes.iter() {
++            writeln!(stdout, "{}", theme)?;
++        }
++    }
++
++    Ok(())
++}

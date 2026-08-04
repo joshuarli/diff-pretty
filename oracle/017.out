@@ -1,0 +1,83 @@
+commit a81c86cc4cf42f23ea2ef83459e2a54933ccdda1
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Tue Jun 25 22:52:56 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Wed Jun 26 09:59:01 2019 -0400
+
+    Parse file names and extensions
+
+
+[34mΔ src/main.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m───────────────[0m[34m┐[0m
+[34m•[0m  fn main() { [34m│[0m
+[34m───────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 42 [34m[38;2;68;68;68m 42 [34m[0m        let line = _line.unwrap();
+[34m[38;2;68;68;68m 43 [34m[38;2;68;68;68m 43 [34m[0m        if line.starts_with("diff --") {
+[34m[38;2;68;68;68m 44 [34m[38;2;68;68;68m 44 [34m[0m            state = State::DiffMeta;
+[34m[38;5;88m 45 [34m[38;5;28m    [34m[31m            [1;7mlet extension[0m[31m = get_file_extension_from_diff_line(&line)[1;7m;[0m
+[34m[38;5;88m 46 [34m[38;5;28m    [34m[31m            [1;7msyntax[0m[31m = ps.find_syntax_by_extension(extension)[1;7m;[0m
+[34m[38;5;88m    [34m[38;5;28m 45 [34m[32m            [1;7msyntax[0m[32m = [1;7mmatch [0m[32mget_file_extension_from_diff_line(&line)[1;7m {[0m
+[34m[38;5;88m    [34m[38;5;28m 46 [34m[32m            [1;7m    Some(extension)[0m[32m =[1;7m>[0m[32m ps.find_syntax_by_extension(extension)[1;7m,[0m
+[34m[38;5;88m    [34m[38;5;28m 47 [34m[32m                None => None,[0m
+[34m[38;5;88m    [34m[38;5;28m 48 [34m[32m            };[0m
+[34m[38;2;68;68;68m 47 [34m[38;2;68;68;68m 49 [34m[0m        } else if line.starts_with("commit") {
+[34m[38;2;68;68;68m 48 [34m[38;2;68;68;68m 50 [34m[0m            state = State::Commit;
+[34m[38;2;68;68;68m 49 [34m[38;2;68;68;68m 51 [34m[0m        } else if line.starts_with("@@") {
+
+[34m─────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  fn my_as_24_bit_terminal_escaped( [34m│[0m
+[34m─────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 99 [34m[38;2;68;68;68m 101[34m[0m    buf.push_str("\x1b[0m");
+[34m[38;2;68;68;68m 100[34m[38;2;68;68;68m 102[34m[0m}
+[34m[38;2;68;68;68m 101[34m[38;2;68;68;68m 103[34m[0m
+[34m[38;5;88m    [34m[38;5;28m 104[34m[32m/// Given input like[0m
+[34m[38;5;88m    [34m[38;5;28m 105[34m[32m/// "diff --git a/src/main.rs b/src/main.rs"[0m
+[34m[38;5;88m    [34m[38;5;28m 106[34m[32m/// Return "rs", i.e. a single file extension consistent with both files.[0m
+[34m[38;5;88m    [34m[38;5;28m 107[34m[32mfn get_file_extension_from_diff_line(line: &str) -> Option<&str> {[0m
+[34m[38;5;88m    [34m[38;5;28m 108[34m[32m    match get_file_extensions_from_diff_line(line) {[0m
+[34m[38;5;88m    [34m[38;5;28m 109[34m[32m        (Some(ext1), Some(ext2)) => {[0m
+[34m[38;5;88m    [34m[38;5;28m 110[34m[32m            if ext1 == ext2 {[0m
+[34m[38;5;88m    [34m[38;5;28m 111[34m[32m                Some(ext1)[0m
+[34m[38;5;88m    [34m[38;5;28m 112[34m[32m            } else {[0m
+[34m[38;5;88m    [34m[38;5;28m 113[34m[32m                // TODO: Just return None and output without color.[0m
+[34m[38;5;88m    [34m[38;5;28m 114[34m[32m                panic!([0m
+[34m[38;5;88m    [34m[38;5;28m 115[34m[32m                    "Old and new files have different extensions: {} vs {}",[0m
+[34m[38;5;88m    [34m[38;5;28m 116[34m[32m                    ext1,[0m
+[34m[38;5;88m    [34m[38;5;28m 117[34m[32m                    ext2[0m
+[34m[38;5;88m    [34m[38;5;28m 118[34m[32m                );[0m
+[34m[38;5;88m    [34m[38;5;28m 119[34m[32m            }[0m
+[34m[38;5;88m    [34m[38;5;28m 120[34m[32m        }[0m
+[34m[38;5;88m    [34m[38;5;28m 121[34m[32m        (Some(ext1), None) => Some(ext1),[0m
+[34m[38;5;88m    [34m[38;5;28m 122[34m[32m        (None, Some(ext2)) => Some(ext2),[0m
+[34m[38;5;88m    [34m[38;5;28m 123[34m[32m        (None, None) => None,[0m
+[34m[38;5;88m    [34m[38;5;28m 124[34m[32m    }[0m
+[34m[38;5;88m    [34m[38;5;28m 125[34m[32m}[0m
+[34m[38;2;68;68;68m 102[34m[38;2;68;68;68m 126[34m[0m
+[34m[38;5;88m    [34m[38;5;28m 127[34m[32m/// Given input like "diff --git a/src/main.rs b/src/main.rs"[0m
+[34m[38;5;88m    [34m[38;5;28m 128[34m[32m/// return ("src/main.rs", "src/main.rs").[0m
+[34m[38;5;88m    [34m[38;5;28m 129[34m[32mfn get_file_extensions_from_diff_line(line: &str) -> (Option<&str>, Option<&str>) {[0m
+[34m[38;5;88m    [34m[38;5;28m 130[34m[32m    let mut iter = line.split(" ");[0m
+[34m[38;5;88m    [34m[38;5;28m 131[34m[32m    iter.next(); // diff[0m
+[34m[38;5;88m    [34m[38;5;28m 132[34m[32m    iter.next(); // --git[0m
+[34m[38;5;88m    [34m[38;5;28m 133[34m[32m    ([0m
+[34m[38;5;88m    [34m[38;5;28m 134[34m[32m        iter.next().and_then(|s| get_extension(&s[2..])),[0m
+[34m[38;5;88m    [34m[38;5;28m 135[34m[32m        iter.next().and_then(|s| get_extension(&s[2..])),[0m
+[34m[38;5;88m    [34m[38;5;28m 136[34m[32m    )[0m
+[34m[38;5;88m    [34m[38;5;28m 137[34m[32m}[0m
+[34m[38;2;68;68;68m 103[34m[38;2;68;68;68m 138[34m[0m
+[34m[38;5;88m 104[34m[38;5;28m    [34m[31mfn get_file_extension_from_diff_line(line: &String) -> &str {[0m
+[34m[38;5;88m 105[34m[38;5;28m    [34m[0m
+[34m[38;5;88m 106[34m[38;5;28m    [34m[31m    //let (old, new) = get_file_names_from_diff_line(&line);[0m
+[34m[38;5;88m 107[34m[38;5;28m    [34m[31m    let path = Path::new(line);[0m
+[34m[38;5;88m 108[34m[38;5;28m    [34m[31m    let extension =[0m
+[34m[38;5;88m 109[34m[38;5;28m    [34m[31m        path.extension().expect([0m
+[34m[38;5;88m 110[34m[38;5;28m    [34m[31m            format!("Error determining file type: {}", path.to_str().unwrap()).as_str(),[0m
+[34m[38;5;88m 111[34m[38;5;28m    [34m[31m        );[0m
+[34m[38;5;88m 112[34m[38;5;28m    [34m[31m    extension.to_str().unwrap();[0m
+[34m[38;5;88m 113[34m[38;5;28m    [34m[31m    "rs"[0m
+[34m[38;5;88m    [34m[38;5;28m 139[34m[32m/// Attempt to parse input as a file path and return extension as a &str.[0m
+[34m[38;5;88m    [34m[38;5;28m 140[34m[32mfn get_extension(s: &str) -> Option<&str> {[0m
+[34m[38;5;88m    [34m[38;5;28m 141[34m[32m    Path::new(s).extension().and_then(|e| e.to_str())[0m
+[34m[38;2;68;68;68m 114[34m[38;2;68;68;68m 142[34m[0m}

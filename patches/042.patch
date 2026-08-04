@@ -1,0 +1,62 @@
+commit 941f87c72315ea4b201e30625e8160cb415bb5c9
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Thu Jun 27 10:27:24 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Thu Jun 27 11:11:46 2019 -0400
+
+    CLI: --minus-color and --plus-color
+
+diff --git a/src/main.rs b/src/main.rs
+index 6258437..3274ced 100644
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -24,6 +24,18 @@ struct Opt {
+     #[structopt(long = "dark")]
+     dark: bool,
+ 
++    #[structopt(long = "plus-color")]
++    /// The background color (RGB hex) to use for added lines. The
++    /// default is "#d0ffd0" if you are using --light, and "#013B01"
++    /// if you are using --dark.
++    plus_color: Option<String>,
++
++    #[structopt(long = "minus-color")]
++    /// The background color (RGB hex) to use for removed lines. The
++    /// default is "#ffd0d0" if you are using --light, and "#3f0001" if
++    /// you are using --dark.
++    minus_color: Option<String>,
++
+     #[structopt(long = "theme")]
+     /// The syntax highlighting theme to use. Options are Light:
+     /// ("InspiredGitHub", "Solarized (light)", "base16-ocean.light"),
+@@ -122,7 +134,16 @@ fn delta() -> std::io::Result<()> {
+         } else if state == State::DiffHunk {
+             match syntax {
+                 Some(syntax) => {
+-                    paint::paint_line(line, syntax, &syntax_set, theme, &theme_name, &mut output);
++                    paint::paint_line(
++                        line,
++                        syntax,
++                        &syntax_set,
++                        theme,
++                        &theme_name,
++                        &opt.minus_color,
++                        &opt.plus_color,
++                        &mut output,
++                    );
+                     writeln!(stdout, "{}", output)?;
+                     output.truncate(0);
+                     did_emit_line = true;
+diff --git a/src/paint.rs b/src/paint.rs
+index 0b4e25d..af32086 100644
+--- a/src/paint.rs
++++ b/src/paint.rs
+@@ -46,6 +46,8 @@ pub fn paint_line(
+     syntax_set: &SyntaxSet,
+     theme: &Theme,
+     theme_name: &String,
++    minus_color: &Option<String>,
++    plus_color: &Option<String>,
+     buf: &mut String,
+ ) {
+     let mut highlighter = HighlightLines::new(syntax, theme);

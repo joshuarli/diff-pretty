@@ -1,0 +1,42 @@
+commit d4130bad3d9892908e5682659d02924c28182471
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Sun Jun 23 18:30:55 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Sun Jun 23 18:30:55 2019 -0400
+
+    Parse diff on stdin
+
+diff --git a/Cargo.toml b/Cargo.toml
+index a4fb170..31218b1 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -5,3 +5,4 @@ authors = ["Dan Davison <dandavison7@gmail.com>"]
+ edition = "2018"
+ 
+ [dependencies]
++unidiff = "0.3.1"
+\ No newline at end of file
+diff --git a/src/main.rs b/src/main.rs
+index 5d8fe60..fa168a7 100644
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -1,10 +1,13 @@
++extern crate unidiff;
++
+ use std::io::{self, Read, Write};
+ 
++use unidiff::PatchSet;
++
+ fn main() {
+-    let mut stdin = io::stdin();
+-    let mut stdout = io::stdout();
+-    let mut buf = String::new();
+-    stdin.read_to_string(&mut buf);
+-    stdout.write_all(buf.as_bytes());
+-    stdout.flush();
++    let mut diff_str = String::new();
++    let mut patch = PatchSet::new();
++    io::stdin().read_to_string(&mut diff_str);
++    patch.parse(&mut diff_str).ok().expect("Error parsing diff");
++    io::stdout().write_all(diff_str.as_bytes());
+ }

@@ -1,0 +1,61 @@
+commit d76d3b4252818aad661b5793c299453f52ede477
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Mon Jul 1 00:00:55 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Mon Jul 1 00:00:55 2019 -0400
+
+    Update README
+
+
+[34mΔ README.md[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m[38;2;68;68;68m  1 [34m[38;2;68;68;68m  1 [34m[0m## Δ
+[34m[38;2;68;68;68m  2 [34m[38;2;68;68;68m  2 [34m[0m  A syntax-highlighter for git.
+[34m[38;2;68;68;68m  3 [34m[38;2;68;68;68m  3 [34m[0m
+[34m[38;5;88m  4 [34m[38;5;28m    [34m[31m  _(This project is at [1;7ma very[0m[31m early stage, but please feel free to open issues.)_[0m
+[34m[38;5;88m    [34m[38;5;28m  4 [34m[32m  _(This project is at [1;7man[0m[32m early stage, but please feel free to open issues.)_[0m
+[34m[38;2;68;68;68m  5 [34m[38;2;68;68;68m  5 [34m[0m
+[34m[38;2;68;68;68m  6 [34m[38;2;68;68;68m  6 [34m[0m<img width=500px style="border: 1px solid black"
+[34m[38;2;68;68;68m  7 [34m[38;2;68;68;68m  7 [34m[0m    src="https://user-images.githubusercontent.com/52205/60282969-230d2c80-98d6-11e9-8656-09073c8a0985.png"
+
+[34m──────────[0m[34m┐[0m
+[34m•[0m  USAGE: [34m│[0m
+[34m──────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 17 [34m[38;2;68;68;68m 17 [34m[0m    delta [FLAGS] [OPTIONS]
+[34m[38;2;68;68;68m 18 [34m[38;2;68;68;68m 18 [34m[0m
+[34m[38;2;68;68;68m 19 [34m[38;2;68;68;68m 19 [34m[0mFLAGS:
+[34m[38;5;88m 20 [34m[38;5;28m    [34m[31m        --compare-themes    Compare available syntax highlighting themes. To use this option, supply git diff output[1;7m to[0m
+[34m[38;5;88m 21 [34m[38;5;28m    [34m[31m                            delta on standard input. For example: `git show --color=always | delta --compare-[1;7mthemes`.[0m
+[34m[38;5;88m 22 [34m[38;5;28m    [34m[31m        --dark              Use colors appropriate for a dark terminal background.  For more control, see --theme,[0m
+[34m[38;5;88m 23 [34m[38;5;28m    [34m[31m                            --plus-color, and --minus-color.[0m
+[34m[38;5;88m 24 [34m[38;5;28m    [34m[31m    -h, --help              Prints help information[0m
+[34m[38;5;88m 25 [34m[38;5;28m    [34m[31m        --light             Use colors appropriate for a light terminal background. For more control, see --theme,[0m
+[34m[38;5;88m 26 [34m[38;5;28m    [34m[31m                            --plus-color, and --minus-color.[0m
+[34m[38;5;88m 27 [34m[38;5;28m    [34m[31m        --list-languages    List supported languages and associated file extensions.[0m
+[34m[38;5;88m 28 [34m[38;5;28m    [34m[31m        --list-themes       List available syntax highlighting themes.[0m
+[34m[38;5;88m 29 [34m[38;5;28m    [34m[31m    -V, --version           Prints version information[0m
+[34m[38;5;88m    [34m[38;5;28m 20 [34m[32m        --compare-themes    [1;7m   [0m[32mCompare available syntax highlighting themes. To use this option, supply git diff output[0m
+[34m[38;5;88m    [34m[38;5;28m 21 [34m[32m                            [1;7m   to [0m[32mdelta on standard input. For example: `git show --color=always | delta --compare-[0m
+[34m[38;5;88m    [34m[38;5;28m 22 [34m[32m                               themes`.[0m
+[34m[38;5;88m    [34m[38;5;28m 23 [34m[32m        --dark              [1;7m   [0m[32mUse colors appropriate for a dark terminal background.  For more control, see --theme,[0m
+[34m[38;5;88m    [34m[38;5;28m 24 [34m[32m                            [1;7m   [0m[32m--plus-color, and --minus-color.[0m
+[34m[38;5;88m    [34m[38;5;28m 25 [34m[32m    -h, --help              [1;7m   [0m[32mPrints help information[0m
+[34m[38;5;88m    [34m[38;5;28m 26 [34m[32m        --highlight-removed    Apply syntax highlighting to removed lines. The default is to apply syntax highlighting[0m
+[34m[38;5;88m    [34m[38;5;28m 27 [34m[32m                               to unchanged and new lines only.[0m
+[34m[38;5;88m    [34m[38;5;28m 28 [34m[32m        --light             [1;7m   [0m[32mUse colors appropriate for a light terminal background. For more control, see --theme,[0m
+[34m[38;5;88m    [34m[38;5;28m 29 [34m[32m                            [1;7m   [0m[32m--plus-color, and --minus-color.[0m
+[34m[38;5;88m    [34m[38;5;28m 30 [34m[32m        --list-languages    [1;7m   [0m[32mList supported languages and associated file extensions.[0m
+[34m[38;5;88m    [34m[38;5;28m 31 [34m[32m        --list-themes       [1;7m   [0m[32mList available syntax highlighting themes.[0m
+[34m[38;5;88m    [34m[38;5;28m 32 [34m[32m    -V, --version           [1;7m   [0m[32mPrints version information[0m
+[34m[38;2;68;68;68m 30 [34m[38;2;68;68;68m 33 [34m[0m
+[34m[38;2;68;68;68m 31 [34m[38;2;68;68;68m 34 [34m[0mOPTIONS:
+[34m[38;2;68;68;68m 32 [34m[38;2;68;68;68m 35 [34m[0m        --minus-color <minus_color>    The background color (RGB hex) to use for removed lines.
+[34m[38;2;68;68;68m 33 [34m[38;2;68;68;68m 36 [34m[0m        --plus-color <plus_color>      The background color (RGB hex) to use for added lines.
+[34m[38;2;68;68;68m 34 [34m[38;2;68;68;68m 37 [34m[0m        --theme <theme>                The syntax highlighting theme to use.
+[34m[38;2;68;68;68m 35 [34m[38;2;68;68;68m 38 [34m[0m    -w, --width <width>                The width (in characters) of the diff highlighting. By default, the highlighting
+[34m[38;5;88m 36 [34m[38;5;28m    [34m[31m                                       extends to the last character on each line. [1;7mUse --width=max to set[0m[31m width equal to[0m
+[34m[38;5;88m    [34m[38;5;28m 39 [34m[32m                                       extends to the last character on each line. [1;7mBy default, the[0m[32m width [1;7mis [0m[32mequal to[1;7m the[0m
+[34m[38;2;68;68;68m 37 [34m[38;2;68;68;68m 40 [34m[0m                                       current terminal width.
+[34m[38;2;68;68;68m 38 [34m[38;2;68;68;68m 41 [34m[0m```
+[34m[38;2;68;68;68m 39 [34m[38;2;68;68;68m 42 [34m[0m

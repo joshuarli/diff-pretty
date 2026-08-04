@@ -1,0 +1,31 @@
+commit 371a342d12e842347fa49522796795eabd181642
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Wed Jun 26 14:20:57 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Wed Jun 26 14:20:57 2019 -0400
+
+    Edit README
+
+diff --git a/README.md b/README.md
+index d961820..e2e038e 100644
+--- a/README.md
++++ b/README.md
+@@ -15,10 +15,16 @@
+   cd delta
+   cargo build
+   ```
+-  This creates an executable inside the repo at `target/debug/delta`. Copy or symlink this executable to somewhere on your shell
++  This creates an executable inside the repo at `target/debug/delta`. Make sure this executable is found on your shell
+   `$PATH`.
+ 
+-  If you're not sure what that means, ignore it, and use
++  For example, if `~/bin` is in your `$PATH`, then you could use a symlink:
++  ```
++  cd ~/bin
++  ln -s /path/to/delta/target/debug/delta delta
++  ```
++
++  Alternatively, you can ignore `$PATH` and use
+   `/path/to/delta/target/debug/delta | less -R` in the next step.
+ 
+ #### 4. Configure git to use delta:

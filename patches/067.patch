@@ -1,0 +1,83 @@
+commit a6be51a79ce335978b287bee78453ba30ee8f38f
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Sat Jun 29 18:12:14 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Sat Jun 29 18:13:03 2019 -0400
+
+    Make list_themes work. Fixes #6
+
+diff --git a/src/assets.rs b/src/assets.rs
+index e869d85..2f327c6 100644
+--- a/src/assets.rs
++++ b/src/assets.rs
+@@ -117,33 +117,14 @@ pub fn list_languages() -> std::io::Result<()> {
+     Ok(())
+ }
+ 
+-pub fn list_themes(cfg: &Config) -> Result<()> {
++pub fn list_themes() -> std::io::Result<()> {
+     let assets = HighlightingAssets::new();
+     let themes = &assets.theme_set.themes;
+-    let mut config = cfg.clone();
+-    let mut style = HashSet::new();
+-    style.insert(OutputComponent::Plain);
+-    config.files = vec![InputFile::ThemePreviewFile];
+-    config.output_components = OutputComponents(style);
+-
+     let stdout = io::stdout();
+     let mut stdout = stdout.lock();
+ 
+-    if config.colored_output {
+-        for (theme, _) in themes.iter() {
+-            writeln!(
+-                stdout,
+-                "Theme: {}\n",
+-                Style::new().bold().paint(theme.to_string())
+-            )?;
+-            config.theme = theme.to_string();
+-            let _controller = Controller::new(&config, &assets).run();
+-            writeln!(stdout)?;
+-        }
+-    } else {
+-        for (theme, _) in themes.iter() {
+-            writeln!(stdout, "{}", theme)?;
+-        }
++    for (theme, _) in themes.iter() {
++        writeln!(stdout, "{}", theme)?;
+     }
+ 
+     Ok(())
+diff --git a/src/main.rs b/src/main.rs
+index 0d9e9b3..e0a8791 100644
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -6,7 +6,7 @@ use std::io::{self, BufRead, ErrorKind, Write};
+ use std::process;
+ 
+ use console::strip_ansi_codes;
+-use assets::{HighlightingAssets, list_languages};
++use assets::{HighlightingAssets, list_languages, list_themes};
+ use structopt::StructOpt;
+ use syntect::highlighting::ThemeSet;
+ use syntect::parsing::{SyntaxReference, SyntaxSet};
+@@ -54,6 +54,10 @@ struct Opt {
+     /// List supported languages and associated file extensions.
+     #[structopt(long = "list-languages")]
+     list_languages: bool,
++
++    /// List available syntax highlighting themes.
++    #[structopt(long = "list-themes")]
++    list_themes: bool,
+ }
+ 
+ #[derive(PartialEq)]
+@@ -82,6 +86,9 @@ fn delta() -> std::io::Result<()> {
+     if opt.list_languages {
+         list_languages()?;
+         process::exit(0);
++    } else if opt.list_themes {
++        list_themes()?;
++        process::exit(0);
+     }
+ 
+     let assets = HighlightingAssets::new();

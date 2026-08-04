@@ -1,0 +1,38 @@
+commit 5a4361fa037090adf729ab3f161832d969abc576
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Sun Jun 23 17:28:25 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Sun Jun 23 17:28:25 2019 -0400
+
+    cargo new delta
+
+diff --git a/.gitignore b/.gitignore
+new file mode 100644
+index 0000000..53eaa21
+--- /dev/null
++++ b/.gitignore
+@@ -0,0 +1,2 @@
++/target
++**/*.rs.bk
+diff --git a/Cargo.toml b/Cargo.toml
+new file mode 100644
+index 0000000..a4fb170
+--- /dev/null
++++ b/Cargo.toml
+@@ -0,0 +1,7 @@
++[package]
++name = "delta"
++version = "0.1.0"
++authors = ["Dan Davison <dandavison7@gmail.com>"]
++edition = "2018"
++
++[dependencies]
+diff --git a/src/main.rs b/src/main.rs
+new file mode 100644
+index 0000000..e7a11a9
+--- /dev/null
++++ b/src/main.rs
+@@ -0,0 +1,3 @@
++fn main() {
++    println!("Hello, world!");
++}

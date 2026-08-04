@@ -1,0 +1,26 @@
+commit 044913f0bcd319b51733c9f6f91788d72314d40a
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Wed Jun 26 00:37:38 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Wed Jun 26 09:59:01 2019 -0400
+
+    Don't output +/- at beginning of diff lines
+
+diff --git a/src/main.rs b/src/main.rs
+index c9754fb..3907eeb 100644
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -63,9 +63,11 @@ fn main() {
+                         Some('-') => Some(RED),
+                         _ => None,
+                     };
+-                    let ranges: Vec<(Style, &str)> = highlighter.highlight(&line, &ps);
++                    let line_without_plus_minus = if line.len() > 0 { &line[1..] } else { &line };
++                    let ranges: Vec<(Style, &str)> =
++                        highlighter.highlight(line_without_plus_minus, &ps);
+                     my_as_24_bit_terminal_escaped(&ranges[..], background_color, &mut output);
+-                    println!("{}", output);
++                    println!(" {}", output);
+                     output.truncate(0);
+                     have_printed_line = true;
+                 }

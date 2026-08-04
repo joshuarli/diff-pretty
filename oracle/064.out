@@ -1,0 +1,90 @@
+commit 124e1b78c4aeaf13c2b11d060936d702fc0e1fcb
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Sat Jun 29 17:25:44 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Sat Jun 29 18:13:00 2019 -0400
+
+    Add list_languages from bat
+
+
+[34mΔ src/assets.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m[38;5;88m  1 [34m[38;5;28m    [34m[31m// Based on [1;7massets.rs[0m[31m from https://github.com/sharkdp/bat a1b9334a44a2c652f52dddaa83dbacba57372468[0m
+[34m[38;5;88m    [34m[38;5;28m  1 [34m[32m// Based on [1;7mcode[0m[32m from https://github.com/sharkdp/bat a1b9334a44a2c652f52dddaa83dbacba57372468[0m
+[34m[38;2;68;68;68m  2 [34m[38;2;68;68;68m  2 [34m[0m//
+[34m[38;2;68;68;68m  3 [34m[38;2;68;68;68m  3 [34m[0m// Copyright (c) 2018 bat-developers (https://github.com/sharkdp/bat).
+[34m[38;2;68;68;68m  4 [34m[38;2;68;68;68m  4 [34m[0m
+
+[34m─────────────────────────────[0m[34m┐[0m
+[34m•[0m  impl HighlightingAssets { [34m│[0m
+[34m─────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 44 [34m[38;2;68;68;68m 44 [34m[0m        }
+[34m[38;2;68;68;68m 45 [34m[38;2;68;68;68m 45 [34m[0m    }
+[34m[38;2;68;68;68m 46 [34m[38;2;68;68;68m 46 [34m[0m}
+[34m[38;5;88m    [34m[38;5;28m 47 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 48 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 49 [34m[32mpub fn list_languages(config: &Config) -> Result<()> {[0m
+[34m[38;5;88m    [34m[38;5;28m 50 [34m[32m    let assets = HighlightingAssets::new();[0m
+[34m[38;5;88m    [34m[38;5;28m 51 [34m[32m    let mut languages = assets[0m
+[34m[38;5;88m    [34m[38;5;28m 52 [34m[32m        .syntax_set[0m
+[34m[38;5;88m    [34m[38;5;28m 53 [34m[32m        .syntaxes()[0m
+[34m[38;5;88m    [34m[38;5;28m 54 [34m[32m        .iter()[0m
+[34m[38;5;88m    [34m[38;5;28m 55 [34m[32m        .filter(|syntax| {[0m
+[34m[38;5;88m    [34m[38;5;28m 56 [34m[32m            !syntax.hidden && !syntax.file_extensions.is_empty()[0m
+[34m[38;5;88m    [34m[38;5;28m 57 [34m[32m        })[0m
+[34m[38;5;88m    [34m[38;5;28m 58 [34m[32m        .collect::<Vec<_>>();[0m
+[34m[38;5;88m    [34m[38;5;28m 59 [34m[32m    languages.sort_by_key(|lang| lang.name.to_uppercase());[0m
+[34m[38;5;88m    [34m[38;5;28m 60 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 61 [34m[32m    let stdout = io::stdout();[0m
+[34m[38;5;88m    [34m[38;5;28m 62 [34m[32m    let mut stdout = stdout.lock();[0m
+[34m[38;5;88m    [34m[38;5;28m 63 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 64 [34m[32m    if config.loop_through {[0m
+[34m[38;5;88m    [34m[38;5;28m 65 [34m[32m        for lang in languages {[0m
+[34m[38;5;88m    [34m[38;5;28m 66 [34m[32m            write!(stdout, "{}:{}\n", lang.name, lang.file_extensions.join(","))?;[0m
+[34m[38;5;88m    [34m[38;5;28m 67 [34m[32m        }[0m
+[34m[38;5;88m    [34m[38;5;28m 68 [34m[32m    } else {[0m
+[34m[38;5;88m    [34m[38;5;28m 69 [34m[32m        let longest = languages[0m
+[34m[38;5;88m    [34m[38;5;28m 70 [34m[32m            .iter()[0m
+[34m[38;5;88m    [34m[38;5;28m 71 [34m[32m            .map(|syntax| syntax.name.len())[0m
+[34m[38;5;88m    [34m[38;5;28m 72 [34m[32m            .max()[0m
+[34m[38;5;88m    [34m[38;5;28m 73 [34m[32m            .unwrap_or(32); // Fallback width if they have no language definitions.[0m
+[34m[38;5;88m    [34m[38;5;28m 74 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 75 [34m[32m        let comma_separator = ", ";[0m
+[34m[38;5;88m    [34m[38;5;28m 76 [34m[32m        let separator = " ";[0m
+[34m[38;5;88m    [34m[38;5;28m 77 [34m[32m        // Line-wrapping for the possible file extension overflow.[0m
+[34m[38;5;88m    [34m[38;5;28m 78 [34m[32m        let desired_width = config.term_width - longest - separator.len();[0m
+[34m[38;5;88m    [34m[38;5;28m 79 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 80 [34m[32m        let style = if config.colored_output {[0m
+[34m[38;5;88m    [34m[38;5;28m 81 [34m[32m            Green.normal()[0m
+[34m[38;5;88m    [34m[38;5;28m 82 [34m[32m        } else {[0m
+[34m[38;5;88m    [34m[38;5;28m 83 [34m[32m            Style::default()[0m
+[34m[38;5;88m    [34m[38;5;28m 84 [34m[32m        };[0m
+[34m[38;5;88m    [34m[38;5;28m 85 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 86 [34m[32m        for lang in languages {[0m
+[34m[38;5;88m    [34m[38;5;28m 87 [34m[32m            write!(stdout, "{:width$}{}", lang.name, separator, width = longest)?;[0m
+[34m[38;5;88m    [34m[38;5;28m 88 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 89 [34m[32m            // Number of characters on this line so far, wrap before `desired_width`[0m
+[34m[38;5;88m    [34m[38;5;28m 90 [34m[32m            let mut num_chars = 0;[0m
+[34m[38;5;88m    [34m[38;5;28m 91 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 92 [34m[32m            let mut extension = lang.file_extensions.iter().peekable();[0m
+[34m[38;5;88m    [34m[38;5;28m 93 [34m[32m            while let Some(word) = extension.next() {[0m
+[34m[38;5;88m    [34m[38;5;28m 94 [34m[32m                // If we can't fit this word in, then create a line break and align it in.[0m
+[34m[38;5;88m    [34m[38;5;28m 95 [34m[32m                let new_chars = word.len() + comma_separator.len();[0m
+[34m[38;5;88m    [34m[38;5;28m 96 [34m[32m                if num_chars + new_chars >= desired_width {[0m
+[34m[38;5;88m    [34m[38;5;28m 97 [34m[32m                    num_chars = 0;[0m
+[34m[38;5;88m    [34m[38;5;28m 98 [34m[32m                    write!(stdout, "\n{:width$}{}", "", separator, width = longest)?;[0m
+[34m[38;5;88m    [34m[38;5;28m 99 [34m[32m                }[0m
+[34m[38;5;88m    [34m[38;5;28m 100[34m[0m
+[34m[38;5;88m    [34m[38;5;28m 101[34m[32m                num_chars += new_chars;[0m
+[34m[38;5;88m    [34m[38;5;28m 102[34m[32m                write!(stdout, "{}", style.paint(&word[..]))?;[0m
+[34m[38;5;88m    [34m[38;5;28m 103[34m[32m                if extension.peek().is_some() {[0m
+[34m[38;5;88m    [34m[38;5;28m 104[34m[32m                    write!(stdout, "{}", comma_separator)?;[0m
+[34m[38;5;88m    [34m[38;5;28m 105[34m[32m                }[0m
+[34m[38;5;88m    [34m[38;5;28m 106[34m[32m            }[0m
+[34m[38;5;88m    [34m[38;5;28m 107[34m[32m            writeln!(stdout)?;[0m
+[34m[38;5;88m    [34m[38;5;28m 108[34m[32m        }[0m
+[34m[38;5;88m    [34m[38;5;28m 109[34m[32m    }[0m
+[34m[38;5;88m    [34m[38;5;28m 110[34m[0m
+[34m[38;5;88m    [34m[38;5;28m 111[34m[32m    Ok(())[0m
+[34m[38;5;88m    [34m[38;5;28m 112[34m[32m}[0m

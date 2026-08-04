@@ -1,0 +1,28 @@
+commit 0e82b82fcfb131d658ce4f8d27be63d55711cc6f
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Sat Jun 29 11:10:41 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Sat Jun 29 17:47:39 2019 -0400
+
+    Clean up
+
+diff --git a/src/main.rs b/src/main.rs
+index 77e22f6..588039d 100644
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -1,5 +1,3 @@
+-extern crate structopt;
+-
+ mod paint;
+ mod parse_diff;
+ 
+@@ -13,7 +11,8 @@ use syntect::parsing::SyntaxReference;
+ 
+ #[derive(StructOpt, Debug)]
+ #[structopt(name = "delta",
+-            about = "A syntax-highlighter for git. Use 'delta | less -R' as core.pager in .gitconfig")]
++            about = "A syntax-highlighter for git. \
++                     Use 'delta | less -R' as core.pager in .gitconfig")]
+ struct Opt {
+     /// Use diff highlighting colors appropriate for a light terminal
+     /// background. This is the default.

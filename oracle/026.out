@@ -1,0 +1,49 @@
+commit 147e923c49c410522b0f1b6372d71254f5015413
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Wed Jun 26 10:00:13 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Wed Jun 26 10:46:59 2019 -0400
+
+    Change variable name
+
+
+[34mΔ src/main.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m───────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  fn delta() -> std::io::Result<()> { [34m│[0m
+[34m───────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 51 [34m[38;2;68;68;68m 51 [34m[0m    let mut output = String::new();
+[34m[38;2;68;68;68m 52 [34m[38;2;68;68;68m 52 [34m[0m    let mut state = State::Unknown;
+[34m[38;2;68;68;68m 53 [34m[38;2;68;68;68m 53 [34m[0m    let mut syntax: Option<&SyntaxReference> = None;
+[34m[38;5;88m 54 [34m[38;5;28m    [34m[31m    let mut [1;7mhave_printed_line[0m[31m: bool;[0m
+[34m[38;5;88m    [34m[38;5;28m 54 [34m[32m    let mut [1;7mdid_emit_line[0m[32m: bool;[0m
+[34m[38;2;68;68;68m 55 [34m[38;2;68;68;68m 55 [34m[0m    let stdin = io::stdin();
+[34m[38;2;68;68;68m 56 [34m[38;2;68;68;68m 56 [34m[0m    let mut stdout = io::stdout();
+[34m[38;2;68;68;68m 57 [34m[38;2;68;68;68m 57 [34m[0m
+[34m[38;2;68;68;68m 58 [34m[38;2;68;68;68m 58 [34m[0m    for _line in stdin.lock().lines() {
+[34m[38;2;68;68;68m 59 [34m[38;2;68;68;68m 59 [34m[0m        let raw_line = _line.unwrap(); // TODO: handle None
+[34m[38;2;68;68;68m 60 [34m[38;2;68;68;68m 60 [34m[0m        let line = strip_ansi_codes(&raw_line).to_string();
+[34m[38;5;88m 61 [34m[38;5;28m    [34m[31m        have_printed_line = false;[0m
+[34m[38;5;88m    [34m[38;5;28m 61 [34m[32m        did_emit_line = false;[0m
+[34m[38;2;68;68;68m 62 [34m[38;2;68;68;68m 62 [34m[0m        if line.starts_with("diff --") {
+[34m[38;2;68;68;68m 63 [34m[38;2;68;68;68m 63 [34m[0m            state = State::DiffMeta;
+[34m[38;2;68;68;68m 64 [34m[38;2;68;68;68m 64 [34m[0m            syntax = match get_file_extension_from_diff_line(&line) {
+
+[34m───────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  fn delta() -> std::io::Result<()> { [34m│[0m
+[34m───────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 84 [34m[38;2;68;68;68m 84 [34m[0m                    my_as_24_bit_terminal_escaped(&ranges[..], background_color, &mut output);
+[34m[38;2;68;68;68m 85 [34m[38;2;68;68;68m 85 [34m[0m                    writeln!(stdout, " {}", output)?;
+[34m[38;2;68;68;68m 86 [34m[38;2;68;68;68m 86 [34m[0m                    output.truncate(0);
+[34m[38;5;88m 87 [34m[38;5;28m    [34m[31m                    have_printed_line = true;[0m
+[34m[38;5;88m    [34m[38;5;28m 87 [34m[32m                    did_emit_line = true;[0m
+[34m[38;2;68;68;68m 88 [34m[38;2;68;68;68m 88 [34m[0m                }
+[34m[38;2;68;68;68m 89 [34m[38;2;68;68;68m 89 [34m[0m                None => (),
+[34m[38;2;68;68;68m 90 [34m[38;2;68;68;68m 90 [34m[0m            }
+[34m[38;2;68;68;68m 91 [34m[38;2;68;68;68m 91 [34m[0m        }
+[34m[38;5;88m 92 [34m[38;5;28m    [34m[31m        if !have_printed_line {[0m
+[34m[38;5;88m    [34m[38;5;28m 92 [34m[32m        if !did_emit_line {[0m
+[34m[38;2;68;68;68m 93 [34m[38;2;68;68;68m 93 [34m[0m            writeln!(stdout, "{}", raw_line)?;
+[34m[38;2;68;68;68m 94 [34m[38;2;68;68;68m 94 [34m[0m        }
+[34m[38;2;68;68;68m 95 [34m[38;2;68;68;68m 95 [34m[0m    }

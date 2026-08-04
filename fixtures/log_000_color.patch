@@ -1,0 +1,633 @@
+[33mcommit 01ce9b3ab437660807e9b6eeadd3d4b47c1071eb[m
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Wed Jun 26 12:07:23 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Wed Jun 26 12:30:51 2019 -0400
+
+    README
+
+[1mdiff --git a/README.md b/README.md[m
+[1mnew file mode 100644[m
+[1mindex 0000000..a44e4cd[m
+[1m--- /dev/null[m
+[1m+++ b/README.md[m
+[36m@@ -0,0 +1,43 @@[m
+[32m+[m[32m## Δ[m
+[32m+[m[32m  A syntax-highlighting pager for git.[m
+[32m+[m
+[32m+[m[32m  _(This project is at a very early stage, but please feel free to open issues.)_[m
+[32m+[m
+[32m+[m[32m## Installation[m
+[32m+[m
+[32m+[m[32m#### 1. Rust development environment.[m
+[32m+[m[32m  See https://www.rust-lang.org/tools/install.[m
+[32m+[m
+[32m+[m[32m#### 2. Clone this repo.[m
+[32m+[m
+[32m+[m[32m#### 3. Build the executable:[m
+[32m+[m[32m  ```sh[m
+[32m+[m[32m  cd delta[m
+[32m+[m[32m  cargo build[m
+[32m+[m[32m  ```[m
+[32m+[m[32m  This creates an executable inside the repo at `target/debug/delta`. Copy or symlink this executable to somewhere on your shell[m
+[32m+[m[32m  `$PATH`.[m
+[32m+[m
+[32m+[m[32m  If you're not sure what that means, ignore it, and use[m
+[32m+[m[32m  `/path/to/delta/target/debug/delta | less -R` in the next step.[m
+[32m+[m
+[32m+[m[32m#### 4. Configure git to use delta:[m
+[32m+[m[32m  Edit your `~/.gitconfig`:[m
+[32m+[m[32m  ```[m
+[32m+[m[32m  [core][m
+[32m+[m[32m      pager = delta | less -R[m
+[32m+[m[32m  ```[m
+[32m+[m[32m  Alternatively, run this command:[m
+[32m+[m[32m  ```[m
+[32m+[m[32m  git config --global core.pager 'delta | less -R'[m
+[32m+[m[32m  ```[m
+[32m+[m
+[32m+[m[32mAll git commands that display diff output should now display syntax-highlighted output. For example:[m
+[32m+[m[32m  - `git diff`[m
+[32m+[m[32m  - `git show`[m
+[32m+[m[32m  - `git log -p`[m
+[32m+[m[32m  - `git stash show -p`[m
+[32m+[m
+[32m+[m[32m## Credit[m
+[32m+[m[32m  https://github.com/trishume/syntect<br>[m
+[32m+[m[32m  https://github.com/sharkdp/bat[m
+
+[33mcommit 36d1de25e92a5e07bc18f4ec052bf5ca62894ccb[m
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Wed Jun 26 10:37:53 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Wed Jun 26 10:46:59 2019 -0400
+
+    Change names
+
+[1mdiff --git a/src/main.rs b/src/main.rs[m
+[1mindex 1854a11..7dd53bc 100644[m
+[1m--- a/src/main.rs[m
+[1m+++ b/src/main.rs[m
+[36m@@ -45,9 +45,9 @@[m [mfn main() {[m
+ [m
+ fn delta() -> std::io::Result<()> {[m
+     use std::io::Write;[m
+[31m-    let ps = SyntaxSet::load_defaults_newlines();[m
+[31m-    let ts = ThemeSet::load_defaults();[m
+[31m-    let theme = &ts.themes[DELTA_THEME_DEFAULT];[m
+[32m+[m[32m    let syntax_set = SyntaxSet::load_defaults_newlines();[m
+[32m+[m[32m    let theme_set = ThemeSet::load_defaults();[m
+[32m+[m[32m    let theme = &theme_set.themes[DELTA_THEME_DEFAULT];[m
+     let mut output = String::new();[m
+     let mut state = State::Unknown;[m
+     let mut syntax: Option<&SyntaxReference> = None;[m
+[36m@@ -62,7 +62,7 @@[m [mfn delta() -> std::io::Result<()> {[m
+         if line.starts_with("diff --") {[m
+             state = State::DiffMeta;[m
+             syntax = match get_file_extension_from_diff_line(&line) {[m
+[31m-                Some(extension) => ps.find_syntax_by_extension(extension),[m
+[32m+[m[32m                Some(extension) => syntax_set.find_syntax_by_extension(extension),[m
+                 None => None,[m
+             };[m
+         } else if line.starts_with("commit") {[m
+[36m@@ -86,8 +86,8 @@[m [mfn delta() -> std::io::Result<()> {[m
+                     if line.len() < 100 {[m
+                         line = format!("{}{}", line, " ".repeat(100 - line.len()));[m
+                     }[m
+[31m-                    let ranges: Vec<(Style, &str)> = highlighter.highlight(&line, &ps);[m
+[31m-                    my_as_24_bit_terminal_escaped(&ranges[..], background_color, &mut output);[m
+[32m+[m[32m                    let ranges: Vec<(Style, &str)> = highlighter.highlight(&line, &syntax_set);[m
+[32m+[m[32m                    paint_ranges(&ranges[..], background_color, &mut output);[m
+                     writeln!(stdout, "{}", output)?;[m
+                     output.truncate(0);[m
+                     did_emit_line = true;[m
+[36m@@ -103,19 +103,19 @@[m [mfn delta() -> std::io::Result<()> {[m
+ }[m
+ [m
+ /// Based on as_24_bit_terminal_escaped from syntect[m
+[31m-fn my_as_24_bit_terminal_escaped([m
+[31m-    v: &[(Style, &str)],[m
+[32m+[m[32mfn paint_ranges([m
+[32m+[m[32m    foreground_style_ranges: &[(Style, &str)],[m
+     background_color: Option<Color>,[m
+     buf: &mut String,[m
+ ) -> () {[m
+[31m-    for &(ref style, text) in v.iter() {[m
+[31m-        colorize(text, Some(style.foreground), background_color, false, buf);[m
+[32m+[m[32m    for &(ref style, text) in foreground_style_ranges.iter() {[m
+[32m+[m[32m        paint(text, Some(style.foreground), background_color, false, buf);[m
+     }[m
+     buf.push_str("\x1b[0m");[m
+ }[m
+ [m
+ /// Write text to buffer with color escape codes applied.[m
+[31m-fn colorize([m
+[32m+[m[32mfn paint([m
+     text: &str,[m
+     foreground_color: Option<Color>,[m
+     background_color: Option<Color>,[m
+
+[33mcommit 6bc6ccfc1ce7802aa5c51b43140c11ebdaaf1363[m
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Wed Jun 26 10:34:29 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Wed Jun 26 10:46:59 2019 -0400
+
+    Don't panic unnecessarily
+
+[1mdiff --git a/src/main.rs b/src/main.rs[m
+[1mindex ed7ca15..1854a11 100644[m
+[1m--- a/src/main.rs[m
+[1m+++ b/src/main.rs[m
+[36m@@ -167,12 +167,8 @@[m [mfn get_file_extension_from_diff_line(line: &str) -> Option<&str> {[m
+             if ext1 == ext2 {[m
+                 Some(ext1)[m
+             } else {[m
+[31m-                // TODO: Just return None and output without color.[m
+[31m-                panic!([m
+[31m-                    "Old and new files have different extensions: {} vs {}",[m
+[31m-                    ext1,[m
+[31m-                    ext2[m
+[31m-                );[m
+[32m+[m[32m                // Unexpected: old and new files have different extensions.[m
+[32m+[m[32m                None[m
+             }[m
+         }[m
+         (Some(ext1), None) => Some(ext1),[m
+
+[33mcommit 183eba159f7e79a7addb599e2b52b39442cf9ee0[m
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Wed Jun 26 10:28:02 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Wed Jun 26 10:46:59 2019 -0400
+
+    Right pad to 100 char width
+
+[1mdiff --git a/src/main.rs b/src/main.rs[m
+[1mindex af40530..ed7ca15 100644[m
+[1m--- a/src/main.rs[m
+[1m+++ b/src/main.rs[m
+[36m@@ -83,6 +83,9 @@[m [mfn delta() -> std::io::Result<()> {[m
+                         line = line[1..].to_string();[m
+                         output.push_str(" ");[m
+                     }[m
+[32m+[m[32m                    if line.len() < 100 {[m
+[32m+[m[32m                        line = format!("{}{}", line, " ".repeat(100 - line.len()));[m
+[32m+[m[32m                    }[m
+                     let ranges: Vec<(Style, &str)> = highlighter.highlight(&line, &ps);[m
+                     my_as_24_bit_terminal_escaped(&ranges[..], background_color, &mut output);[m
+                     writeln!(stdout, "{}", output)?;[m
+
+[33mcommit 0f7ef3cdac2fdff0536a37e56a5d4cd05cba7dae[m
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Wed Jun 26 10:23:41 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Wed Jun 26 10:46:59 2019 -0400
+
+    Propagate unexpected error
+
+[1mdiff --git a/src/main.rs b/src/main.rs[m
+[1mindex 0f3a61c..af40530 100644[m
+[1m--- a/src/main.rs[m
+[1m+++ b/src/main.rs[m
+[36m@@ -56,7 +56,7 @@[m [mfn delta() -> std::io::Result<()> {[m
+     let mut stdout = io::stdout();[m
+ [m
+     for _line in stdin.lock().lines() {[m
+[31m-        let raw_line = _line.unwrap(); // TODO: handle None[m
+[32m+[m[32m        let raw_line = _line?;[m
+         let mut line = strip_ansi_codes(&raw_line).to_string();[m
+         did_emit_line = false;[m
+         if line.starts_with("diff --") {[m
+
+[33mcommit 3d927f4ffa9d871240b7f02fb2c7a206646d0ba2[m
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Wed Jun 26 10:19:30 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Wed Jun 26 10:46:59 2019 -0400
+
+    Only replace a space character if we removed a {+,-}
+
+[1mdiff --git a/src/main.rs b/src/main.rs[m
+[1mindex d5ed278..0f3a61c 100644[m
+[1m--- a/src/main.rs[m
+[1m+++ b/src/main.rs[m
+[36m@@ -57,7 +57,7 @@[m [mfn delta() -> std::io::Result<()> {[m
+ [m
+     for _line in stdin.lock().lines() {[m
+         let raw_line = _line.unwrap(); // TODO: handle None[m
+[31m-        let line = strip_ansi_codes(&raw_line).to_string();[m
+[32m+[m[32m        let mut line = strip_ansi_codes(&raw_line).to_string();[m
+         did_emit_line = false;[m
+         if line.starts_with("diff --") {[m
+             state = State::DiffMeta;[m
+[36m@@ -73,16 +73,19 @@[m [mfn delta() -> std::io::Result<()> {[m
+             match syntax {[m
+                 Some(syntax) => {[m
+                     let mut highlighter = HighlightLines::new(syntax, theme);[m
+[31m-                    let background_color = match line.chars().next() {[m
+[32m+[m[32m                    let first_char = line.chars().next();[m
+[32m+[m[32m                    let background_color = match first_char {[m
+                         Some('+') => Some(GREEN),[m
+                         Some('-') => Some(RED),[m
+                         _ => None,[m
+                     };[m
+[31m-                    let line_without_plus_minus = if line.len() > 0 { &line[1..] } else { &line };[m
+[31m-                    let ranges: Vec<(Style, &str)> =[m
+[31m-                        highlighter.highlight(line_without_plus_minus, &ps);[m
+[32m+[m[32m                    if first_char == Some('+') || first_char == Some('-') {[m
+[32m+[m[32m                        line = line[1..].to_string();[m
+[32m+[m[32m                        output.push_str(" ");[m
+[32m+[m[32m                    }[m
+[32m+[m[32m                    let ranges: Vec<(Style, &str)> = highlighter.highlight(&line, &ps);[m
+                     my_as_24_bit_terminal_escaped(&ranges[..], background_color, &mut output);[m
+[31m-                    writeln!(stdout, " {}", output)?;[m
+[32m+[m[32m                    writeln!(stdout, "{}", output)?;[m
+                     output.truncate(0);[m
+                     did_emit_line = true;[m
+                 }[m
+
+[33mcommit 147e923c49c410522b0f1b6372d71254f5015413[m
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Wed Jun 26 10:00:13 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Wed Jun 26 10:46:59 2019 -0400
+
+    Change variable name
+
+[1mdiff --git a/src/main.rs b/src/main.rs[m
+[1mindex 140f9f7..d5ed278 100644[m
+[1m--- a/src/main.rs[m
+[1m+++ b/src/main.rs[m
+[36m@@ -51,14 +51,14 @@[m [mfn delta() -> std::io::Result<()> {[m
+     let mut output = String::new();[m
+     let mut state = State::Unknown;[m
+     let mut syntax: Option<&SyntaxReference> = None;[m
+[31m-    let mut have_printed_line: bool;[m
+[32m+[m[32m    let mut did_emit_line: bool;[m
+     let stdin = io::stdin();[m
+     let mut stdout = io::stdout();[m
+ [m
+     for _line in stdin.lock().lines() {[m
+         let raw_line = _line.unwrap(); // TODO: handle None[m
+         let line = strip_ansi_codes(&raw_line).to_string();[m
+[31m-        have_printed_line = false;[m
+[32m+[m[32m        did_emit_line = false;[m
+         if line.starts_with("diff --") {[m
+             state = State::DiffMeta;[m
+             syntax = match get_file_extension_from_diff_line(&line) {[m
+[36m@@ -84,12 +84,12 @@[m [mfn delta() -> std::io::Result<()> {[m
+                     my_as_24_bit_terminal_escaped(&ranges[..], background_color, &mut output);[m
+                     writeln!(stdout, " {}", output)?;[m
+                     output.truncate(0);[m
+[31m-                    have_printed_line = true;[m
+[32m+[m[32m                    did_emit_line = true;[m
+                 }[m
+                 None => (),[m
+             }[m
+         }[m
+[31m-        if !have_printed_line {[m
+[32m+[m[32m        if !did_emit_line {[m
+             writeln!(stdout, "{}", raw_line)?;[m
+         }[m
+     }[m
+
+[33mcommit 4d54c0f7e28e95d4958bd2dcbf76189fd8cfe305[m
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Wed Jun 26 09:57:07 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Wed Jun 26 10:46:59 2019 -0400
+
+    Handle broken pipe
+
+[1mdiff --git a/src/main.rs b/src/main.rs[m
+[1mindex 00d54fe..140f9f7 100644[m
+[1m--- a/src/main.rs[m
+[1m+++ b/src/main.rs[m
+[36m@@ -1,6 +1,6 @@[m
+[31m-use std::fmt::Write;[m
+[31m-use std::io::{self, BufRead};[m
+[32m+[m[32muse std::io::{self, BufRead, ErrorKind};[m
+ use std::path::Path;[m
+[32m+[m[32muse std::process;[m
+ [m
+ use console::strip_ansi_codes;[m
+ use syntect::easy::HighlightLines;[m
+[36m@@ -32,6 +32,19 @@[m [menum State {[m
+ }[m
+ [m
+ fn main() {[m
+[32m+[m[32m    match delta() {[m
+[32m+[m[32m        Err(error) => {[m
+[32m+[m[32m            match error.kind() {[m
+[32m+[m[32m                ErrorKind::BrokenPipe => process::exit(0),[m
+[32m+[m[32m                _ => eprintln!("{}", error),[m
+[32m+[m[32m            }[m
+[32m+[m[32m        }[m
+[32m+[m[32m        _ => (),[m
+[32m+[m[32m    }[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32mfn delta() -> std::io::Result<()> {[m
+[32m+[m[32m    use std::io::Write;[m
+     let ps = SyntaxSet::load_defaults_newlines();[m
+     let ts = ThemeSet::load_defaults();[m
+     let theme = &ts.themes[DELTA_THEME_DEFAULT];[m
+[36m@@ -39,8 +52,10 @@[m [mfn main() {[m
+     let mut state = State::Unknown;[m
+     let mut syntax: Option<&SyntaxReference> = None;[m
+     let mut have_printed_line: bool;[m
+[32m+[m[32m    let stdin = io::stdin();[m
+[32m+[m[32m    let mut stdout = io::stdout();[m
+ [m
+[31m-    for _line in io::stdin().lock().lines() {[m
+[32m+[m[32m    for _line in stdin.lock().lines() {[m
+         let raw_line = _line.unwrap(); // TODO: handle None[m
+         let line = strip_ansi_codes(&raw_line).to_string();[m
+         have_printed_line = false;[m
+[36m@@ -67,7 +82,7 @@[m [mfn main() {[m
+                     let ranges: Vec<(Style, &str)> =[m
+                         highlighter.highlight(line_without_plus_minus, &ps);[m
+                     my_as_24_bit_terminal_escaped(&ranges[..], background_color, &mut output);[m
+[31m-                    println!(" {}", output);[m
+[32m+[m[32m                    writeln!(stdout, " {}", output)?;[m
+                     output.truncate(0);[m
+                     have_printed_line = true;[m
+                 }[m
+[36m@@ -75,9 +90,10 @@[m [mfn main() {[m
+             }[m
+         }[m
+         if !have_printed_line {[m
+[31m-            println!("{}", raw_line);[m
+[32m+[m[32m            writeln!(stdout, "{}", raw_line)?;[m
+         }[m
+     }[m
+[32m+[m[32m    Ok(())[m
+ }[m
+ [m
+ /// Based on as_24_bit_terminal_escaped from syntect[m
+[36m@@ -100,6 +116,7 @@[m [mfn colorize([m
+     reset_color: bool,[m
+     buf: &mut String,[m
+ ) -> () {[m
+[32m+[m[32m    use std::fmt::Write;[m
+     match background_color {[m
+         Some(background_color) => {[m
+             write!([m
+
+[33mcommit fab69669814b3d88868b5a4f6f0dc03b5165a3aa[m
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Wed Jun 26 01:06:44 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Wed Jun 26 10:46:59 2019 -0400
+
+    Dark theme
+
+[1mdiff --git a/src/main.rs b/src/main.rs[m
+[1mindex 3907eeb..00d54fe 100644[m
+[1m--- a/src/main.rs[m
+[1m+++ b/src/main.rs[m
+[36m@@ -7,19 +7,19 @@[m [muse syntect::easy::HighlightLines;[m
+ use syntect::highlighting::{Color, Style, ThemeSet};[m
+ use syntect::parsing::{SyntaxReference, SyntaxSet};[m
+ [m
+[31m-pub const DELTA_THEME_DEFAULT: &str = "InspiredGitHub"; // base16-mocha.dark[m
+[32m+[m[32mpub const DELTA_THEME_DEFAULT: &str = "base16-mocha.dark";[m
+ [m
+ const GREEN: Color = Color {[m
+[31m-    r: 0xd0,[m
+[31m-    g: 0xff,[m
+[31m-    b: 0xd0,[m
+[32m+[m[32m    r: 0x01,[m
+[32m+[m[32m    g: 0x18,[m
+[32m+[m[32m    b: 0x00,[m
+     a: 0x00,[m
+ };[m
+ [m
+ const RED: Color = Color {[m
+[31m-    r: 0xff,[m
+[31m-    g: 0xd0,[m
+[31m-    b: 0xd0,[m
+[32m+[m[32m    r: 0x24,[m
+[32m+[m[32m    g: 0x00,[m
+[32m+[m[32m    b: 0x01,[m
+     a: 0x00,[m
+ };[m
+ [m
+
+[33mcommit 044913f0bcd319b51733c9f6f91788d72314d40a[m
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Wed Jun 26 00:37:38 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Wed Jun 26 09:59:01 2019 -0400
+
+    Don't output +/- at beginning of diff lines
+
+[1mdiff --git a/src/main.rs b/src/main.rs[m
+[1mindex c9754fb..3907eeb 100644[m
+[1m--- a/src/main.rs[m
+[1m+++ b/src/main.rs[m
+[36m@@ -63,9 +63,11 @@[m [mfn main() {[m
+                         Some('-') => Some(RED),[m
+                         _ => None,[m
+                     };[m
+[31m-                    let ranges: Vec<(Style, &str)> = highlighter.highlight(&line, &ps);[m
+[32m+[m[32m                    let line_without_plus_minus = if line.len() > 0 { &line[1..] } else { &line };[m
+[32m+[m[32m                    let ranges: Vec<(Style, &str)> =[m
+[32m+[m[32m                        highlighter.highlight(line_without_plus_minus, &ps);[m
+                     my_as_24_bit_terminal_escaped(&ranges[..], background_color, &mut output);[m
+[31m-                    println!("{}", output);[m
+[32m+[m[32m                    println!(" {}", output);[m
+                     output.truncate(0);[m
+                     have_printed_line = true;[m
+                 }[m
+
+[33mcommit c6f1a38bcc9e61aad7598845176817c21bac54cd[m
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Wed Jun 26 00:28:35 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Wed Jun 26 09:59:01 2019 -0400
+
+    Retain original colors except in diff hunks
+
+[1mdiff --git a/Cargo.toml b/Cargo.toml[m
+[1mindex 3d1a82d..91dd2c4 100644[m
+[1m--- a/Cargo.toml[m
+[1m+++ b/Cargo.toml[m
+[36m@@ -5,5 +5,6 @@[m [mauthors = ["Dan Davison <dandavison7@gmail.com>"][m
+ edition = "2018"[m
+ [m
+ [dependencies][m
+[32m+[m[32mconsole = "0.7.7"[m
+ parsepatch = "0.2.0"[m
+ syntect = "3.2"[m
+[1mdiff --git a/src/main.rs b/src/main.rs[m
+[1mindex bd66982..c9754fb 100644[m
+[1m--- a/src/main.rs[m
+[1m+++ b/src/main.rs[m
+[36m@@ -2,6 +2,7 @@[m [muse std::fmt::Write;[m
+ use std::io::{self, BufRead};[m
+ use std::path::Path;[m
+ [m
+[32m+[m[32muse console::strip_ansi_codes;[m
+ use syntect::easy::HighlightLines;[m
+ use syntect::highlighting::{Color, Style, ThemeSet};[m
+ use syntect::parsing::{SyntaxReference, SyntaxSet};[m
+[36m@@ -40,7 +41,8 @@[m [mfn main() {[m
+     let mut have_printed_line: bool;[m
+ [m
+     for _line in io::stdin().lock().lines() {[m
+[31m-        let line = _line.unwrap(); // TODO: handle None[m
+[32m+[m[32m        let raw_line = _line.unwrap(); // TODO: handle None[m
+[32m+[m[32m        let line = strip_ansi_codes(&raw_line).to_string();[m
+         have_printed_line = false;[m
+         if line.starts_with("diff --") {[m
+             state = State::DiffMeta;[m
+[36m@@ -71,7 +73,7 @@[m [mfn main() {[m
+             }[m
+         }[m
+         if !have_printed_line {[m
+[31m-            println!("{}", line);[m
+[32m+[m[32m            println!("{}", raw_line);[m
+         }[m
+     }[m
+ }[m
+
+[33mcommit be5f329e1b5394e840012f2d70456cd0422001c2[m
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Tue Jun 25 23:57:13 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Wed Jun 26 09:59:01 2019 -0400
+
+    Refactor colorizing
+
+[1mdiff --git a/src/main.rs b/src/main.rs[m
+[1mindex 1c10792..bd66982 100644[m
+[1m--- a/src/main.rs[m
+[1m+++ b/src/main.rs[m
+[36m@@ -83,30 +83,54 @@[m [mfn my_as_24_bit_terminal_escaped([m
+     buf: &mut String,[m
+ ) -> () {[m
+     for &(ref style, text) in v.iter() {[m
+[31m-        match background_color {[m
+[31m-            Some(background_color) => {[m
+[31m-                write!([m
+[31m-                    buf,[m
+[31m-                    "\x1b[48;2;{};{};{}m",[m
+[31m-                    background_color.r,[m
+[31m-                    background_color.g,[m
+[31m-                    background_color.b[m
+[31m-                ).unwrap()[m
+[31m-            }[m
+[31m-            None => (),[m
+[31m-        }[m
+[31m-        write!([m
+[31m-            buf,[m
+[31m-            "\x1b[38;2;{};{};{}m{}",[m
+[31m-            style.foreground.r,[m
+[31m-            style.foreground.g,[m
+[31m-            style.foreground.b,[m
+[31m-            text[m
+[31m-        ).unwrap();[m
+[32m+[m[32m        colorize(text, Some(style.foreground), background_color, false, buf);[m
+     }[m
+     buf.push_str("\x1b[0m");[m
+ }[m
+ [m
+[32m+[m[32m/// Write text to buffer with color escape codes applied.[m
+[32m+[m[32mfn colorize([m
+[32m+[m[32m    text: &str,[m
+[32m+[m[32m    foreground_color: Option<Color>,[m
+[32m+[m[32m    background_color: Option<Color>,[m
+[32m+[m[32m    reset_color: bool,[m
+[32m+[m[32m    buf: &mut String,[m
+[32m+[m[32m) -> () {[m
+[32m+[m[32m    match background_color {[m
+[32m+[m[32m        Some(background_color) => {[m
+[32m+[m[32m            write!([m
+[32m+[m[32m                buf,[m
+[32m+[m[32m                "\x1b[48;2;{};{};{}m",[m
+[32m+[m[32m                background_color.r,[m
+[32m+[m[32m                background_color.g,[m
+[32m+[m[32m                background_color.b[m
+[32m+[m[32m            ).unwrap();[m
+[32m+[m[32m            if reset_color {[m
+[32m+[m[32m                buf.push_str("\x1b[0m");[m
+[32m+[m[32m            }[m
+[32m+[m[32m        }[m
+[32m+[m[32m        None => (),[m
+[32m+[m[32m    }[m
+[32m+[m[32m    match foreground_color {[m
+[32m+[m[32m        Some(foreground_color) => {[m
+[32m+[m[32m            write!([m
+[32m+[m[32m                buf,[m
+[32m+[m[32m                "\x1b[38;2;{};{};{}m{}",[m
+[32m+[m[32m                foreground_color.r,[m
+[32m+[m[32m                foreground_color.g,[m
+[32m+[m[32m                foreground_color.b,[m
+[32m+[m[32m                text[m
+[32m+[m[32m            ).unwrap();[m
+[32m+[m[32m            if reset_color {[m
+[32m+[m[32m                buf.push_str("\x1b[0m");[m
+[32m+[m[32m            }[m
+[32m+[m[32m        }[m
+[32m+[m[32m        None => {[m
+[32m+[m[32m            write!(buf, "{}", text).unwrap();[m
+[32m+[m[32m        }[m
+[32m+[m[32m    }[m
+[32m+[m[32m}[m
+[32m+[m
+ /// Given input like[m
+ /// "diff --git a/src/main.rs b/src/main.rs"[m
+ /// Return "rs", i.e. a single file extension consistent with both files.[m
+
+[33mcommit 0cabaa4b4a3d55857fa3cda445ad066b8dac5d1c[m
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Tue Jun 25 23:11:54 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Wed Jun 26 09:59:01 2019 -0400
+
+    Revert "Only output color if stdout is a tty"
+    
+    This reverts commit e0e2d5fb1ea52294afb0d7ed4ab59752b13b3c41.
+    
+    Pipe to ansifilter if this is needed
+
+[1mdiff --git a/Cargo.toml b/Cargo.toml[m
+[1mindex 6c4b450..3d1a82d 100644[m
+[1m--- a/Cargo.toml[m
+[1m+++ b/Cargo.toml[m
+[36m@@ -5,6 +5,5 @@[m [mauthors = ["Dan Davison <dandavison7@gmail.com>"][m
+ edition = "2018"[m
+ [m
+ [dependencies][m
+[31m-atty = "0.2.2"[m
+ parsepatch = "0.2.0"[m
+ syntect = "3.2"[m
+[1mdiff --git a/src/main.rs b/src/main.rs[m
+[1mindex f6060f8..1c10792 100644[m
+[1m--- a/src/main.rs[m
+[1m+++ b/src/main.rs[m
+[36m@@ -2,7 +2,6 @@[m [muse std::fmt::Write;[m
+ use std::io::{self, BufRead};[m
+ use std::path::Path;[m
+ [m
+[31m-use atty::{self, Stream};[m
+ use syntect::easy::HighlightLines;[m
+ use syntect::highlighting::{Color, Style, ThemeSet};[m
+ use syntect::parsing::{SyntaxReference, SyntaxSet};[m
+[36m@@ -40,14 +39,8 @@[m [mfn main() {[m
+     let mut syntax: Option<&SyntaxReference> = None;[m
+     let mut have_printed_line: bool;[m
+ [m
+[31m-    let should_apply_colors = atty::is(Stream::Stdout);[m
+[31m-[m
+     for _line in io::stdin().lock().lines() {[m
+         let line = _line.unwrap(); // TODO: handle None[m
+[31m-        if !should_apply_colors {[m
+[31m-            println!("{}", line);[m
+[31m-            continue;[m
+[31m-        }[m
+         have_printed_line = false;[m
+         if line.starts_with("diff --") {[m
+             state = State::DiffMeta;[m

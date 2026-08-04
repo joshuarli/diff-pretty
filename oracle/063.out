@@ -1,0 +1,173 @@
+commit 6a34f9146d4efaae547e9c316c6016c8bbcf1833
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Sat Jun 29 10:21:49 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Sat Jun 29 18:12:57 2019 -0400
+
+    Use syntax and theme data built by bat. Fixes #4, #5
+
+
+[34madded: assets/syntaxes.bin (binary file)[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34madded: assets/themes.bin (binary file)[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34madded: src/assets.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m[38;5;88m    [34m[38;5;28m  1 [34m[32m// Based on assets.rs from https://github.com/sharkdp/bat a1b9334a44a2c652f52dddaa83dbacba57372468[0m
+[34m[38;5;88m    [34m[38;5;28m  2 [34m[32m//[0m
+[34m[38;5;88m    [34m[38;5;28m  3 [34m[32m// Copyright (c) 2018 bat-developers (https://github.com/sharkdp/bat).[0m
+[34m[38;5;88m    [34m[38;5;28m  4 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m  5 [34m[32m// Permission is hereby granted, free of charge, to any person obtaining a copy[0m
+[34m[38;5;88m    [34m[38;5;28m  6 [34m[32m// of this software and associated documentation files (the "Software"), to deal[0m
+[34m[38;5;88m    [34m[38;5;28m  7 [34m[32m// in the Software without restriction, including without limitation the rights[0m
+[34m[38;5;88m    [34m[38;5;28m  8 [34m[32m// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell[0m
+[34m[38;5;88m    [34m[38;5;28m  9 [34m[32m// copies of the Software, and to permit persons to whom the Software is[0m
+[34m[38;5;88m    [34m[38;5;28m 10 [34m[32m// furnished to do so, subject to the following conditions:[0m
+[34m[38;5;88m    [34m[38;5;28m 11 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 12 [34m[32m// The above copyright notice and this permission notice shall be included in all[0m
+[34m[38;5;88m    [34m[38;5;28m 13 [34m[32m// copies or substantial portions of the Software.[0m
+[34m[38;5;88m    [34m[38;5;28m 14 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 15 [34m[32muse syntect::dumps::from_binary;[0m
+[34m[38;5;88m    [34m[38;5;28m 16 [34m[32muse syntect::highlighting::ThemeSet;[0m
+[34m[38;5;88m    [34m[38;5;28m 17 [34m[32muse syntect::parsing::SyntaxSet;[0m
+[34m[38;5;88m    [34m[38;5;28m 18 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 19 [34m[32mpub struct HighlightingAssets {[0m
+[34m[38;5;88m    [34m[38;5;28m 20 [34m[32m    pub syntax_set: SyntaxSet,[0m
+[34m[38;5;88m    [34m[38;5;28m 21 [34m[32m    pub theme_set: ThemeSet,[0m
+[34m[38;5;88m    [34m[38;5;28m 22 [34m[32m}[0m
+[34m[38;5;88m    [34m[38;5;28m 23 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 24 [34m[32mimpl HighlightingAssets {[0m
+[34m[38;5;88m    [34m[38;5;28m 25 [34m[32m    pub fn new() -> Self {[0m
+[34m[38;5;88m    [34m[38;5;28m 26 [34m[32m        Self::from_binary()[0m
+[34m[38;5;88m    [34m[38;5;28m 27 [34m[32m    }[0m
+[34m[38;5;88m    [34m[38;5;28m 28 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 29 [34m[32m    fn get_integrated_syntaxset() -> SyntaxSet {[0m
+[34m[38;5;88m    [34m[38;5;28m 30 [34m[32m        from_binary(include_bytes!("../assets/syntaxes.bin"))[0m
+[34m[38;5;88m    [34m[38;5;28m 31 [34m[32m    }[0m
+[34m[38;5;88m    [34m[38;5;28m 32 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 33 [34m[32m    fn get_integrated_themeset() -> ThemeSet {[0m
+[34m[38;5;88m    [34m[38;5;28m 34 [34m[32m        from_binary(include_bytes!("../assets/themes.bin"))[0m
+[34m[38;5;88m    [34m[38;5;28m 35 [34m[32m    }[0m
+[34m[38;5;88m    [34m[38;5;28m 36 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 37 [34m[32m    fn from_binary() -> Self {[0m
+[34m[38;5;88m    [34m[38;5;28m 38 [34m[32m        let syntax_set = Self::get_integrated_syntaxset();[0m
+[34m[38;5;88m    [34m[38;5;28m 39 [34m[32m        let theme_set = Self::get_integrated_themeset();[0m
+[34m[38;5;88m    [34m[38;5;28m 40 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 41 [34m[32m        HighlightingAssets {[0m
+[34m[38;5;88m    [34m[38;5;28m 42 [34m[32m            syntax_set,[0m
+[34m[38;5;88m    [34m[38;5;28m 43 [34m[32m            theme_set,[0m
+[34m[38;5;88m    [34m[38;5;28m 44 [34m[32m        }[0m
+[34m[38;5;88m    [34m[38;5;28m 45 [34m[32m    }[0m
+[34m[38;5;88m    [34m[38;5;28m 46 [34m[32m}[0m
+
+[34mΔ src/main.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m[38;5;88m    [34m[38;5;28m  1 [34m[32mmod assets;[0m
+[34m[38;2;68;68;68m  1 [34m[38;2;68;68;68m  2 [34m[0mmod paint;
+[34m[38;2;68;68;68m  2 [34m[38;2;68;68;68m  3 [34m[0mmod parse_diff;
+[34m[38;2;68;68;68m  3 [34m[38;2;68;68;68m  4 [34m[0m
+
+[34m───────────────────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  use std::io::{self, BufRead, ErrorKind, Write}; [34m│[0m
+[34m───────────────────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m  5 [34m[38;2;68;68;68m  6 [34m[0muse std::process;
+[34m[38;2;68;68;68m  6 [34m[38;2;68;68;68m  7 [34m[0m
+[34m[38;2;68;68;68m  7 [34m[38;2;68;68;68m  8 [34m[0muse console::strip_ansi_codes;
+[34m[38;5;88m    [34m[38;5;28m  9 [34m[32muse assets::HighlightingAssets;[0m
+[34m[38;2;68;68;68m  8 [34m[38;2;68;68;68m 10 [34m[0muse structopt::StructOpt;
+[34m[38;2;68;68;68m  9 [34m[38;2;68;68;68m 11 [34m[0muse syntect::highlighting::ThemeSet;
+[34m[38;5;88m 10 [34m[38;5;28m    [34m[31muse syntect::parsing::SyntaxReference;[0m
+[34m[38;5;88m    [34m[38;5;28m 12 [34m[32muse syntect::parsing::[1;7m{[0m[32mSyntaxReference[1;7m, SyntaxSet}[0m[32m;[0m
+[34m[38;2;68;68;68m 11 [34m[38;2;68;68;68m 13 [34m[0m
+[34m[38;2;68;68;68m 12 [34m[38;2;68;68;68m 14 [34m[0m#[derive(StructOpt, Debug)]
+[34m[38;2;68;68;68m 13 [34m[38;2;68;68;68m 15 [34m[0m#[structopt(name = "delta",
+
+[34m───────────────[0m[34m┐[0m
+[34m•[0m  fn main() { [34m│[0m
+[34m───────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 72 [34m[38;2;68;68;68m 74 [34m[0m
+[34m[38;2;68;68;68m 73 [34m[38;2;68;68;68m 75 [34m[0mfn delta() -> std::io::Result<()> {
+[34m[38;2;68;68;68m 74 [34m[38;2;68;68;68m 76 [34m[0m    let mut opt = Opt::from_args();
+[34m[38;5;88m    [34m[38;5;28m 77 [34m[32m    let assets = HighlightingAssets::new();[0m
+[34m[38;2;68;68;68m 75 [34m[38;2;68;68;68m 78 [34m[0m    let theme_set = ThemeSet::load_defaults();
+[34m[38;5;88m 76 [34m[38;5;28m    [34m[31m    let paint_config = parse_args(&theme_set, &mut opt);[0m
+[34m[38;5;88m    [34m[38;5;28m 79 [34m[32m    let paint_config = parse_args(&[1;7massets.syntax_set, &[0m[32mtheme_set, &mut opt);[0m
+[34m[38;2;68;68;68m 77 [34m[38;2;68;68;68m 80 [34m[0m
+[34m[38;2;68;68;68m 78 [34m[38;2;68;68;68m 81 [34m[0m    let stdin = io::stdin();
+[34m[38;2;68;68;68m 79 [34m[38;2;68;68;68m 82 [34m[0m    let mut stdout = io::stdout();
+
+[34m───────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  fn delta() -> std::io::Result<()> { [34m│[0m
+[34m───────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 90 [34m[38;2;68;68;68m 93 [34m[0m        if line.starts_with("diff --") {
+[34m[38;2;68;68;68m 91 [34m[38;2;68;68;68m 94 [34m[0m            state = State::DiffMeta;
+[34m[38;2;68;68;68m 92 [34m[38;2;68;68;68m 95 [34m[0m            syntax = match parse_diff::get_file_extension_from_diff_line(&line) {
+[34m[38;5;88m 93 [34m[38;5;28m    [34m[31m                Some(extension) => [1;7mpaint_config[0m[31m.syntax_set.find_syntax_by_extension(extension),[0m
+[34m[38;5;88m    [34m[38;5;28m 96 [34m[32m                // TODO: cache syntaxes?[0m
+[34m[38;5;88m    [34m[38;5;28m 97 [34m[32m                Some(extension) => [1;7massets[0m[32m.syntax_set.find_syntax_by_extension(extension),[0m
+[34m[38;2;68;68;68m 94 [34m[38;2;68;68;68m 98 [34m[0m                None => None,
+[34m[38;2;68;68;68m 95 [34m[38;2;68;68;68m 99 [34m[0m            };
+[34m[38;2;68;68;68m 96 [34m[38;2;68;68;68m 100[34m[0m        } else if line.starts_with("commit") {
+
+[34m───────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  fn delta() -> std::io::Result<()> { [34m│[0m
+[34m───────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 115[34m[38;2;68;68;68m 119[34m[0m    Ok(())
+[34m[38;2;68;68;68m 116[34m[38;2;68;68;68m 120[34m[0m}
+[34m[38;2;68;68;68m 117[34m[38;2;68;68;68m 121[34m[0m
+[34m[38;5;88m 118[34m[38;5;28m    [34m[1;7;31mfn parse_args<'a>([0m[31mtheme_set: &'a ThemeSet,[1;7m opt: &'a mut Opt) -> paint::Config<'a> {[0m
+[34m[38;5;88m    [34m[38;5;28m 122[34m[32mfn parse_args<'a>([0m
+[34m[38;5;88m    [34m[38;5;28m 123[34m[32m    syntax_set: &'a SyntaxSet,[0m
+[34m[38;5;88m    [34m[38;5;28m 124[34m[1;7;32m    [0m[32mtheme_set: &'a ThemeSet,[0m
+[34m[38;5;88m    [34m[38;5;28m 125[34m[32m    opt: &'a mut Opt,[0m
+[34m[38;5;88m    [34m[38;5;28m 126[34m[32m) -> paint::Config<'a> {[0m
+[34m[38;2;68;68;68m 119[34m[38;2;68;68;68m 127[34m[0m
+[34m[38;2;68;68;68m 120[34m[38;2;68;68;68m 128[34m[0m    if opt.light && opt.dark {
+[34m[38;2;68;68;68m 121[34m[38;2;68;68;68m 129[34m[0m        eprintln!("--light or --dark cannot be used together. Default is --light.");
+
+[34m────────────────────────────────────────────────────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  fn parse_args<'a>(theme_set: &'a ThemeSet, opt: &'a mut Opt) -> paint::Config<'a [34m│[0m
+[34m────────────────────────────────────────────────────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 132[34m[38;2;68;68;68m 140[34m[0m    };
+[34m[38;2;68;68;68m 133[34m[38;2;68;68;68m 141[34m[0m
+[34m[38;2;68;68;68m 134[34m[38;2;68;68;68m 142[34m[0m    paint::get_config(
+[34m[38;5;88m    [34m[38;5;28m 143[34m[32m        syntax_set,[0m
+[34m[38;2;68;68;68m 135[34m[38;2;68;68;68m 144[34m[0m        &opt.theme,
+[34m[38;2;68;68;68m 136[34m[38;2;68;68;68m 145[34m[0m        theme_set,
+[34m[38;2;68;68;68m 137[34m[38;2;68;68;68m 146[34m[0m        opt.dark,
+
+[34mΔ src/paint.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m───────────────────────────[0m[34m┐[0m
+[34m•[0m  pub struct Config<'a> { [34m│[0m
+[34m───────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 45 [34m[38;2;68;68;68m 45 [34m[0m    theme: &'a Theme,
+[34m[38;2;68;68;68m 46 [34m[38;2;68;68;68m 46 [34m[0m    plus_color: Color,
+[34m[38;2;68;68;68m 47 [34m[38;2;68;68;68m 47 [34m[0m    minus_color: Color,
+[34m[38;5;88m 48 [34m[38;5;28m    [34m[31m    pub syntax_set: SyntaxSet,[0m
+[34m[38;5;88m    [34m[38;5;28m 48 [34m[32m    pub syntax_set: [1;7m&'a [0m[32mSyntaxSet,[0m
+[34m[38;2;68;68;68m 49 [34m[38;2;68;68;68m 49 [34m[0m    width: Option<usize>,
+[34m[38;2;68;68;68m 50 [34m[38;2;68;68;68m 50 [34m[0m}
+[34m[38;2;68;68;68m 51 [34m[38;2;68;68;68m 51 [34m[0m
+[34m[38;2;68;68;68m 52 [34m[38;2;68;68;68m 52 [34m[0mpub fn get_config<'a>(
+[34m[38;5;88m    [34m[38;5;28m 53 [34m[32m    syntax_set: &'a SyntaxSet,[0m
+[34m[38;2;68;68;68m 53 [34m[38;2;68;68;68m 54 [34m[0m    theme: &Option<String>,
+[34m[38;2;68;68;68m 54 [34m[38;2;68;68;68m 55 [34m[0m    theme_set: &'a ThemeSet,
+[34m[38;2;68;68;68m 55 [34m[38;2;68;68;68m 56 [34m[0m    dark: bool,
+
+[34m──────────────────────────[0m[34m┐[0m
+[34m•[0m  pub fn get_config<'a>( [34m│[0m
+[34m──────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 95 [34m[38;2;68;68;68m 96 [34m[0m            LIGHT_THEME_MINUS_COLOR
+[34m[38;2;68;68;68m 96 [34m[38;2;68;68;68m 97 [34m[0m        }),
+[34m[38;2;68;68;68m 97 [34m[38;2;68;68;68m 98 [34m[0m        width: width,
+[34m[38;5;88m 98 [34m[38;5;28m    [34m[31m        syntax_set: SyntaxSet::load_defaults_newlines(),[0m
+[34m[38;5;88m    [34m[38;5;28m 99 [34m[32m        syntax_set: &syntax_set,[0m
+[34m[38;2;68;68;68m 99 [34m[38;2;68;68;68m 100[34m[0m    }
+[34m[38;2;68;68;68m 100[34m[38;2;68;68;68m 101[34m[0m}
+[34m[38;2;68;68;68m 101[34m[38;2;68;68;68m 102[34m[0m

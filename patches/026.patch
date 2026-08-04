@@ -1,0 +1,44 @@
+commit 147e923c49c410522b0f1b6372d71254f5015413
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Wed Jun 26 10:00:13 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Wed Jun 26 10:46:59 2019 -0400
+
+    Change variable name
+
+diff --git a/src/main.rs b/src/main.rs
+index 140f9f7..d5ed278 100644
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -51,14 +51,14 @@ fn delta() -> std::io::Result<()> {
+     let mut output = String::new();
+     let mut state = State::Unknown;
+     let mut syntax: Option<&SyntaxReference> = None;
+-    let mut have_printed_line: bool;
++    let mut did_emit_line: bool;
+     let stdin = io::stdin();
+     let mut stdout = io::stdout();
+ 
+     for _line in stdin.lock().lines() {
+         let raw_line = _line.unwrap(); // TODO: handle None
+         let line = strip_ansi_codes(&raw_line).to_string();
+-        have_printed_line = false;
++        did_emit_line = false;
+         if line.starts_with("diff --") {
+             state = State::DiffMeta;
+             syntax = match get_file_extension_from_diff_line(&line) {
+@@ -84,12 +84,12 @@ fn delta() -> std::io::Result<()> {
+                     my_as_24_bit_terminal_escaped(&ranges[..], background_color, &mut output);
+                     writeln!(stdout, " {}", output)?;
+                     output.truncate(0);
+-                    have_printed_line = true;
++                    did_emit_line = true;
+                 }
+                 None => (),
+             }
+         }
+-        if !have_printed_line {
++        if !did_emit_line {
+             writeln!(stdout, "{}", raw_line)?;
+         }
+     }

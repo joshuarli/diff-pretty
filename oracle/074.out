@@ -1,0 +1,91 @@
+commit 6adc0acb2d53fcb8b945f622c435be8e46287cce
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Sun Jun 30 14:04:49 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Sun Jun 30 14:04:49 2019 -0400
+
+    Add option to compare themes
+    
+    The user must pass git output on stdin.
+
+
+[34mΔ src/main.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m───────────────[0m[34m┐[0m
+[34m•[0m  mod assets; [34m│[0m
+[34m───────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m  2 [34m[38;2;68;68;68m  2 [34m[0mmod paint;
+[34m[38;2;68;68;68m  3 [34m[38;2;68;68;68m  3 [34m[0mmod parse_diff;
+[34m[38;2;68;68;68m  4 [34m[38;2;68;68;68m  4 [34m[0m
+[34m[38;5;88m  5 [34m[38;5;28m    [34m[31muse std::io::{self, BufRead, ErrorKind, Write};[0m
+[34m[38;5;88m    [34m[38;5;28m  5 [34m[32muse std::io::{self, BufRead, ErrorKind, [1;7mRead, [0m[32mWrite};[0m
+[34m[38;2;68;68;68m  6 [34m[38;2;68;68;68m  6 [34m[0muse std::process;
+[34m[38;2;68;68;68m  7 [34m[38;2;68;68;68m  7 [34m[0m
+[34m[38;2;68;68;68m  8 [34m[38;2;68;68;68m  8 [34m[0muse assets::{HighlightingAssets, list_languages, list_themes};
+
+[34m────────────────[0m[34m┐[0m
+[34m•[0m  struct Opt { [34m│[0m
+[34m────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 57 [34m[38;2;68;68;68m 57 [34m[0m    /// List available syntax highlighting themes.
+[34m[38;2;68;68;68m 58 [34m[38;2;68;68;68m 58 [34m[0m    #[structopt(long = "list-themes")]
+[34m[38;2;68;68;68m 59 [34m[38;2;68;68;68m 59 [34m[0m    list_themes: bool,
+[34m[38;5;88m    [34m[38;5;28m 60 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 61 [34m[32m    /// Compare available syntax highlighting themes. To use this[0m
+[34m[38;5;88m    [34m[38;5;28m 62 [34m[32m    /// option, supply git diff output to delta on standard input.[0m
+[34m[38;5;88m    [34m[38;5;28m 63 [34m[32m    #[structopt(long = "compare-themes")][0m
+[34m[38;5;88m    [34m[38;5;28m 64 [34m[32m    compare_themes: bool,[0m
+[34m[38;2;68;68;68m 60 [34m[38;2;68;68;68m 65 [34m[0m}
+[34m[38;2;68;68;68m 61 [34m[38;2;68;68;68m 66 [34m[0m
+[34m[38;2;68;68;68m 62 [34m[38;2;68;68;68m 67 [34m[0m#[derive(PartialEq)]
+
+[34m────────────────[0m[34m┐[0m
+[34m•[0m  enum State { [34m│[0m
+[34m────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 70 [34m[38;2;68;68;68m 75 [34m[0mfn main() -> std::io::Result<()> {
+[34m[38;2;68;68;68m 71 [34m[38;2;68;68;68m 76 [34m[0m    let opt = Opt::from_args();
+[34m[38;2;68;68;68m 72 [34m[38;2;68;68;68m 77 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 78 [34m[32m    let assets = HighlightingAssets::new();[0m
+[34m[38;5;88m    [34m[38;5;28m 79 [34m[0m
+[34m[38;2;68;68;68m 73 [34m[38;2;68;68;68m 80 [34m[0m    if opt.list_languages {
+[34m[38;2;68;68;68m 74 [34m[38;2;68;68;68m 81 [34m[0m        list_languages()?;
+[34m[38;2;68;68;68m 75 [34m[38;2;68;68;68m 82 [34m[0m        process::exit(0);
+[34m[38;2;68;68;68m 76 [34m[38;2;68;68;68m 83 [34m[0m    } else if opt.list_themes {
+[34m[38;2;68;68;68m 77 [34m[38;2;68;68;68m 84 [34m[0m        list_themes()?;
+[34m[38;2;68;68;68m 78 [34m[38;2;68;68;68m 85 [34m[0m        process::exit(0);
+[34m[38;5;88m    [34m[38;5;28m 86 [34m[32m    } else if opt.compare_themes {[0m
+[34m[38;5;88m    [34m[38;5;28m 87 [34m[32m        compare_themes(&assets)?;[0m
+[34m[38;5;88m    [34m[38;5;28m 88 [34m[32m        process::exit(0);[0m
+[34m[38;2;68;68;68m 79 [34m[38;2;68;68;68m 89 [34m[0m    }
+[34m[38;2;68;68;68m 80 [34m[38;2;68;68;68m 90 [34m[0m
+[34m[38;5;88m 81 [34m[38;5;28m    [34m[31m    let assets = HighlightingAssets::new();[0m
+[34m[38;2;68;68;68m 82 [34m[38;2;68;68;68m 91 [34m[0m    let paint_config = parse_args(&assets, &opt);
+[34m[38;2;68;68;68m 83 [34m[38;2;68;68;68m 92 [34m[0m
+[34m[38;2;68;68;68m 84 [34m[38;2;68;68;68m 93 [34m[0m    match delta(
+
+[34m────────────────────────────────────────────────────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  fn parse_args<'a>(assets: &'a HighlightingAssets, opt: &'a Opt) -> paint::Config [34m│[0m
+[34m────────────────────────────────────────────────────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 167[34m[38;2;68;68;68m 176[34m[0m        width,
+[34m[38;2;68;68;68m 168[34m[38;2;68;68;68m 177[34m[0m    )
+[34m[38;2;68;68;68m 169[34m[38;2;68;68;68m 178[34m[0m}
+[34m[38;5;88m    [34m[38;5;28m 179[34m[0m
+[34m[38;5;88m    [34m[38;5;28m 180[34m[32mfn compare_themes(assets: &HighlightingAssets) -> std::io::Result<()> {[0m
+[34m[38;5;88m    [34m[38;5;28m 181[34m[32m    let mut opt = Opt::from_args();[0m
+[34m[38;5;88m    [34m[38;5;28m 182[34m[32m    let mut input = String::new();[0m
+[34m[38;5;88m    [34m[38;5;28m 183[34m[32m    io::stdin().read_to_string(&mut input)?;[0m
+[34m[38;5;88m    [34m[38;5;28m 184[34m[0m
+[34m[38;5;88m    [34m[38;5;28m 185[34m[32m    let stdout = io::stdout();[0m
+[34m[38;5;88m    [34m[38;5;28m 186[34m[32m    let mut stdout = stdout.lock();[0m
+[34m[38;5;88m    [34m[38;5;28m 187[34m[32m    let mut paint_config: paint::Config;[0m
+[34m[38;5;88m    [34m[38;5;28m 188[34m[32m    let hline = "-".repeat(100);[0m
+[34m[38;5;88m    [34m[38;5;28m 189[34m[0m
+[34m[38;5;88m    [34m[38;5;28m 190[34m[32m    for (theme_name, _) in assets.theme_set.themes.iter() {[0m
+[34m[38;5;88m    [34m[38;5;28m 191[34m[32m        writeln!(stdout, "{}\n{}\n{}\n", hline, theme_name, hline)?;[0m
+[34m[38;5;88m    [34m[38;5;28m 192[34m[32m        opt.theme = Some(theme_name.to_string());[0m
+[34m[38;5;88m    [34m[38;5;28m 193[34m[32m        paint_config = parse_args(&assets, &opt);[0m
+[34m[38;5;88m    [34m[38;5;28m 194[34m[32m        delta(input.split("\n").map(String::from), &paint_config, &assets)?;[0m
+[34m[38;5;88m    [34m[38;5;28m 195[34m[32m    }[0m
+[34m[38;5;88m    [34m[38;5;28m 196[34m[0m
+[34m[38;5;88m    [34m[38;5;28m 197[34m[32m    Ok(())[0m
+[34m[38;5;88m    [34m[38;5;28m 198[34m[32m}[0m

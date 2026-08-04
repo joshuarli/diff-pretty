@@ -1,0 +1,50 @@
+commit 51485cfb35a4fa41fc0a2922194fb9b5a1bc8103
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Sat Jun 29 18:07:52 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Sat Jun 29 18:13:03 2019 -0400
+
+    Add list_themes from bat
+
+
+[34mΔ src/assets.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m────────────────────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  pub fn list_languages() -> std::io::Result<()> { [34m│[0m
+[34m────────────────────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 116[34m[38;2;68;68;68m 116[34m[0m
+[34m[38;2;68;68;68m 117[34m[38;2;68;68;68m 117[34m[0m    Ok(())
+[34m[38;2;68;68;68m 118[34m[38;2;68;68;68m 118[34m[0m}
+[34m[38;5;88m    [34m[38;5;28m 119[34m[0m
+[34m[38;5;88m    [34m[38;5;28m 120[34m[32mpub fn list_themes(cfg: &Config) -> Result<()> {[0m
+[34m[38;5;88m    [34m[38;5;28m 121[34m[32m    let assets = HighlightingAssets::new();[0m
+[34m[38;5;88m    [34m[38;5;28m 122[34m[32m    let themes = &assets.theme_set.themes;[0m
+[34m[38;5;88m    [34m[38;5;28m 123[34m[32m    let mut config = cfg.clone();[0m
+[34m[38;5;88m    [34m[38;5;28m 124[34m[32m    let mut style = HashSet::new();[0m
+[34m[38;5;88m    [34m[38;5;28m 125[34m[32m    style.insert(OutputComponent::Plain);[0m
+[34m[38;5;88m    [34m[38;5;28m 126[34m[32m    config.files = vec![InputFile::ThemePreviewFile];[0m
+[34m[38;5;88m    [34m[38;5;28m 127[34m[32m    config.output_components = OutputComponents(style);[0m
+[34m[38;5;88m    [34m[38;5;28m 128[34m[0m
+[34m[38;5;88m    [34m[38;5;28m 129[34m[32m    let stdout = io::stdout();[0m
+[34m[38;5;88m    [34m[38;5;28m 130[34m[32m    let mut stdout = stdout.lock();[0m
+[34m[38;5;88m    [34m[38;5;28m 131[34m[0m
+[34m[38;5;88m    [34m[38;5;28m 132[34m[32m    if config.colored_output {[0m
+[34m[38;5;88m    [34m[38;5;28m 133[34m[32m        for (theme, _) in themes.iter() {[0m
+[34m[38;5;88m    [34m[38;5;28m 134[34m[32m            writeln!([0m
+[34m[38;5;88m    [34m[38;5;28m 135[34m[32m                stdout,[0m
+[34m[38;5;88m    [34m[38;5;28m 136[34m[32m                "Theme: {}\n",[0m
+[34m[38;5;88m    [34m[38;5;28m 137[34m[32m                Style::new().bold().paint(theme.to_string())[0m
+[34m[38;5;88m    [34m[38;5;28m 138[34m[32m            )?;[0m
+[34m[38;5;88m    [34m[38;5;28m 139[34m[32m            config.theme = theme.to_string();[0m
+[34m[38;5;88m    [34m[38;5;28m 140[34m[32m            let _controller = Controller::new(&config, &assets).run();[0m
+[34m[38;5;88m    [34m[38;5;28m 141[34m[32m            writeln!(stdout)?;[0m
+[34m[38;5;88m    [34m[38;5;28m 142[34m[32m        }[0m
+[34m[38;5;88m    [34m[38;5;28m 143[34m[32m    } else {[0m
+[34m[38;5;88m    [34m[38;5;28m 144[34m[32m        for (theme, _) in themes.iter() {[0m
+[34m[38;5;88m    [34m[38;5;28m 145[34m[32m            writeln!(stdout, "{}", theme)?;[0m
+[34m[38;5;88m    [34m[38;5;28m 146[34m[32m        }[0m
+[34m[38;5;88m    [34m[38;5;28m 147[34m[32m    }[0m
+[34m[38;5;88m    [34m[38;5;28m 148[34m[0m
+[34m[38;5;88m    [34m[38;5;28m 149[34m[32m    Ok(())[0m
+[34m[38;5;88m    [34m[38;5;28m 150[34m[32m}[0m

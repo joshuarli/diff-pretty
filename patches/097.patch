@@ -1,0 +1,27 @@
+commit 979763ca4a23e82de4934eeec779695859faa429
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Mon Jul 1 04:22:11 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Mon Jul 1 04:37:20 2019 -0400
+
+    Add table headers in README
+
+diff --git a/README.md b/README.md
+index 6feb96a..ef6fcd6 100644
+--- a/README.md
++++ b/README.md
+@@ -14,6 +14,14 @@
+            alt="image" />
+     </td>
+   </tr>
++  <tr>
++    <td>
++      delta --dark (default)
++    </td>
++    <td>
++      delta --light --width=variable --highlight-removed
++    </td>
++  </tr>
+ </table>
+ 
+ 

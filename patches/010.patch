@@ -1,0 +1,63 @@
+commit 5bfe90ea9791eca42bbfb2ff41e6784ec31ed774
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Mon Jun 24 21:46:34 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Mon Jun 24 21:59:09 2019 -0400
+
+    Copy as_24_bit_terminal_escaped from syntect
+
+diff --git a/src/main.rs b/src/main.rs
+index ae07569..3e34645 100644
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -1,12 +1,13 @@
+ extern crate unidiff;
+ 
++use std::fmt::Write;
+ use std::io::{self, Read};
+ use std::path::Path;
+ 
+ use syntect::easy::HighlightLines;
+ use syntect::highlighting::{ThemeSet, Style};
+ use syntect::parsing::SyntaxSet;
+-use syntect::util::{as_24_bit_terminal_escaped, LinesWithEndings};
++use syntect::util::{LinesWithEndings};
+ use unidiff::PatchSet;
+ 
+ pub const DELTA_THEME_DEFAULT: &str = "InspiredGitHub";  // base16-mocha.dark
+@@ -34,7 +35,7 @@ fn main() {
+                 for hunk in patched_file {
+                     for line in LinesWithEndings::from(&hunk.to_string()) {
+                         let ranges: Vec<(Style, &str)> = highlighter.highlight(line, &ps);
+-                        let escaped = as_24_bit_terminal_escaped(&ranges[..], true);
++                        let escaped = my_as_24_bit_terminal_escaped(&ranges[..], false);
+                         print!("{}", escaped);
+                     }
+                 }
+@@ -50,3 +51,26 @@ fn main() {
+     }
+     println!("");
+ }
++
++fn my_as_24_bit_terminal_escaped(v: &[(Style, &str)], bg: bool) -> String {
++    let mut s: String = String::new();
++    for &(ref style, text) in v.iter() {
++        if bg {
++            write!(s,
++                   "\x1b[48;2;{};{};{}m",
++                   style.background.r,
++                   style.background.g,
++                   style.background.b)
++                .unwrap();
++        }
++        write!(s,
++               "\x1b[38;2;{};{};{}m{}",
++               style.foreground.r,
++               style.foreground.g,
++               style.foreground.b,
++               text)
++            .unwrap();
++    }
++    // s.push_str("\x1b[0m");
++    s
++}

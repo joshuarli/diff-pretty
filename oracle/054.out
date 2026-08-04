@@ -1,0 +1,54 @@
+commit 4a6cb868aa05ae40611db0c30f8533a61e1ceb5f
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Thu Jun 27 23:46:35 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Thu Jun 27 23:46:35 2019 -0400
+
+    Move trait declarations to top level
+
+
+[34mΔ src/main.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m───────────────────────────[0m[34m┐[0m
+[34m•[0m  extern crate structopt; [34m│[0m
+[34m───────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m  3 [34m[38;2;68;68;68m  3 [34m[0mmod paint;
+[34m[38;2;68;68;68m  4 [34m[38;2;68;68;68m  4 [34m[0mmod parse_diff;
+[34m[38;2;68;68;68m  5 [34m[38;2;68;68;68m  5 [34m[0m
+[34m[38;5;88m  6 [34m[38;5;28m    [34m[31muse std::io::{self, BufRead, ErrorKind};[0m
+[34m[38;5;88m    [34m[38;5;28m  6 [34m[32muse std::io::{self, BufRead, ErrorKind[1;7m, Write[0m[32m};[0m
+[34m[38;2;68;68;68m  7 [34m[38;2;68;68;68m  7 [34m[0muse std::process;
+[34m[38;2;68;68;68m  8 [34m[38;2;68;68;68m  8 [34m[0muse std::str::FromStr;
+[34m[38;2;68;68;68m  9 [34m[38;2;68;68;68m  9 [34m[0m
+
+[34m───────────────[0m[34m┐[0m
+[34m•[0m  fn main() { [34m│[0m
+[34m───────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 73 [34m[38;2;68;68;68m 73 [34m[0m}
+[34m[38;2;68;68;68m 74 [34m[38;2;68;68;68m 74 [34m[0m
+[34m[38;2;68;68;68m 75 [34m[38;2;68;68;68m 75 [34m[0mfn delta() -> std::io::Result<()> {
+[34m[38;5;88m 76 [34m[38;5;28m    [34m[31m    use std::io::Write;[0m
+[34m[38;2;68;68;68m 77 [34m[38;2;68;68;68m 76 [34m[0m    let syntax_set = SyntaxSet::load_defaults_newlines();
+[34m[38;2;68;68;68m 78 [34m[38;2;68;68;68m 77 [34m[0m    let theme_set = ThemeSet::load_defaults();
+[34m[38;2;68;68;68m 79 [34m[38;2;68;68;68m 78 [34m[0m    let mut output = String::new();
+
+[34mΔ src/paint.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m[38;5;88m    [34m[38;5;28m  1 [34m[32muse std::fmt::Write;[0m
+[34m[38;5;88m    [34m[38;5;28m  2 [34m[0m
+[34m[38;2;68;68;68m  1 [34m[38;2;68;68;68m  3 [34m[0muse syntect::easy::HighlightLines;
+[34m[38;2;68;68;68m  2 [34m[38;2;68;68;68m  4 [34m[0muse syntect::highlighting::{Color, Style, Theme};
+[34m[38;2;68;68;68m  3 [34m[38;2;68;68;68m  5 [34m[0muse syntect::parsing::{SyntaxReference, SyntaxSet};
+
+[34m─────────────[0m[34m┐[0m
+[34m•[0m  fn paint( [34m│[0m
+[34m─────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 95 [34m[38;2;68;68;68m 97 [34m[0m    reset_color: bool,
+[34m[38;2;68;68;68m 96 [34m[38;2;68;68;68m 98 [34m[0m    buf: &mut String,
+[34m[38;2;68;68;68m 97 [34m[38;2;68;68;68m 99 [34m[0m) -> () {
+[34m[38;5;88m 98 [34m[38;5;28m    [34m[31m    use std::fmt::Write;[0m
+[34m[38;2;68;68;68m 99 [34m[38;2;68;68;68m 100[34m[0m    match background_color {
+[34m[38;2;68;68;68m 100[34m[38;2;68;68;68m 101[34m[0m        Some(background_color) => {
+[34m[38;2;68;68;68m 101[34m[38;2;68;68;68m 102[34m[0m            write!(

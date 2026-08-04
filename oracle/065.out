@@ -1,0 +1,127 @@
+commit 480e7fcbc1b94e846f8a65dcb041b37f30eb1f68
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Sat Jun 29 17:49:04 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Sat Jun 29 18:13:01 2019 -0400
+
+    Make list_languages work. Ref #6
+
+
+[34mΔ Cargo.toml[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m─────────────────────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  authors = ["Dan Davison <dandavison7@gmail.com>"] [34m│[0m
+[34m─────────────────────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m  5 [34m[38;2;68;68;68m  5 [34m[0medition = "2018"
+[34m[38;2;68;68;68m  6 [34m[38;2;68;68;68m  6 [34m[0m
+[34m[38;2;68;68;68m  7 [34m[38;2;68;68;68m  7 [34m[0m[dependencies]
+[34m[38;5;88m    [34m[38;5;28m  8 [34m[32mansi_term = "0.11"[0m
+[34m[38;2;68;68;68m  8 [34m[38;2;68;68;68m  9 [34m[0mconsole = "0.7.7"
+[34m[38;2;68;68;68m  9 [34m[38;2;68;68;68m 10 [34m[0mparsepatch = "0.2.0"
+[34m[38;2;68;68;68m 10 [34m[38;2;68;68;68m 11 [34m[0mstructopt = "0.2.16"
+
+[34mΔ src/assets.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m[38;2;68;68;68m 12 [34m[38;2;68;68;68m 12 [34m[0m// The above copyright notice and this permission notice shall be included in all
+[34m[38;2;68;68;68m 13 [34m[38;2;68;68;68m 13 [34m[0m// copies or substantial portions of the Software.
+[34m[38;2;68;68;68m 14 [34m[38;2;68;68;68m 14 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 15 [34m[32muse std::io::{self, Write};[0m
+[34m[38;5;88m    [34m[38;5;28m 16 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 17 [34m[32muse ansi_term::Colour::Green;[0m
+[34m[38;5;88m    [34m[38;5;28m 18 [34m[32muse ansi_term::Style;[0m
+[34m[38;2;68;68;68m 15 [34m[38;2;68;68;68m 19 [34m[0muse syntect::dumps::from_binary;
+[34m[38;2;68;68;68m 16 [34m[38;2;68;68;68m 20 [34m[0muse syntect::highlighting::ThemeSet;
+[34m[38;2;68;68;68m 17 [34m[38;2;68;68;68m 21 [34m[0muse syntect::parsing::SyntaxSet;
+
+[34m─────────────────────────────[0m[34m┐[0m
+[34m•[0m  impl HighlightingAssets { [34m│[0m
+[34m─────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 45 [34m[38;2;68;68;68m 49 [34m[0m    }
+[34m[38;2;68;68;68m 46 [34m[38;2;68;68;68m 50 [34m[0m}
+[34m[38;2;68;68;68m 47 [34m[38;2;68;68;68m 51 [34m[0m
+[34m[38;5;88m 48 [34m[38;5;28m    [34m[0m
+[34m[38;5;88m 49 [34m[38;5;28m    [34m[31mpub fn list_languages([1;7mconfig: &Config[0m[31m) -> Result<()> {[0m
+[34m[38;5;88m    [34m[38;5;28m 52 [34m[32mpub fn list_languages() -> [1;7mstd::io::[0m[32mResult<()> {[0m
+[34m[38;2;68;68;68m 50 [34m[38;2;68;68;68m 53 [34m[0m    let assets = HighlightingAssets::new();
+[34m[38;2;68;68;68m 51 [34m[38;2;68;68;68m 54 [34m[0m    let mut languages = assets
+[34m[38;2;68;68;68m 52 [34m[38;2;68;68;68m 55 [34m[0m        .syntax_set
+
+[34m──────────────────────────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  pub fn list_languages(config: &Config) -> Result<()> { [34m│[0m
+[34m──────────────────────────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 58 [34m[38;2;68;68;68m 61 [34m[0m        .collect::<Vec<_>>();
+[34m[38;2;68;68;68m 59 [34m[38;2;68;68;68m 62 [34m[0m    languages.sort_by_key(|lang| lang.name.to_uppercase());
+[34m[38;2;68;68;68m 60 [34m[38;2;68;68;68m 63 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 64 [34m[32m    let loop_through = false;[0m
+[34m[38;5;88m    [34m[38;5;28m 65 [34m[32m    let colored_output = true;[0m
+[34m[38;5;88m    [34m[38;5;28m 66 [34m[0m
+[34m[38;2;68;68;68m 61 [34m[38;2;68;68;68m 67 [34m[0m    let stdout = io::stdout();
+[34m[38;2;68;68;68m 62 [34m[38;2;68;68;68m 68 [34m[0m    let mut stdout = stdout.lock();
+[34m[38;2;68;68;68m 63 [34m[38;2;68;68;68m 69 [34m[0m
+[34m[38;5;88m 64 [34m[38;5;28m    [34m[31m    if [1;7mconfig.[0m[31mloop_through {[0m
+[34m[38;5;88m    [34m[38;5;28m 70 [34m[32m    if loop_through {[0m
+[34m[38;2;68;68;68m 65 [34m[38;2;68;68;68m 71 [34m[0m        for lang in languages {
+[34m[38;2;68;68;68m 66 [34m[38;2;68;68;68m 72 [34m[0m            write!(stdout, "{}:{}\n", lang.name, lang.file_extensions.join(","))?;
+[34m[38;2;68;68;68m 67 [34m[38;2;68;68;68m 73 [34m[0m        }
+
+[34m──────────────────────────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  pub fn list_languages(config: &Config) -> Result<()> { [34m│[0m
+[34m──────────────────────────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 75 [34m[38;2;68;68;68m 81 [34m[0m        let comma_separator = ", ";
+[34m[38;2;68;68;68m 76 [34m[38;2;68;68;68m 82 [34m[0m        let separator = " ";
+[34m[38;2;68;68;68m 77 [34m[38;2;68;68;68m 83 [34m[0m        // Line-wrapping for the possible file extension overflow.
+[34m[38;5;88m 78 [34m[38;5;28m    [34m[31m        let desired_width = [1;7mconfig.term_width - longest - separator.len()[0m[31m;[0m
+[34m[38;5;88m    [34m[38;5;28m 84 [34m[32m        let desired_width = [1;7m100[0m[32m;[0m
+[34m[38;2;68;68;68m 79 [34m[38;2;68;68;68m 85 [34m[0m
+[34m[38;5;88m 80 [34m[38;5;28m    [34m[31m        let style = if [1;7mconfig.[0m[31mcolored_output {[0m
+[34m[38;5;88m    [34m[38;5;28m 86 [34m[32m        let style = if colored_output {[0m
+[34m[38;2;68;68;68m 81 [34m[38;2;68;68;68m 87 [34m[0m            Green.normal()
+[34m[38;2;68;68;68m 82 [34m[38;2;68;68;68m 88 [34m[0m        } else {
+[34m[38;2;68;68;68m 83 [34m[38;2;68;68;68m 89 [34m[0m            Style::default()
+
+[34mΔ src/main.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m───────────────────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  use std::io::{self, BufRead, ErrorKind, Write}; [34m│[0m
+[34m───────────────────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m  6 [34m[38;2;68;68;68m  6 [34m[0muse std::process;
+[34m[38;2;68;68;68m  7 [34m[38;2;68;68;68m  7 [34m[0m
+[34m[38;2;68;68;68m  8 [34m[38;2;68;68;68m  8 [34m[0muse console::strip_ansi_codes;
+[34m[38;5;88m  9 [34m[38;5;28m    [34m[31muse assets::HighlightingAssets;[0m
+[34m[38;5;88m    [34m[38;5;28m  9 [34m[32muse assets::[1;7m{[0m[32mHighlightingAssets[1;7m, list_languages}[0m[32m;[0m
+[34m[38;2;68;68;68m 10 [34m[38;2;68;68;68m 10 [34m[0muse structopt::StructOpt;
+[34m[38;2;68;68;68m 11 [34m[38;2;68;68;68m 11 [34m[0muse syntect::highlighting::ThemeSet;
+[34m[38;2;68;68;68m 12 [34m[38;2;68;68;68m 12 [34m[0muse syntect::parsing::{SyntaxReference, SyntaxSet};
+
+[34m────────────────[0m[34m┐[0m
+[34m•[0m  struct Opt { [34m│[0m
+[34m────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 50 [34m[38;2;68;68;68m 50 [34m[0m    /// each line.
+[34m[38;2;68;68;68m 51 [34m[38;2;68;68;68m 51 [34m[0m    #[structopt(short = "w", long = "width")]
+[34m[38;2;68;68;68m 52 [34m[38;2;68;68;68m 52 [34m[0m    width: Option<String>,
+[34m[38;5;88m    [34m[38;5;28m 53 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 54 [34m[32m    /// List supported languages and associated file extensions.[0m
+[34m[38;5;88m    [34m[38;5;28m 55 [34m[32m    #[structopt(long = "list-languages")][0m
+[34m[38;5;88m    [34m[38;5;28m 56 [34m[32m    list_languages: bool,[0m
+[34m[38;2;68;68;68m 53 [34m[38;2;68;68;68m 57 [34m[0m}
+[34m[38;2;68;68;68m 54 [34m[38;2;68;68;68m 58 [34m[0m
+[34m[38;2;68;68;68m 55 [34m[38;2;68;68;68m 59 [34m[0m#[derive(PartialEq)]
+
+[34m───────────────[0m[34m┐[0m
+[34m•[0m  fn main() { [34m│[0m
+[34m───────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 74 [34m[38;2;68;68;68m 78 [34m[0m
+[34m[38;2;68;68;68m 75 [34m[38;2;68;68;68m 79 [34m[0mfn delta() -> std::io::Result<()> {
+[34m[38;2;68;68;68m 76 [34m[38;2;68;68;68m 80 [34m[0m    let mut opt = Opt::from_args();
+[34m[38;5;88m    [34m[38;5;28m 81 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 82 [34m[32m    if opt.list_languages {[0m
+[34m[38;5;88m    [34m[38;5;28m 83 [34m[32m        list_languages()?;[0m
+[34m[38;5;88m    [34m[38;5;28m 84 [34m[32m        process::exit(0);[0m
+[34m[38;5;88m    [34m[38;5;28m 85 [34m[32m    }[0m
+[34m[38;5;88m    [34m[38;5;28m 86 [34m[0m
+[34m[38;2;68;68;68m 77 [34m[38;2;68;68;68m 87 [34m[0m    let assets = HighlightingAssets::new();
+[34m[38;2;68;68;68m 78 [34m[38;2;68;68;68m 88 [34m[0m    let theme_set = ThemeSet::load_defaults();
+[34m[38;2;68;68;68m 79 [34m[38;2;68;68;68m 89 [34m[0m    let paint_config = parse_args(&assets.syntax_set, &theme_set, &mut opt);

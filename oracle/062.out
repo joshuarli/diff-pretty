@@ -1,0 +1,30 @@
+commit 0e82b82fcfb131d658ce4f8d27be63d55711cc6f
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Sat Jun 29 11:10:41 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Sat Jun 29 17:47:39 2019 -0400
+
+    Clean up
+
+
+[34mΔ src/main.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m[38;5;88m  1 [34m[38;5;28m    [34m[31mextern crate structopt;[0m
+[34m[38;5;88m  2 [34m[38;5;28m    [34m[0m
+[34m[38;2;68;68;68m  3 [34m[38;2;68;68;68m  1 [34m[0mmod paint;
+[34m[38;2;68;68;68m  4 [34m[38;2;68;68;68m  2 [34m[0mmod parse_diff;
+[34m[38;2;68;68;68m  5 [34m[38;2;68;68;68m  3 [34m[0m
+
+[34m──────────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  use syntect::parsing::SyntaxReference; [34m│[0m
+[34m──────────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 13 [34m[38;2;68;68;68m 11 [34m[0m
+[34m[38;2;68;68;68m 14 [34m[38;2;68;68;68m 12 [34m[0m#[derive(StructOpt, Debug)]
+[34m[38;2;68;68;68m 15 [34m[38;2;68;68;68m 13 [34m[0m#[structopt(name = "delta",
+[34m[38;5;88m 16 [34m[38;5;28m    [34m[31m            about = "A syntax-highlighter for git. [1;7mUse 'delta | less -R' as core.pager in .gitconfig")][0m
+[34m[38;5;88m    [34m[38;5;28m 14 [34m[32m            about = "A syntax-highlighter for git. [1;7m\[0m
+[34m[38;5;88m    [34m[38;5;28m 15 [34m[32m                     Use 'delta | less -R' as core.pager in .gitconfig")][0m
+[34m[38;2;68;68;68m 17 [34m[38;2;68;68;68m 16 [34m[0mstruct Opt {
+[34m[38;2;68;68;68m 18 [34m[38;2;68;68;68m 17 [34m[0m    /// Use diff highlighting colors appropriate for a light terminal
+[34m[38;2;68;68;68m 19 [34m[38;2;68;68;68m 18 [34m[0m    /// background. This is the default.

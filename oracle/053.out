@@ -1,0 +1,42 @@
+commit f2a67e9fd07feb0380a0ab4c6292b551b0e9bd5e
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Thu Jun 27 15:54:16 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Thu Jun 27 21:34:23 2019 -0400
+
+    Tweak usage text
+
+
+[34mΔ README.md[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m[38;2;68;68;68m  1 [34m[38;2;68;68;68m  1 [34m[0m## Δ
+[34m[38;5;88m  2 [34m[38;5;28m    [34m[31m  A syntax-[1;7mhighlighting pager[0m[31m for git.[0m
+[34m[38;5;88m    [34m[38;5;28m  2 [34m[32m  A syntax-[1;7mhighlighter[0m[32m for git.[0m
+[34m[38;2;68;68;68m  3 [34m[38;2;68;68;68m  3 [34m[0m
+[34m[38;2;68;68;68m  4 [34m[38;2;68;68;68m  4 [34m[0m  _(This project is at a very early stage, but please feel free to open issues.)_
+[34m[38;2;68;68;68m  5 [34m[38;2;68;68;68m  5 [34m[0m
+
+[34m[38;2;68;68;68m 10 [34m[38;2;68;68;68m 10 [34m[0m## Usage
+[34m[38;2;68;68;68m 11 [34m[38;2;68;68;68m 11 [34m[0m```
+[34m[38;2;68;68;68m 12 [34m[38;2;68;68;68m 12 [34m[0mdelta 0.1.0
+[34m[38;5;88m 13 [34m[38;5;28m    [34m[1;7;31mAdds language-specific[0m[31m syntax[1;7m highlighting to[0m[31m git[1;7m output[0m[31m. Use 'delta | less -R' as core.pager in .gitconfig[0m
+[34m[38;5;88m    [34m[38;5;28m 13 [34m[1;7;32mA[0m[32m syntax[1;7m-highlighter for[0m[32m git. Use 'delta | less -R' as core.pager in .gitconfig[0m
+[34m[38;2;68;68;68m 14 [34m[38;2;68;68;68m 14 [34m[0m
+[34m[38;2;68;68;68m 15 [34m[38;2;68;68;68m 15 [34m[0mUSAGE:
+[34m[38;2;68;68;68m 16 [34m[38;2;68;68;68m 16 [34m[0m    delta [FLAGS] [OPTIONS]
+
+[34mΔ src/main.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m───────────────────────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  use syntect::parsing::{SyntaxReference, SyntaxSet}; [34m│[0m
+[34m───────────────────────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 14 [34m[38;2;68;68;68m 14 [34m[0m
+[34m[38;2;68;68;68m 15 [34m[38;2;68;68;68m 15 [34m[0m#[derive(StructOpt, Debug)]
+[34m[38;2;68;68;68m 16 [34m[38;2;68;68;68m 16 [34m[0m#[structopt(name = "delta",
+[34m[38;5;88m 17 [34m[38;5;28m    [34m[31m            about = "[1;7mAdds language-specific[0m[31m syntax[1;7m highlighting to[0m[31m git[1;7m output[0m[31m. Use 'delta | less -R' as core.pager in .gitconfig")][0m
+[34m[38;5;88m    [34m[38;5;28m 17 [34m[32m            about = "[1;7mA[0m[32m syntax[1;7m-highlighter for[0m[32m git. Use 'delta | less -R' as core.pager in .gitconfig")][0m
+[34m[38;2;68;68;68m 18 [34m[38;2;68;68;68m 18 [34m[0mstruct Opt {
+[34m[38;2;68;68;68m 19 [34m[38;2;68;68;68m 19 [34m[0m    /// Use diff highlighting colors appropriate for a light terminal
+[34m[38;2;68;68;68m 20 [34m[38;2;68;68;68m 20 [34m[0m    /// background. This is the default.

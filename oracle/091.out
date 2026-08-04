@@ -1,0 +1,39 @@
+commit f758cadf152518be00675d05486996671b008aef
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Mon Jul 1 00:03:48 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Mon Jul 1 00:03:48 2019 -0400
+
+    Rename variable
+
+
+[34mΔ src/main.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m─────────────[0m[34m┐[0m
+[34m•[0m  fn delta( [34m│[0m
+[34m─────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 173[34m[38;2;68;68;68m 173[34m[0m) -> std::io::Result<()> {
+[34m[38;2;68;68;68m 174[34m[38;2;68;68;68m 174[34m[0m
+[34m[38;2;68;68;68m 175[34m[38;2;68;68;68m 175[34m[0m    let mut syntax: Option<&SyntaxReference> = None;
+[34m[38;5;88m 176[34m[38;5;28m    [34m[31m    let mut [1;7moutput[0m[31m = String::new();[0m
+[34m[38;5;88m    [34m[38;5;28m 176[34m[32m    let mut [1;7moutput_buffer[0m[32m = String::new();[0m
+[34m[38;2;68;68;68m 177[34m[38;2;68;68;68m 177[34m[0m    let mut output_type =
+[34m[38;2;68;68;68m 178[34m[38;2;68;68;68m 178[34m[0m        OutputType::from_mode(PagingMode::QuitIfOneScreen, Some(paint_config.pager)).unwrap();
+[34m[38;2;68;68;68m 179[34m[38;2;68;68;68m 179[34m[0m    let writer = output_type.handle().unwrap();
+
+[34m─────────────[0m[34m┐[0m
+[34m•[0m  fn delta( [34m│[0m
+[34m─────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 197[34m[38;2;68;68;68m 197[34m[0m        } else if state == State::DiffHunk {
+[34m[38;2;68;68;68m 198[34m[38;2;68;68;68m 198[34m[0m            match syntax {
+[34m[38;2;68;68;68m 199[34m[38;2;68;68;68m 199[34m[0m                Some(syntax) => {
+[34m[38;5;88m 200[34m[38;5;28m    [34m[31m                    paint::paint_line(line, syntax, &paint_config, &mut [1;7moutput[0m[31m);[0m
+[34m[38;5;88m 201[34m[38;5;28m    [34m[31m                    writeln!(writer, "{}", [1;7moutput[0m[31m)?;[0m
+[34m[38;5;88m 202[34m[38;5;28m    [34m[31m                    [1;7moutput[0m[31m.truncate(0);[0m
+[34m[38;5;88m    [34m[38;5;28m 200[34m[32m                    paint::paint_line(line, syntax, &paint_config, &mut [1;7moutput_buffer[0m[32m);[0m
+[34m[38;5;88m    [34m[38;5;28m 201[34m[32m                    writeln!(writer, "{}", [1;7moutput_buffer[0m[32m)?;[0m
+[34m[38;5;88m    [34m[38;5;28m 202[34m[32m                    [1;7moutput_buffer[0m[32m.truncate(0);[0m
+[34m[38;2;68;68;68m 203[34m[38;2;68;68;68m 203[34m[0m                    did_emit_line = true;
+[34m[38;2;68;68;68m 204[34m[38;2;68;68;68m 204[34m[0m                }
+[34m[38;2;68;68;68m 205[34m[38;2;68;68;68m 205[34m[0m                None => (),

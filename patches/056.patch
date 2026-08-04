@@ -1,0 +1,61 @@
+commit 4179f5bc0c1f76000f3c6eb4c75133034ff03e64
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Fri Jun 28 00:23:29 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Fri Jun 28 00:24:52 2019 -0400
+
+    Refactor: function in paint module to assemble config
+    
+    The lifetime specification may be incorrect/inappropriate; its
+    justification is that it compiles.
+
+diff --git a/src/main.rs b/src/main.rs
+index 33add67..692748c 100644
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -10,7 +10,7 @@ use std::str::FromStr;
+ use console::strip_ansi_codes;
+ use structopt::StructOpt;
+ use syntect::highlighting::{Color, ThemeSet};
+-use syntect::parsing::{SyntaxReference, SyntaxSet};
++use syntect::parsing::SyntaxReference;
+ 
+ #[derive(StructOpt, Debug)]
+ #[structopt(name = "delta",
+@@ -110,12 +110,7 @@ fn delta() -> std::io::Result<()> {
+         |s| Color::from_str(s).ok(),
+     );
+     let theme_name = opt.theme.unwrap();
+-
+-    let paint_config = paint::Config {
+-        theme: &theme_set.themes[&theme_name],
+-        width: opt.width,
+-        syntax_set: SyntaxSet::load_defaults_newlines(),
+-    };
++    let paint_config = paint::get_config(&theme_set.themes[&theme_name], &theme_name, opt.width);
+ 
+     for _line in stdin.lock().lines() {
+         let raw_line = _line?;
+diff --git a/src/paint.rs b/src/paint.rs
+index 287a23b..09934f7 100644
+--- a/src/paint.rs
++++ b/src/paint.rs
+@@ -45,6 +45,18 @@ pub struct Config<'a> {
+     pub width: Option<usize>,
+ }
+ 
++pub fn get_config<'a>(
++    theme: &'a Theme,
++    theme_name: &'a String,
++    width: Option<usize>,
++) -> Config<'a> {
++    Config {
++        theme: theme,
++        width: width,
++        syntax_set: SyntaxSet::load_defaults_newlines(),
++    }
++}
++
+ /// Write line to buffer with color escape codes applied.
+ pub fn paint_line(
+     mut line: String,

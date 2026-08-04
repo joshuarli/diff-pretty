@@ -1,0 +1,40 @@
+commit d682e2fdad335ca189ec0630d6a78243bcfadd5e
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Wed Jun 26 14:57:58 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Wed Jun 26 14:57:58 2019 -0400
+
+    Add notes about 24 bit color to README
+
+
+[34mΔ README.md[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m[38;2;68;68;68m  5 [34m[38;2;68;68;68m  5 [34m[0m
+[34m[38;2;68;68;68m  6 [34m[38;2;68;68;68m  6 [34m[0m## Installation
+[34m[38;2;68;68;68m  7 [34m[38;2;68;68;68m  7 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m  8 [34m[32m#### 0. Use a terminal that supports 24 bit colors[0m
+[34m[38;5;88m    [34m[38;5;28m  9 [34m[32m  See https://gist.github.com/XVilka/8346728[0m
+[34m[38;5;88m    [34m[38;5;28m 10 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 11 [34m[32m  For example, on macos, iTerm2 works but Terminal.app does not. If you are using tmux, see the section at the bottom.[0m
+[34m[38;5;88m    [34m[38;5;28m 12 [34m[0m
+[34m[38;2;68;68;68m  8 [34m[38;2;68;68;68m 13 [34m[0m#### 1. Install the Rust development environment.
+[34m[38;2;68;68;68m  9 [34m[38;2;68;68;68m 14 [34m[0m  See https://www.rust-lang.org/tools/install.
+[34m[38;2;68;68;68m 10 [34m[38;2;68;68;68m 15 [34m[0m
+
+[34m───────────────────────────────────────────────────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  All git commands that display diff output should now display syntax-highlighted [34m│[0m
+[34m───────────────────────────────────────────────────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 44 [34m[38;2;68;68;68m 49 [34m[0m  - `git log -p`
+[34m[38;2;68;68;68m 45 [34m[38;2;68;68;68m 50 [34m[0m  - `git stash show -p`
+[34m[38;2;68;68;68m 46 [34m[38;2;68;68;68m 51 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 52 [34m[32m#### Tmux 24bit color configuration[0m
+[34m[38;5;88m    [34m[38;5;28m 53 [34m[32m If you're using tmux, it's worth checking that 24 bit color is  working correctly. For example, run a color test script like [this  one](https://gist.githubusercontent.com/lifepillar/09a44b8cf0f9397465614e622979107f/raw/24-bit-color.sh),  or the others listed at https://gist.github.com/XVilka/8346728. If  you do not see smooth color gradients, see the discussion at  [tmux#696](https://github.com/tmux/tmux/issues/696). The short  version is you need something like this in your `~/.tmux.conf`:[0m
+[34m[38;5;88m    [34m[38;5;28m 54 [34m[32m ```[0m
+[34m[38;5;88m    [34m[38;5;28m 55 [34m[32m set -ga terminal-overrides ",xterm-256color:Tc"[0m
+[34m[38;5;88m    [34m[38;5;28m 56 [34m[32m ```[0m
+[34m[38;5;88m    [34m[38;5;28m 57 [34m[32m and you may then  need to quit tmux completely for it to take effect.[0m
+[34m[38;5;88m    [34m[38;5;28m 58 [34m[0m
+[34m[38;2;68;68;68m 47 [34m[38;2;68;68;68m 59 [34m[0m## Credit
+[34m[38;2;68;68;68m 48 [34m[38;2;68;68;68m 60 [34m[0m  https://github.com/trishume/syntect<br>
+[34m[38;2;68;68;68m 49 [34m[38;2;68;68;68m 61 [34m[0m  https://github.com/sharkdp/bat

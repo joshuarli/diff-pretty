@@ -1,0 +1,122 @@
+commit 19d688b8c124089e08b25c6a56a5da172a825b20
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Mon Jul 1 04:10:51 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Mon Jul 1 04:35:47 2019 -0400
+
+    Support --width=variable
+    
+    This option means that background diff highlighting should extend to
+    the end of each line, without right padding lines to produce equal
+    width.
+
+
+[34mΔ README.md[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m────────────[0m[34m┐[0m
+[34m•[0m  OPTIONS: [34m│[0m
+[34m────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 45 [34m[38;2;68;68;68m 45 [34m[0m        --minus-color <minus_color>    The background color (RGB hex) to use for removed lines.
+[34m[38;2;68;68;68m 46 [34m[38;2;68;68;68m 46 [34m[0m        --plus-color <plus_color>      The background color (RGB hex) to use for added lines.
+[34m[38;2;68;68;68m 47 [34m[38;2;68;68;68m 47 [34m[0m        --theme <theme>                The syntax highlighting theme to use.
+[34m[38;5;88m 48 [34m[38;5;28m    [34m[31m    -w, --width <width>                The width (in characters) of the [1;7mdiff[0m[31m highlighting. By default, the[1;7m highlighting[0m
+[34m[38;5;88m 49 [34m[38;5;28m    [34m[31m                                       extends to the last character on each line. By default, the width is equal to the[0m
+[34m[38;5;88m 50 [34m[38;5;28m    [34m[31m                                       current terminal width.[0m
+[34m[38;5;88m    [34m[38;5;28m 48 [34m[32m    -w, --width <width>                The width (in characters) of the [1;7mbackground color[0m[32m highlighting. By default, the[0m
+[34m[38;5;88m    [34m[38;5;28m 49 [34m[32m                                       [1;7mwidth is the [0m[32mcurrent terminal width.[1;7m Use --width=variable to apply background[0m
+[34m[38;5;88m    [34m[38;5;28m 50 [34m[32m                                       colors to the end of each line, without right padding to equal width.[0m
+[34m[38;2;68;68;68m 51 [34m[38;2;68;68;68m 51 [34m[0m```
+[34m[38;2;68;68;68m 52 [34m[38;2;68;68;68m 52 [34m[0m
+[34m[38;2;68;68;68m 53 [34m[38;2;68;68;68m 53 [34m[0m## Installation
+
+[34mΔ src/main.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m─────────────────────────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  use std::io::{self, BufRead, ErrorKind, Read, Write}; [34m│[0m
+[34m─────────────────────────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 10 [34m[38;2;68;68;68m 10 [34m[0muse std::process;
+[34m[38;2;68;68;68m 11 [34m[38;2;68;68;68m 11 [34m[0m
+[34m[38;2;68;68;68m 12 [34m[38;2;68;68;68m 12 [34m[0muse assets::{HighlightingAssets, list_languages};
+[34m[38;5;88m 13 [34m[38;5;28m    [34m[31muse console::strip_ansi_codes;[0m
+[34m[38;5;88m    [34m[38;5;28m 13 [34m[32muse console::[1;7m{Term, [0m[32mstrip_ansi_codes[1;7m}[0m[32m;[0m
+[34m[38;2;68;68;68m 14 [34m[38;2;68;68;68m 14 [34m[0muse output::{OutputType, PagingMode};
+[34m[38;2;68;68;68m 15 [34m[38;2;68;68;68m 15 [34m[0muse structopt::StructOpt;
+[34m[38;2;68;68;68m 16 [34m[38;2;68;68;68m 16 [34m[0muse syntect::parsing::SyntaxReference;
+
+[34m────────────────[0m[34m┐[0m
+[34m•[0m  struct Opt { [34m│[0m
+[34m────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 55 [34m[38;2;68;68;68m 55 [34m[0m    /// apply syntax highlighting to unchanged and new lines only.
+[34m[38;2;68;68;68m 56 [34m[38;2;68;68;68m 56 [34m[0m    highlight_removed: bool,
+[34m[38;2;68;68;68m 57 [34m[38;2;68;68;68m 57 [34m[0m
+[34m[38;5;88m 58 [34m[38;5;28m    [34m[31m    /// The width (in characters) of the [1;7mdiff highlighting. By[0m
+[34m[38;5;88m 59 [34m[38;5;28m    [34m[31m    /// default, the highlighting extends to the last character on[0m
+[34m[38;5;88m 60 [34m[38;5;28m    [34m[31m    /// [1;7meach line[0m[31m. By default, the width is [1;7mequal to [0m[31mthe current[0m
+[34m[38;5;88m 61 [34m[38;5;28m    [34m[31m    /// terminal width.[0m
+[34m[38;5;88m    [34m[38;5;28m 58 [34m[32m    /// The width (in characters) of the [1;7mbackground color[0m
+[34m[38;5;88m    [34m[38;5;28m 59 [34m[32m    /// [1;7mhighlighting[0m[32m. By default, the width is the current[1;7m terminal[0m
+[34m[38;5;88m    [34m[38;5;28m 60 [34m[32m    /// width. Use --width=variable to apply background colors to the[0m
+[34m[38;5;88m    [34m[38;5;28m 61 [34m[32m    /// end of each line, without right padding to equal width.[0m
+[34m[38;2;68;68;68m 62 [34m[38;2;68;68;68m 62 [34m[0m    #[structopt(short = "w", long = "width")]
+[34m[38;5;88m 63 [34m[38;5;28m    [34m[31m    width: Option<[1;7musize[0m[31m>,[0m
+[34m[38;5;88m    [34m[38;5;28m 63 [34m[32m    width: Option<[1;7mString[0m[32m>,[0m
+[34m[38;2;68;68;68m 64 [34m[38;2;68;68;68m 64 [34m[0m
+[34m[38;2;68;68;68m 65 [34m[38;2;68;68;68m 65 [34m[0m    /// List supported languages and associated file extensions.
+[34m[38;2;68;68;68m 66 [34m[38;2;68;68;68m 66 [34m[0m    #[structopt(long = "list-languages")]
+
+[34m──────────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  fn process_command_line_arguments<'a>( [34m│[0m
+[34m──────────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 154[34m[38;2;68;68;68m 154[34m[0m        None => (),
+[34m[38;2;68;68;68m 155[34m[38;2;68;68;68m 155[34m[0m    };
+[34m[38;2;68;68;68m 156[34m[38;2;68;68;68m 156[34m[0m
+[34m[38;5;88m    [34m[38;5;28m 157[34m[32m    let width = match opt.width.as_ref().map(String::as_str) {[0m
+[34m[38;5;88m    [34m[38;5;28m 158[34m[32m        Some("variable") => None,[0m
+[34m[38;5;88m    [34m[38;5;28m 159[34m[32m        Some(width) => {[0m
+[34m[38;5;88m    [34m[38;5;28m 160[34m[32m            Some(width.parse::<usize>().unwrap_or_else([0m
+[34m[38;5;88m    [34m[38;5;28m 161[34m[32m                |_| panic!("Invalid width: {}", width),[0m
+[34m[38;5;88m    [34m[38;5;28m 162[34m[32m            ))[0m
+[34m[38;5;88m    [34m[38;5;28m 163[34m[32m        }[0m
+[34m[38;5;88m    [34m[38;5;28m 164[34m[32m        None => Some((Term::stdout().size().1 - 1) as usize),[0m
+[34m[38;5;88m    [34m[38;5;28m 165[34m[32m    };[0m
+[34m[38;5;88m    [34m[38;5;28m 166[34m[0m
+[34m[38;2;68;68;68m 157[34m[38;2;68;68;68m 167[34m[0m    paint::get_config(
+[34m[38;2;68;68;68m 158[34m[38;2;68;68;68m 168[34m[0m        &assets.syntax_set,
+[34m[38;2;68;68;68m 159[34m[38;2;68;68;68m 169[34m[0m        &opt.theme,
+
+[34m──────────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  fn process_command_line_arguments<'a>( [34m│[0m
+[34m──────────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 162[34m[38;2;68;68;68m 172[34m[0m        &opt.plus_color,
+[34m[38;2;68;68;68m 163[34m[38;2;68;68;68m 173[34m[0m        &opt.minus_color,
+[34m[38;2;68;68;68m 164[34m[38;2;68;68;68m 174[34m[0m        opt.highlight_removed,
+[34m[38;5;88m 165[34m[38;5;28m    [34m[31m        [1;7mopt.[0m[31mwidth,[0m
+[34m[38;5;88m    [34m[38;5;28m 175[34m[32m        width,[0m
+[34m[38;2;68;68;68m 166[34m[38;2;68;68;68m 176[34m[0m    )
+[34m[38;2;68;68;68m 167[34m[38;2;68;68;68m 177[34m[0m}
+[34m[38;2;68;68;68m 168[34m[38;2;68;68;68m 178[34m[0m
+
+[34mΔ src/paint.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m[38;2;68;68;68m  1 [34m[38;2;68;68;68m  1 [34m[0muse std::fmt::Write;
+[34m[38;2;68;68;68m  2 [34m[38;2;68;68;68m  2 [34m[0muse std::str::FromStr;
+[34m[38;2;68;68;68m  3 [34m[38;2;68;68;68m  3 [34m[0m
+[34m[38;5;88m  4 [34m[38;5;28m    [34m[31muse console::Term;[0m
+[34m[38;2;68;68;68m  5 [34m[38;2;68;68;68m  4 [34m[0muse syntect::easy::HighlightLines;
+[34m[38;2;68;68;68m  6 [34m[38;2;68;68;68m  5 [34m[0muse syntect::highlighting::{Color, Style, Theme, ThemeSet};
+[34m[38;2;68;68;68m  7 [34m[38;2;68;68;68m  6 [34m[0muse syntect::parsing::{SyntaxReference, SyntaxSet};
+
+[34m──────────────────────────[0m[34m┐[0m
+[34m•[0m  pub fn get_config<'a>( [34m│[0m
+[34m──────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 96 [34m[38;2;68;68;68m 95 [34m[0m        } else {
+[34m[38;2;68;68;68m 97 [34m[38;2;68;68;68m 96 [34m[0m            DARK_THEME_MINUS_COLOR
+[34m[38;2;68;68;68m 98 [34m[38;2;68;68;68m 97 [34m[0m        }),
+[34m[38;5;88m 99 [34m[38;5;28m    [34m[31m        width: width.or_else(|| Some((Term::stdout().size().1 - 1) as usize)),[0m
+[34m[38;5;88m    [34m[38;5;28m 98 [34m[32m        width: width,[0m
+[34m[38;2;68;68;68m 100[34m[38;2;68;68;68m 99 [34m[0m        highlight_removed: highlight_removed,
+[34m[38;2;68;68;68m 101[34m[38;2;68;68;68m 100[34m[0m        syntax_set: &syntax_set,
+[34m[38;2;68;68;68m 102[34m[38;2;68;68;68m 101[34m[0m        pager: "less",

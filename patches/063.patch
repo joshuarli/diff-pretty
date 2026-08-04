@@ -1,0 +1,158 @@
+commit 6a34f9146d4efaae547e9c316c6016c8bbcf1833
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Sat Jun 29 10:21:49 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Sat Jun 29 18:12:57 2019 -0400
+
+    Use syntax and theme data built by bat. Fixes #4, #5
+
+diff --git a/assets/syntaxes.bin b/assets/syntaxes.bin
+new file mode 100644
+index 0000000..44133c4
+Binary files /dev/null and b/assets/syntaxes.bin differ
+diff --git a/assets/themes.bin b/assets/themes.bin
+new file mode 100644
+index 0000000..23ad913
+Binary files /dev/null and b/assets/themes.bin differ
+diff --git a/src/assets.rs b/src/assets.rs
+new file mode 100644
+index 0000000..765972e
+--- /dev/null
++++ b/src/assets.rs
+@@ -0,0 +1,46 @@
++// Based on assets.rs from https://github.com/sharkdp/bat a1b9334a44a2c652f52dddaa83dbacba57372468
++//
++// Copyright (c) 2018 bat-developers (https://github.com/sharkdp/bat).
++
++// Permission is hereby granted, free of charge, to any person obtaining a copy
++// of this software and associated documentation files (the "Software"), to deal
++// in the Software without restriction, including without limitation the rights
++// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
++// copies of the Software, and to permit persons to whom the Software is
++// furnished to do so, subject to the following conditions:
++
++// The above copyright notice and this permission notice shall be included in all
++// copies or substantial portions of the Software.
++
++use syntect::dumps::from_binary;
++use syntect::highlighting::ThemeSet;
++use syntect::parsing::SyntaxSet;
++
++pub struct HighlightingAssets {
++    pub syntax_set: SyntaxSet,
++    pub theme_set: ThemeSet,
++}
++
++impl HighlightingAssets {
++    pub fn new() -> Self {
++        Self::from_binary()
++    }
++
++    fn get_integrated_syntaxset() -> SyntaxSet {
++        from_binary(include_bytes!("../assets/syntaxes.bin"))
++    }
++
++    fn get_integrated_themeset() -> ThemeSet {
++        from_binary(include_bytes!("../assets/themes.bin"))
++    }
++
++    fn from_binary() -> Self {
++        let syntax_set = Self::get_integrated_syntaxset();
++        let theme_set = Self::get_integrated_themeset();
++
++        HighlightingAssets {
++            syntax_set,
++            theme_set,
++        }
++    }
++}
+diff --git a/src/main.rs b/src/main.rs
+index 588039d..a4ae269 100644
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -1,3 +1,4 @@
++mod assets;
+ mod paint;
+ mod parse_diff;
+ 
+@@ -5,9 +6,10 @@ use std::io::{self, BufRead, ErrorKind, Write};
+ use std::process;
+ 
+ use console::strip_ansi_codes;
++use assets::HighlightingAssets;
+ use structopt::StructOpt;
+ use syntect::highlighting::ThemeSet;
+-use syntect::parsing::SyntaxReference;
++use syntect::parsing::{SyntaxReference, SyntaxSet};
+ 
+ #[derive(StructOpt, Debug)]
+ #[structopt(name = "delta",
+@@ -72,8 +74,9 @@ fn main() {
+ 
+ fn delta() -> std::io::Result<()> {
+     let mut opt = Opt::from_args();
++    let assets = HighlightingAssets::new();
+     let theme_set = ThemeSet::load_defaults();
+-    let paint_config = parse_args(&theme_set, &mut opt);
++    let paint_config = parse_args(&assets.syntax_set, &theme_set, &mut opt);
+ 
+     let stdin = io::stdin();
+     let mut stdout = io::stdout();
+@@ -90,7 +93,8 @@ fn delta() -> std::io::Result<()> {
+         if line.starts_with("diff --") {
+             state = State::DiffMeta;
+             syntax = match parse_diff::get_file_extension_from_diff_line(&line) {
+-                Some(extension) => paint_config.syntax_set.find_syntax_by_extension(extension),
++                // TODO: cache syntaxes?
++                Some(extension) => assets.syntax_set.find_syntax_by_extension(extension),
+                 None => None,
+             };
+         } else if line.starts_with("commit") {
+@@ -115,7 +119,11 @@ fn delta() -> std::io::Result<()> {
+     Ok(())
+ }
+ 
+-fn parse_args<'a>(theme_set: &'a ThemeSet, opt: &'a mut Opt) -> paint::Config<'a> {
++fn parse_args<'a>(
++    syntax_set: &'a SyntaxSet,
++    theme_set: &'a ThemeSet,
++    opt: &'a mut Opt,
++) -> paint::Config<'a> {
+ 
+     if opt.light && opt.dark {
+         eprintln!("--light or --dark cannot be used together. Default is --light.");
+@@ -132,6 +140,7 @@ fn parse_args<'a>(theme_set: &'a ThemeSet, opt: &'a mut Opt) -> paint::Config<'a
+     };
+ 
+     paint::get_config(
++        syntax_set,
+         &opt.theme,
+         theme_set,
+         opt.dark,
+diff --git a/src/paint.rs b/src/paint.rs
+index c6980b9..bb0a5a0 100644
+--- a/src/paint.rs
++++ b/src/paint.rs
+@@ -45,11 +45,12 @@ pub struct Config<'a> {
+     theme: &'a Theme,
+     plus_color: Color,
+     minus_color: Color,
+-    pub syntax_set: SyntaxSet,
++    pub syntax_set: &'a SyntaxSet,
+     width: Option<usize>,
+ }
+ 
+ pub fn get_config<'a>(
++    syntax_set: &'a SyntaxSet,
+     theme: &Option<String>,
+     theme_set: &'a ThemeSet,
+     dark: bool,
+@@ -95,7 +96,7 @@ pub fn get_config<'a>(
+             LIGHT_THEME_MINUS_COLOR
+         }),
+         width: width,
+-        syntax_set: SyntaxSet::load_defaults_newlines(),
++        syntax_set: &syntax_set,
+     }
+ }
+ 

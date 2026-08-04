@@ -1,0 +1,220 @@
+commit e6e3aea5710b2a880800fbaa8a092968e0fd4c3b
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Sun Jun 30 17:36:17 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Sun Jun 30 18:54:19 2019 -0400
+
+    Use bat's output.rs to write to pager
+
+
+[34mΔ Cargo.toml[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m────────────────────[0m[34m┐[0m
+[34m•[0m  edition = "2018" [34m│[0m
+[34m────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m  8 [34m[38;2;68;68;68m  8 [34m[0mansi_term = "0.11"
+[34m[38;2;68;68;68m  9 [34m[38;2;68;68;68m  9 [34m[0mconsole = "0.7.7"
+[34m[38;2;68;68;68m 10 [34m[38;2;68;68;68m 10 [34m[0mparsepatch = "0.2.0"
+[34m[38;5;88m    [34m[38;5;28m 11 [34m[32mshell-words = "0.1.0"[0m
+[34m[38;2;68;68;68m 11 [34m[38;2;68;68;68m 12 [34m[0mstructopt = "0.2.16"
+[34m[38;2;68;68;68m 12 [34m[38;2;68;68;68m 13 [34m[0msyntect = "3.2"
+[34m[38;5;88m    [34m[38;5;28m 14 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 15 [34m[32m[dependencies.error-chain][0m
+[34m[38;5;88m    [34m[38;5;28m 16 [34m[32mversion = "0.12"[0m
+[34m[38;5;88m    [34m[38;5;28m 17 [34m[32mdefault-features = false[0m
+[34m[38;5;88m    [34m[38;5;28m 18 [34m[32mfeatures = [][0m
+
+[34mΔ README.md[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m[38;2;68;68;68m 10 [34m[38;2;68;68;68m 10 [34m[0m## Usage
+[34m[38;2;68;68;68m 11 [34m[38;2;68;68;68m 11 [34m[0m```
+[34m[38;2;68;68;68m 12 [34m[38;2;68;68;68m 12 [34m[0mdelta 0.1.0
+[34m[38;5;88m 13 [34m[38;5;28m    [34m[31mA syntax-highlighter for git.[1;7m Use 'delta | less -R' as core.pager in .gitconfig[0m
+[34m[38;5;88m    [34m[38;5;28m 13 [34m[32mDan Davison <dandavison7@gmail.com>[0m
+[34m[38;5;88m    [34m[38;5;28m 14 [34m[32mA syntax-highlighter for git.[0m
+[34m[38;2;68;68;68m 14 [34m[38;2;68;68;68m 15 [34m[0m
+[34m[38;2;68;68;68m 15 [34m[38;2;68;68;68m 16 [34m[0mUSAGE:
+[34m[38;2;68;68;68m 16 [34m[38;2;68;68;68m 17 [34m[0m    delta [FLAGS] [OPTIONS]
+
+[34m────────────[0m[34m┐[0m
+[34m•[0m  OPTIONS: [34m│[0m
+[34m────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 32 [34m[38;2;68;68;68m 33 [34m[0m        --plus-color <plus_color>      The background color (RGB hex) to use for added lines.
+[34m[38;2;68;68;68m 33 [34m[38;2;68;68;68m 34 [34m[0m        --theme <theme>                The syntax highlighting theme to use.
+[34m[38;2;68;68;68m 34 [34m[38;2;68;68;68m 35 [34m[0m    -w, --width <width>                The width (in characters) of the diff highlighting. By default, the highlighting
+[34m[38;5;88m 35 [34m[38;5;28m    [34m[31m                                       extends to the last character on each line.[0m
+[34m[38;5;88m    [34m[38;5;28m 36 [34m[32m                                       extends to the last character on each line.[1;7m Use --width=max to set width equal to[0m
+[34m[38;5;88m    [34m[38;5;28m 37 [34m[32m                                       current terminal width.[0m
+[34m[38;2;68;68;68m 36 [34m[38;2;68;68;68m 38 [34m[0m```
+[34m[38;2;68;68;68m 37 [34m[38;2;68;68;68m 39 [34m[0m
+[34m[38;2;68;68;68m 38 [34m[38;2;68;68;68m 40 [34m[0m## Installation
+
+[34m────────────[0m[34m┐[0m
+[34m•[0m  OPTIONS: [34m│[0m
+[34m────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 57 [34m[38;2;68;68;68m 59 [34m[0m    ```
+[34m[38;2;68;68;68m 58 [34m[38;2;68;68;68m 60 [34m[0m
+[34m[38;2;68;68;68m 59 [34m[38;2;68;68;68m 61 [34m[0m    Alternatively, you can ignore `$PATH` and use
+[34m[38;5;88m 60 [34m[38;5;28m    [34m[31m    `/path/to/delta/target/debug/delta[1;7m | less -R[0m[31m` in the next step.[0m
+[34m[38;5;88m    [34m[38;5;28m 62 [34m[32m    `/path/to/delta/target/debug/delta` in the next step.[0m
+[34m[38;2;68;68;68m 61 [34m[38;2;68;68;68m 63 [34m[0m
+[34m[38;2;68;68;68m 62 [34m[38;2;68;68;68m 64 [34m[0m4. **Configure git to use delta:**<br>
+[34m[38;2;68;68;68m 63 [34m[38;2;68;68;68m 65 [34m[0m    (Note that delta defaults to a light theme, so if you're using a dark terminal background, you'll want to use `--dark` or `--theme=<theme-name>`.)
+
+[34m────────────[0m[34m┐[0m
+[34m•[0m  OPTIONS: [34m│[0m
+[34m────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 65 [34m[38;2;68;68;68m 67 [34m[0m    Edit your `~/.gitconfig`:
+[34m[38;2;68;68;68m 66 [34m[38;2;68;68;68m 68 [34m[0m    ```
+[34m[38;2;68;68;68m 67 [34m[38;2;68;68;68m 69 [34m[0m    [core]
+[34m[38;5;88m 68 [34m[38;5;28m    [34m[31m        pager = delta[1;7m | less -R[0m
+[34m[38;5;88m    [34m[38;5;28m 70 [34m[32m        pager = delta[0m
+[34m[38;2;68;68;68m 69 [34m[38;2;68;68;68m 71 [34m[0m    ```
+[34m[38;2;68;68;68m 70 [34m[38;2;68;68;68m 72 [34m[0m    Alternatively, run this command:
+[34m[38;2;68;68;68m 71 [34m[38;2;68;68;68m 73 [34m[0m    ```
+[34m[38;5;88m 72 [34m[38;5;28m    [34m[31m    git config --global core.pager 'delta[1;7m | less -R[0m[31m'[0m
+[34m[38;5;88m    [34m[38;5;28m 74 [34m[32m    git config --global core.pager 'delta'[0m
+[34m[38;2;68;68;68m 73 [34m[38;2;68;68;68m 75 [34m[0m    ```
+[34m[38;2;68;68;68m 74 [34m[38;2;68;68;68m 76 [34m[0m
+[34m[38;2;68;68;68m 75 [34m[38;2;68;68;68m 77 [34m[0m    You can pass arguments to delta in your `.gitconfig`. An example is
+[34m[38;2;68;68;68m 76 [34m[38;2;68;68;68m 78 [34m[0m    ```
+[34m[38;2;68;68;68m 77 [34m[38;2;68;68;68m 79 [34m[0m    [core]
+[34m[38;5;88m 78 [34m[38;5;28m    [34m[31m        pager = delta --width=100 --plus-color="#012800" --minus-color="#340001" --theme="base16-ocean.dark"[1;7m | less -R[0m
+[34m[38;5;88m    [34m[38;5;28m 80 [34m[32m        pager = delta --width=100 --plus-color="#012800" --minus-color="#340001" --theme="base16-ocean.dark"[0m
+[34m[38;2;68;68;68m 79 [34m[38;2;68;68;68m 81 [34m[0m    ```
+[34m[38;2;68;68;68m 80 [34m[38;2;68;68;68m 82 [34m[0m    Please include the `=` characters; I'm not sure why yet, but they're necessary when writing a delta command line in `.gitconfig`!
+[34m[38;2;68;68;68m 81 [34m[38;2;68;68;68m 83 [34m[0m
+
+[34mΔ src/main.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m[38;5;88m    [34m[38;5;28m  1 [34m[32m#[macro_use][0m
+[34m[38;5;88m    [34m[38;5;28m  2 [34m[32mextern crate error_chain;[0m
+[34m[38;5;88m    [34m[38;5;28m  3 [34m[0m
+[34m[38;2;68;68;68m  1 [34m[38;2;68;68;68m  4 [34m[0mmod assets;
+[34m[38;5;88m    [34m[38;5;28m  5 [34m[32mmod output;[0m
+[34m[38;2;68;68;68m  2 [34m[38;2;68;68;68m  6 [34m[0mmod paint;
+[34m[38;2;68;68;68m  3 [34m[38;2;68;68;68m  7 [34m[0mmod parse_diff;
+[34m[38;2;68;68;68m  4 [34m[38;2;68;68;68m  8 [34m[0m
+
+[34m─────────────────────[0m[34m┐[0m
+[34m•[0m  use std::process; [34m│[0m
+[34m─────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m  7 [34m[38;2;68;68;68m 11 [34m[0m
+[34m[38;2;68;68;68m  8 [34m[38;2;68;68;68m 12 [34m[0muse assets::{HighlightingAssets, list_languages};
+[34m[38;2;68;68;68m  9 [34m[38;2;68;68;68m 13 [34m[0muse console::strip_ansi_codes;
+[34m[38;5;88m    [34m[38;5;28m 14 [34m[32muse output::{OutputType, PagingMode};[0m
+[34m[38;2;68;68;68m 10 [34m[38;2;68;68;68m 15 [34m[0muse structopt::StructOpt;
+[34m[38;2;68;68;68m 11 [34m[38;2;68;68;68m 16 [34m[0muse syntect::parsing::SyntaxReference;
+[34m[38;2;68;68;68m 12 [34m[38;2;68;68;68m 17 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 18 [34m[32mmod errors {[0m
+[34m[38;5;88m    [34m[38;5;28m 19 [34m[32m    error_chain! {[0m
+[34m[38;5;88m    [34m[38;5;28m 20 [34m[32m        foreign_links {[0m
+[34m[38;5;88m    [34m[38;5;28m 21 [34m[32m            Io(::std::io::Error);[0m
+[34m[38;5;88m    [34m[38;5;28m 22 [34m[32m            SyntectError(::syntect::LoadingError);[0m
+[34m[38;5;88m    [34m[38;5;28m 23 [34m[32m            ParseIntError(::std::num::ParseIntError);[0m
+[34m[38;5;88m    [34m[38;5;28m 24 [34m[32m        }[0m
+[34m[38;5;88m    [34m[38;5;28m 25 [34m[32m    }[0m
+[34m[38;5;88m    [34m[38;5;28m 26 [34m[32m}[0m
+[34m[38;5;88m    [34m[38;5;28m 27 [34m[0m
+[34m[38;2;68;68;68m 13 [34m[38;2;68;68;68m 28 [34m[0m#[derive(StructOpt, Debug)]
+[34m[38;5;88m 14 [34m[38;5;28m    [34m[31m#[structopt(name = "delta",[0m
+[34m[38;5;88m 15 [34m[38;5;28m    [34m[31m            about = "A syntax-highlighter for git. \[0m
+[34m[38;5;88m 16 [34m[38;5;28m    [34m[31m                     Use 'delta | less -R' as core.pager in .gitconfig")][0m
+[34m[38;5;88m    [34m[38;5;28m 29 [34m[32m#[structopt(name = "delta",[1;7m about = "A syntax-highlighter for git.")][0m
+[34m[38;2;68;68;68m 17 [34m[38;2;68;68;68m 30 [34m[0mstruct Opt {
+[34m[38;2;68;68;68m 18 [34m[38;2;68;68;68m 31 [34m[0m    /// Use colors appropriate for a light terminal background. For
+[34m[38;2;68;68;68m 19 [34m[38;2;68;68;68m 32 [34m[0m    /// more control, see --theme, --plus-color, and --minus-color.
+
+[34m─────────────[0m[34m┐[0m
+[34m•[0m  fn delta( [34m│[0m
+[34m─────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 108[34m[38;2;68;68;68m 121[34m[0m
+[34m[38;2;68;68;68m 109[34m[38;2;68;68;68m 122[34m[0m    let mut syntax: Option<&SyntaxReference> = None;
+[34m[38;2;68;68;68m 110[34m[38;2;68;68;68m 123[34m[0m    let mut output = String::new();
+[34m[38;5;88m 111[34m[38;5;28m    [34m[31m    let mut stdout = io::stdout();[0m
+[34m[38;5;88m    [34m[38;5;28m 124[34m[32m    let mut output_type =[0m
+[34m[38;5;88m    [34m[38;5;28m 125[34m[32m        OutputType::from_mode(PagingMode::QuitIfOneScreen, Some(paint_config.pager)).unwrap();[0m
+[34m[38;5;88m    [34m[38;5;28m 126[34m[32m    let writer = output_type.handle().unwrap();[0m
+[34m[38;2;68;68;68m 112[34m[38;2;68;68;68m 127[34m[0m    let mut state = State::Unknown;
+[34m[38;2;68;68;68m 113[34m[38;2;68;68;68m 128[34m[0m    let mut did_emit_line: bool;
+[34m[38;2;68;68;68m 114[34m[38;2;68;68;68m 129[34m[0m
+
+[34m─────────────[0m[34m┐[0m
+[34m•[0m  fn delta( [34m│[0m
+[34m─────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 130[34m[38;2;68;68;68m 145[34m[0m            match syntax {
+[34m[38;2;68;68;68m 131[34m[38;2;68;68;68m 146[34m[0m                Some(syntax) => {
+[34m[38;2;68;68;68m 132[34m[38;2;68;68;68m 147[34m[0m                    paint::paint_line(line, syntax, &paint_config, &mut output);
+[34m[38;5;88m 133[34m[38;5;28m    [34m[31m                    writeln!([1;7mstdout[0m[31m, "{}", output)?;[0m
+[34m[38;5;88m    [34m[38;5;28m 148[34m[32m                    writeln!([1;7mwriter[0m[32m, "{}", output)?;[0m
+[34m[38;2;68;68;68m 134[34m[38;2;68;68;68m 149[34m[0m                    output.truncate(0);
+[34m[38;2;68;68;68m 135[34m[38;2;68;68;68m 150[34m[0m                    did_emit_line = true;
+[34m[38;2;68;68;68m 136[34m[38;2;68;68;68m 151[34m[0m                }
+
+[34m─────────────[0m[34m┐[0m
+[34m•[0m  fn delta( [34m│[0m
+[34m─────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 138[34m[38;2;68;68;68m 153[34m[0m            }
+[34m[38;2;68;68;68m 139[34m[38;2;68;68;68m 154[34m[0m        }
+[34m[38;2;68;68;68m 140[34m[38;2;68;68;68m 155[34m[0m        if !did_emit_line {
+[34m[38;5;88m 141[34m[38;5;28m    [34m[31m            writeln!([1;7mstdout[0m[31m, "{}", raw_line)?;[0m
+[34m[38;5;88m    [34m[38;5;28m 156[34m[32m            writeln!([1;7mwriter[0m[32m, "{}", raw_line)?;[0m
+[34m[38;2;68;68;68m 142[34m[38;2;68;68;68m 157[34m[0m        }
+[34m[38;2;68;68;68m 143[34m[38;2;68;68;68m 158[34m[0m    }
+[34m[38;2;68;68;68m 144[34m[38;2;68;68;68m 159[34m[0m    Ok(())
+
+[34mΔ src/output.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m[38;2;68;68;68m  1 [34m[38;2;68;68;68m  1 [34m[0m// https://github.com/sharkdp/bat a1b9334a44a2c652f52dddaa83dbacba57372468
+[34m[38;2;68;68;68m  2 [34m[38;2;68;68;68m  2 [34m[0m// src/output.rs
+[34m[38;5;88m    [34m[38;5;28m  3 [34m[32m// with minor modifications (see git history).[0m
+[34m[38;2;68;68;68m  3 [34m[38;2;68;68;68m  4 [34m[0m//
+[34m[38;2;68;68;68m  4 [34m[38;2;68;68;68m  5 [34m[0m// Copyright (c) 2018 bat-developers (https://github.com/sharkdp/bat).
+[34m[38;2;68;68;68m  5 [34m[38;2;68;68;68m  6 [34m[0m
+
+[34m──────────────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  use std::process::{Child, Command, Stdio}; [34m│[0m
+[34m──────────────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 20 [34m[38;2;68;68;68m 21 [34m[0m
+[34m[38;2;68;68;68m 21 [34m[38;2;68;68;68m 22 [34m[0muse shell_words;
+[34m[38;2;68;68;68m 22 [34m[38;2;68;68;68m 23 [34m[0m
+[34m[38;5;88m 23 [34m[38;5;28m    [34m[1;7;31muse crate::app::[0m[31mPagingMode[1;7m;[0m
+[34m[38;5;88m    [34m[38;5;28m 24 [34m[32m#[derive(Debug, Clone, Copy, PartialEq)][0m
+[34m[38;5;88m    [34m[38;5;28m 25 [34m[32m#[allow(dead_code)][0m
+[34m[38;5;88m    [34m[38;5;28m 26 [34m[1;7;32mpub enum [0m[32mPagingMode[1;7m {[0m
+[34m[38;5;88m    [34m[38;5;28m 27 [34m[32m    Always,[0m
+[34m[38;5;88m    [34m[38;5;28m 28 [34m[32m    QuitIfOneScreen,[0m
+[34m[38;5;88m    [34m[38;5;28m 29 [34m[32m    Never,[0m
+[34m[38;5;88m    [34m[38;5;28m 30 [34m[32m}[0m
+[34m[38;2;68;68;68m 24 [34m[38;2;68;68;68m 31 [34m[0muse crate::errors::*;
+[34m[38;2;68;68;68m 25 [34m[38;2;68;68;68m 32 [34m[0m
+[34m[38;2;68;68;68m 26 [34m[38;2;68;68;68m 33 [34m[0mpub enum OutputType {
+
+[34mΔ src/paint.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m───────────────────────────[0m[34m┐[0m
+[34m•[0m  pub struct Config<'a> { [34m│[0m
+[34m───────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 50 [34m[38;2;68;68;68m 50 [34m[0m    minus_color: Color,
+[34m[38;2;68;68;68m 51 [34m[38;2;68;68;68m 51 [34m[0m    pub syntax_set: &'a SyntaxSet,
+[34m[38;2;68;68;68m 52 [34m[38;2;68;68;68m 52 [34m[0m    width: Option<usize>,
+[34m[38;5;88m    [34m[38;5;28m 53 [34m[32m    pub pager: &'a str,[0m
+[34m[38;2;68;68;68m 53 [34m[38;2;68;68;68m 54 [34m[0m}
+[34m[38;2;68;68;68m 54 [34m[38;2;68;68;68m 55 [34m[0m
+[34m[38;2;68;68;68m 55 [34m[38;2;68;68;68m 56 [34m[0mpub fn get_config<'a>(
+
+[34m──────────────────────────[0m[34m┐[0m
+[34m•[0m  pub fn get_config<'a>( [34m│[0m
+[34m──────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 94 [34m[38;2;68;68;68m 95 [34m[0m        }),
+[34m[38;2;68;68;68m 95 [34m[38;2;68;68;68m 96 [34m[0m        width: width,
+[34m[38;2;68;68;68m 96 [34m[38;2;68;68;68m 97 [34m[0m        syntax_set: &syntax_set,
+[34m[38;5;88m    [34m[38;5;28m 98 [34m[32m        pager: "less",[0m
+[34m[38;2;68;68;68m 97 [34m[38;2;68;68;68m 99 [34m[0m    }
+[34m[38;2;68;68;68m 98 [34m[38;2;68;68;68m 100[34m[0m}
+[34m[38;2;68;68;68m 99 [34m[38;2;68;68;68m 101[34m[0m

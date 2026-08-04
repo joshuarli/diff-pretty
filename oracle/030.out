@@ -1,0 +1,29 @@
+commit 6bc6ccfc1ce7802aa5c51b43140c11ebdaaf1363
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Wed Jun 26 10:34:29 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Wed Jun 26 10:46:59 2019 -0400
+
+    Don't panic unnecessarily
+
+
+[34mΔ src/main.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m──────────────────────────────────────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  fn get_file_extension_from_diff_line(line: &str) -> Option<&str> { [34m│[0m
+[34m──────────────────────────────────────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 167[34m[38;2;68;68;68m 167[34m[0m            if ext1 == ext2 {
+[34m[38;2;68;68;68m 168[34m[38;2;68;68;68m 168[34m[0m                Some(ext1)
+[34m[38;2;68;68;68m 169[34m[38;2;68;68;68m 169[34m[0m            } else {
+[34m[38;5;88m 170[34m[38;5;28m    [34m[31m                // TODO: Just return None and output without color.[0m
+[34m[38;5;88m 171[34m[38;5;28m    [34m[31m                panic!([0m
+[34m[38;5;88m 172[34m[38;5;28m    [34m[31m                [1;7m   [0m[31m [1;7m"Old[0m[31m and new files have different extensions[1;7m: {} vs {}",[0m
+[34m[38;5;88m 173[34m[38;5;28m    [34m[31m                    ext1,[0m
+[34m[38;5;88m 174[34m[38;5;28m    [34m[31m                    ext2[0m
+[34m[38;5;88m 175[34m[38;5;28m    [34m[31m                );[0m
+[34m[38;5;88m    [34m[38;5;28m 170[34m[32m                [1;7m// Unexpected:[0m[32m [1;7mold[0m[32m and new files have different extensions[1;7m.[0m
+[34m[38;5;88m    [34m[38;5;28m 171[34m[32m                None[0m
+[34m[38;2;68;68;68m 176[34m[38;2;68;68;68m 172[34m[0m            }
+[34m[38;2;68;68;68m 177[34m[38;2;68;68;68m 173[34m[0m        }
+[34m[38;2;68;68;68m 178[34m[38;2;68;68;68m 174[34m[0m        (Some(ext1), None) => Some(ext1),

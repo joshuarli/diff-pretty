@@ -1,0 +1,50 @@
+commit 8b111cb4496d9250cb0c25d828f03d64274992ed
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Fri Jun 28 23:46:02 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Fri Jun 28 23:47:57 2019 -0400
+
+    Do not support --width=max ref #3
+    
+    This would require that delta starts the pager process rather than
+    using a pipe. This is how bat is able to detect terminal width.
+
+
+[34mΔ src/main.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m───────────────────[0m[34m┐[0m
+[34m•[0m  mod parse_diff; [34m│[0m
+[34m───────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m  6 [34m[38;2;68;68;68m  6 [34m[0muse std::io::{self, BufRead, ErrorKind, Write};
+[34m[38;2;68;68;68m  7 [34m[38;2;68;68;68m  7 [34m[0muse std::process;
+[34m[38;2;68;68;68m  8 [34m[38;2;68;68;68m  8 [34m[0m
+[34m[38;5;88m  9 [34m[38;5;28m    [34m[31muse console::[1;7m{[0m[31mstrip_ansi_codes[1;7m, Term}[0m[31m;[0m
+[34m[38;5;88m    [34m[38;5;28m  9 [34m[32muse console::strip_ansi_codes;[0m
+[34m[38;2;68;68;68m 10 [34m[38;2;68;68;68m 10 [34m[0muse structopt::StructOpt;
+[34m[38;2;68;68;68m 11 [34m[38;2;68;68;68m 11 [34m[0muse syntect::highlighting::ThemeSet;
+[34m[38;2;68;68;68m 12 [34m[38;2;68;68;68m 12 [34m[0muse syntect::parsing::SyntaxReference;
+
+[34m────────────────[0m[34m┐[0m
+[34m•[0m  struct Opt { [34m│[0m
+[34m────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 46 [34m[38;2;68;68;68m 46 [34m[0m
+[34m[38;2;68;68;68m 47 [34m[38;2;68;68;68m 47 [34m[0m    /// The width (in characters) of the diff highlighting. By
+[34m[38;2;68;68;68m 48 [34m[38;2;68;68;68m 48 [34m[0m    /// default, the highlighting extends to the last character on
+[34m[38;5;88m 49 [34m[38;5;28m    [34m[31m    /// each line. Use --width=max to set width equal to current[0m
+[34m[38;5;88m 50 [34m[38;5;28m    [34m[31m    /// terminal width.[0m
+[34m[38;5;88m    [34m[38;5;28m 49 [34m[32m    /// each line.[0m
+[34m[38;2;68;68;68m 51 [34m[38;2;68;68;68m 50 [34m[0m    #[structopt(short = "w", long = "width")]
+[34m[38;2;68;68;68m 52 [34m[38;2;68;68;68m 51 [34m[0m    width: Option<String>,
+[34m[38;2;68;68;68m 53 [34m[38;2;68;68;68m 52 [34m[0m}
+
+[34m────────────────────────────────────────────────────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  fn parse_args<'a>(theme_set: &'a ThemeSet, opt: &'a mut Opt) -> paint::Config<'a [34m│[0m
+[34m────────────────────────────────────────────────────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 125[34m[38;2;68;68;68m 124[34m[0m    }
+[34m[38;2;68;68;68m 126[34m[38;2;68;68;68m 125[34m[0m
+[34m[38;2;68;68;68m 127[34m[38;2;68;68;68m 126[34m[0m    let width = match opt.width.as_ref().map(String::as_str) {
+[34m[38;5;88m 128[34m[38;5;28m    [34m[31m        Some("max") => Some(Term::stdout().size().1 as usize),[0m
+[34m[38;2;68;68;68m 129[34m[38;2;68;68;68m 127[34m[0m        Some(width) => {
+[34m[38;2;68;68;68m 130[34m[38;2;68;68;68m 128[34m[0m            Some(width.parse::<usize>().unwrap_or_else(
+[34m[38;2;68;68;68m 131[34m[38;2;68;68;68m 129[34m[0m                |_| panic!("Invalid width: {}", width),

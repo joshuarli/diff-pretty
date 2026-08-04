@@ -1,0 +1,68 @@
+commit 5bfe90ea9791eca42bbfb2ff41e6784ec31ed774
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Mon Jun 24 21:46:34 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Mon Jun 24 21:59:09 2019 -0400
+
+    Copy as_24_bit_terminal_escaped from syntect
+
+
+[34mΔ src/main.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m[38;2;68;68;68m  1 [34m[38;2;68;68;68m  1 [34m[0mextern crate unidiff;
+[34m[38;2;68;68;68m  2 [34m[38;2;68;68;68m  2 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m  3 [34m[32muse std::fmt::Write;[0m
+[34m[38;2;68;68;68m  3 [34m[38;2;68;68;68m  4 [34m[0muse std::io::{self, Read};
+[34m[38;2;68;68;68m  4 [34m[38;2;68;68;68m  5 [34m[0muse std::path::Path;
+[34m[38;2;68;68;68m  5 [34m[38;2;68;68;68m  6 [34m[0m
+[34m[38;2;68;68;68m  6 [34m[38;2;68;68;68m  7 [34m[0muse syntect::easy::HighlightLines;
+[34m[38;2;68;68;68m  7 [34m[38;2;68;68;68m  8 [34m[0muse syntect::highlighting::{ThemeSet, Style};
+[34m[38;2;68;68;68m  8 [34m[38;2;68;68;68m  9 [34m[0muse syntect::parsing::SyntaxSet;
+[34m[38;5;88m  9 [34m[38;5;28m    [34m[31muse syntect::util::{[1;7mas_24_bit_terminal_escaped, [0m[31mLinesWithEndings};[0m
+[34m[38;5;88m    [34m[38;5;28m 10 [34m[32muse syntect::util::{LinesWithEndings};[0m
+[34m[38;2;68;68;68m 10 [34m[38;2;68;68;68m 11 [34m[0muse unidiff::PatchSet;
+[34m[38;2;68;68;68m 11 [34m[38;2;68;68;68m 12 [34m[0m
+[34m[38;2;68;68;68m 12 [34m[38;2;68;68;68m 13 [34m[0mpub const DELTA_THEME_DEFAULT: &str = "InspiredGitHub";  // base16-mocha.dark
+
+[34m───────────────[0m[34m┐[0m
+[34m•[0m  fn main() { [34m│[0m
+[34m───────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 34 [34m[38;2;68;68;68m 35 [34m[0m                for hunk in patched_file {
+[34m[38;2;68;68;68m 35 [34m[38;2;68;68;68m 36 [34m[0m                    for line in LinesWithEndings::from(&hunk.to_string()) {
+[34m[38;2;68;68;68m 36 [34m[38;2;68;68;68m 37 [34m[0m                        let ranges: Vec<(Style, &str)> = highlighter.highlight(line, &ps);
+[34m[38;5;88m 37 [34m[38;5;28m    [34m[31m                        let escaped = [1;7mas_24_bit_terminal_escaped[0m[31m(&ranges[..], [1;7mtrue[0m[31m);[0m
+[34m[38;5;88m    [34m[38;5;28m 38 [34m[32m                        let escaped = [1;7mmy_as_24_bit_terminal_escaped[0m[32m(&ranges[..], [1;7mfalse[0m[32m);[0m
+[34m[38;2;68;68;68m 38 [34m[38;2;68;68;68m 39 [34m[0m                        print!("{}", escaped);
+[34m[38;2;68;68;68m 39 [34m[38;2;68;68;68m 40 [34m[0m                    }
+[34m[38;2;68;68;68m 40 [34m[38;2;68;68;68m 41 [34m[0m                }
+
+[34m───────────────[0m[34m┐[0m
+[34m•[0m  fn main() { [34m│[0m
+[34m───────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 50 [34m[38;2;68;68;68m 51 [34m[0m    }
+[34m[38;2;68;68;68m 51 [34m[38;2;68;68;68m 52 [34m[0m    println!("");
+[34m[38;2;68;68;68m 52 [34m[38;2;68;68;68m 53 [34m[0m}
+[34m[38;5;88m    [34m[38;5;28m 54 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 55 [34m[32mfn my_as_24_bit_terminal_escaped(v: &[(Style, &str)], bg: bool) -> String {[0m
+[34m[38;5;88m    [34m[38;5;28m 56 [34m[32m    let mut s: String = String::new();[0m
+[34m[38;5;88m    [34m[38;5;28m 57 [34m[32m    for &(ref style, text) in v.iter() {[0m
+[34m[38;5;88m    [34m[38;5;28m 58 [34m[32m        if bg {[0m
+[34m[38;5;88m    [34m[38;5;28m 59 [34m[32m            write!(s,[0m
+[34m[38;5;88m    [34m[38;5;28m 60 [34m[32m                   "\x1b[48;2;{};{};{}m",[0m
+[34m[38;5;88m    [34m[38;5;28m 61 [34m[32m                   style.background.r,[0m
+[34m[38;5;88m    [34m[38;5;28m 62 [34m[32m                   style.background.g,[0m
+[34m[38;5;88m    [34m[38;5;28m 63 [34m[32m                   style.background.b)[0m
+[34m[38;5;88m    [34m[38;5;28m 64 [34m[32m                .unwrap();[0m
+[34m[38;5;88m    [34m[38;5;28m 65 [34m[32m        }[0m
+[34m[38;5;88m    [34m[38;5;28m 66 [34m[32m        write!(s,[0m
+[34m[38;5;88m    [34m[38;5;28m 67 [34m[32m               "\x1b[38;2;{};{};{}m{}",[0m
+[34m[38;5;88m    [34m[38;5;28m 68 [34m[32m               style.foreground.r,[0m
+[34m[38;5;88m    [34m[38;5;28m 69 [34m[32m               style.foreground.g,[0m
+[34m[38;5;88m    [34m[38;5;28m 70 [34m[32m               style.foreground.b,[0m
+[34m[38;5;88m    [34m[38;5;28m 71 [34m[32m               text)[0m
+[34m[38;5;88m    [34m[38;5;28m 72 [34m[32m            .unwrap();[0m
+[34m[38;5;88m    [34m[38;5;28m 73 [34m[32m    }[0m
+[34m[38;5;88m    [34m[38;5;28m 74 [34m[32m    // s.push_str("\x1b[0m");[0m
+[34m[38;5;88m    [34m[38;5;28m 75 [34m[32m    s[0m
+[34m[38;5;88m    [34m[38;5;28m 76 [34m[32m}[0m

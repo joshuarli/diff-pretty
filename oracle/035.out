@@ -1,0 +1,30 @@
+commit 371a342d12e842347fa49522796795eabd181642
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Wed Jun 26 14:20:57 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Wed Jun 26 14:20:57 2019 -0400
+
+    Edit README
+
+
+[34mΔ README.md[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m[38;2;68;68;68m 15 [34m[38;2;68;68;68m 15 [34m[0m  cd delta
+[34m[38;2;68;68;68m 16 [34m[38;2;68;68;68m 16 [34m[0m  cargo build
+[34m[38;2;68;68;68m 17 [34m[38;2;68;68;68m 17 [34m[0m  ```
+[34m[38;5;88m 18 [34m[38;5;28m    [34m[31m  This creates an executable inside the repo at `target/debug/delta`. [1;7mCopy or symlink[0m[31m this executable [1;7mto somewhere[0m[31m on your shell[0m
+[34m[38;5;88m    [34m[38;5;28m 18 [34m[32m  This creates an executable inside the repo at `target/debug/delta`. [1;7mMake sure[0m[32m this executable [1;7mis found[0m[32m on your shell[0m
+[34m[38;2;68;68;68m 19 [34m[38;2;68;68;68m 19 [34m[0m  `$PATH`.
+[34m[38;2;68;68;68m 20 [34m[38;2;68;68;68m 20 [34m[0m
+[34m[38;5;88m 21 [34m[38;5;28m    [34m[31m  If you're not sure what that means, ignore it, and use[0m
+[34m[38;5;88m    [34m[38;5;28m 21 [34m[32m  For example, if `~/bin` is in your `$PATH`, then you could use a symlink:[0m
+[34m[38;5;88m    [34m[38;5;28m 22 [34m[32m  ```[0m
+[34m[38;5;88m    [34m[38;5;28m 23 [34m[32m  cd ~/bin[0m
+[34m[38;5;88m    [34m[38;5;28m 24 [34m[32m  ln -s /path/to/delta/target/debug/delta delta[0m
+[34m[38;5;88m    [34m[38;5;28m 25 [34m[32m  ```[0m
+[34m[38;5;88m    [34m[38;5;28m 26 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 27 [34m[32m  Alternatively, you can ignore `$PATH` and use[0m
+[34m[38;2;68;68;68m 22 [34m[38;2;68;68;68m 28 [34m[0m  `/path/to/delta/target/debug/delta | less -R` in the next step.
+[34m[38;2;68;68;68m 23 [34m[38;2;68;68;68m 29 [34m[0m
+[34m[38;2;68;68;68m 24 [34m[38;2;68;68;68m 30 [34m[0m#### 4. Configure git to use delta:

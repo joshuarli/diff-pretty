@@ -1,0 +1,186 @@
+commit c4f5d2eae3f96a8c37a4a242dd35f1bb93c1a0e0
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Tue Jul 2 10:41:35 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Tue Jul 2 23:19:50 2019 -0400
+
+    rustfmt: new version
+
+diff --git a/src/main.rs b/src/main.rs
+index bd5f0a2..937a6ee 100644
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -9,12 +9,12 @@ mod parse_diff;
+ use std::io::{self, BufRead, ErrorKind, Read, Write};
+ use std::process;
+ 
+-use assets::{HighlightingAssets, list_languages};
+-use console::{Term, strip_ansi_codes};
+-use output::{OutputType, PagingMode};
++use console::{strip_ansi_codes, Term};
+ use structopt::StructOpt;
+ use syntect::parsing::SyntaxReference;
+ 
++use crate::assets::{list_languages, HighlightingAssets};
++use crate::output::{OutputType, PagingMode};
+ mod errors {
+     error_chain! {
+         foreign_links {
+@@ -108,12 +108,10 @@ fn main() -> std::io::Result<()> {
+         &paint_config,
+         &assets,
+     ) {
+-        Err(error) => {
+-            match error.kind() {
+-                ErrorKind::BrokenPipe => process::exit(0),
+-                _ => eprintln!("{}", error),
+-            }
+-        }
++        Err(error) => match error.kind() {
++            ErrorKind::BrokenPipe => process::exit(0),
++            _ => eprintln!("{}", error),
++        },
+         _ => (),
+     };
+     Ok(())
+@@ -123,7 +121,6 @@ fn process_command_line_arguments<'a>(
+     assets: &'a HighlightingAssets,
+     opt: &'a Opt,
+ ) -> paint::Config<'a> {
+-
+     if opt.light && opt.dark {
+         eprintln!("--light and --dark cannot be used together.");
+         process::exit(1);
+@@ -156,11 +153,11 @@ fn process_command_line_arguments<'a>(
+ 
+     let width = match opt.width.as_ref().map(String::as_str) {
+         Some("variable") => None,
+-        Some(width) => {
+-            Some(width.parse::<usize>().unwrap_or_else(
+-                |_| panic!("Invalid width: {}", width),
+-            ))
+-        }
++        Some(width) => Some(
++            width
++                .parse::<usize>()
++                .unwrap_or_else(|_| panic!("Invalid width: {}", width)),
++        ),
+         None => Some((Term::stdout().size().1 - 1) as usize),
+     };
+ 
+@@ -181,7 +178,6 @@ fn delta(
+     paint_config: &paint::Config,
+     assets: &HighlightingAssets,
+ ) -> std::io::Result<()> {
+-
+     let mut syntax: Option<&SyntaxReference> = None;
+     let mut output_buffer = String::new();
+     let mut output_type =
+@@ -233,7 +229,6 @@ fn compare_themes(assets: &HighlightingAssets) -> std::io::Result<()> {
+     let hline = "-".repeat(100);
+ 
+     for (theme, _) in assets.theme_set.themes.iter() {
+-
+         if opt.light && !paint::is_light_theme(theme) || opt.dark && paint::is_light_theme(theme) {
+             continue;
+         }
+@@ -247,7 +242,6 @@ fn compare_themes(assets: &HighlightingAssets) -> std::io::Result<()> {
+     Ok(())
+ }
+ 
+-
+ pub fn list_themes() -> std::io::Result<()> {
+     let assets = HighlightingAssets::new();
+     let themes = &assets.theme_set.themes;
+diff --git a/src/paint.rs b/src/paint.rs
+index 42d6261..43838c8 100644
+--- a/src/paint.rs
++++ b/src/paint.rs
+@@ -64,36 +64,37 @@ pub fn get_config<'a>(
+     highlight_removed: bool,
+     width: Option<usize>,
+ ) -> Config<'a> {
+-
+     let theme_name = match theme {
+         Some(ref theme) => theme,
+-        None => {
+-            match user_requests_theme_for_light_terminal_background {
+-                true => "GitHub",
+-                false => "Monokai Extended",
+-            }
+-        }
++        None => match user_requests_theme_for_light_terminal_background {
++            true => "GitHub",
++            false => "Monokai Extended",
++        },
+     };
+-    let minus_color = minus_color_str.as_ref().and_then(
+-        |s| Color::from_str(s).ok(),
+-    );
+-    let plus_color = plus_color_str.as_ref().and_then(
+-        |s| Color::from_str(s).ok(),
+-    );
++    let minus_color = minus_color_str
++        .as_ref()
++        .and_then(|s| Color::from_str(s).ok());
++    let plus_color = plus_color_str
++        .as_ref()
++        .and_then(|s| Color::from_str(s).ok());
+ 
+     let is_light_theme = LIGHT_THEMES.contains(&theme_name);
+ 
+     Config {
+         theme: &theme_set.themes[theme_name],
+-        plus_color: plus_color.unwrap_or_else(|| if is_light_theme {
+-            LIGHT_THEME_PLUS_COLOR
+-        } else {
+-            DARK_THEME_PLUS_COLOR
++        plus_color: plus_color.unwrap_or_else(|| {
++            if is_light_theme {
++                LIGHT_THEME_PLUS_COLOR
++            } else {
++                DARK_THEME_PLUS_COLOR
++            }
+         }),
+-        minus_color: minus_color.unwrap_or_else(|| if is_light_theme {
+-            LIGHT_THEME_MINUS_COLOR
+-        } else {
+-            DARK_THEME_MINUS_COLOR
++        minus_color: minus_color.unwrap_or_else(|| {
++            if is_light_theme {
++                LIGHT_THEME_MINUS_COLOR
++            } else {
++                DARK_THEME_MINUS_COLOR
++            }
+         }),
+         width: width,
+         highlight_removed: highlight_removed,
+@@ -169,10 +170,9 @@ fn paint(
+             write!(
+                 buf,
+                 "\x1b[48;2;{};{};{}m",
+-                background_color.r,
+-                background_color.g,
+-                background_color.b
+-            ).unwrap();
++                background_color.r, background_color.g, background_color.b
++            )
++            .unwrap();
+             if reset_color {
+                 buf.push_str("\x1b[0m");
+             }
+@@ -184,11 +184,9 @@ fn paint(
+             write!(
+                 buf,
+                 "\x1b[38;2;{};{};{}m{}",
+-                foreground_color.r,
+-                foreground_color.g,
+-                foreground_color.b,
+-                text
+-            ).unwrap();
++                foreground_color.r, foreground_color.g, foreground_color.b, text
++            )
++            .unwrap();
+             if reset_color {
+                 buf.push_str("\x1b[0m");
+             }

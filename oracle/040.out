@@ -1,0 +1,35 @@
+commit 6a16853b4d17fdb84879882c8a412b26a0b525e9
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Thu Jun 27 00:09:34 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Thu Jun 27 09:42:59 2019 -0400
+
+    Rename module
+
+
+[34mΔ src/main.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m[38;2;68;68;68m  1 [34m[38;2;68;68;68m  1 [34m[0mextern crate structopt;
+[34m[38;2;68;68;68m  2 [34m[38;2;68;68;68m  2 [34m[0m
+[34m[38;2;68;68;68m  3 [34m[38;2;68;68;68m  3 [34m[0mmod paint;
+[34m[38;5;88m  4 [34m[38;5;28m    [34m[31mmod parse;[0m
+[34m[38;5;88m    [34m[38;5;28m  4 [34m[32mmod parse_diff;[0m
+[34m[38;2;68;68;68m  5 [34m[38;2;68;68;68m  5 [34m[0m
+[34m[38;2;68;68;68m  6 [34m[38;2;68;68;68m  6 [34m[0muse std::io::{self, BufRead, ErrorKind};
+[34m[38;2;68;68;68m  7 [34m[38;2;68;68;68m  7 [34m[0muse std::process;
+
+[34m───────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  fn delta() -> std::io::Result<()> { [34m│[0m
+[34m───────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 71 [34m[38;2;68;68;68m 71 [34m[0m        did_emit_line = false;
+[34m[38;2;68;68;68m 72 [34m[38;2;68;68;68m 72 [34m[0m        if line.starts_with("diff --") {
+[34m[38;2;68;68;68m 73 [34m[38;2;68;68;68m 73 [34m[0m            state = State::DiffMeta;
+[34m[38;5;88m 74 [34m[38;5;28m    [34m[31m            syntax = match [1;7mparse[0m[31m::get_file_extension_from_diff_line(&line) {[0m
+[34m[38;5;88m    [34m[38;5;28m 74 [34m[32m            syntax = match [1;7mparse_diff[0m[32m::get_file_extension_from_diff_line(&line) {[0m
+[34m[38;2;68;68;68m 75 [34m[38;2;68;68;68m 75 [34m[0m                Some(extension) => syntax_set.find_syntax_by_extension(extension),
+[34m[38;2;68;68;68m 76 [34m[38;2;68;68;68m 76 [34m[0m                None => None,
+[34m[38;2;68;68;68m 77 [34m[38;2;68;68;68m 77 [34m[0m            };
+
+[34mrenamed: src/parse.rs ⟶   src/parse_diff.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m

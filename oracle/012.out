@@ -1,0 +1,111 @@
+commit 0f90659f67558cf05478fc7573814ada46ea13b0
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Tue Jun 25 08:37:33 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Tue Jun 25 08:49:18 2019 -0400
+
+    rustfmt
+
+
+[34mΔ src/main.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m────────────────────────[0m[34m┐[0m
+[34m•[0m  use std::path::Path; [34m│[0m
+[34m────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m  7 [34m[38;2;68;68;68m  7 [34m[0muse syntect::easy::HighlightLines;
+[34m[38;2;68;68;68m  8 [34m[38;2;68;68;68m  8 [34m[0muse syntect::highlighting::{Color, Style, ThemeSet};
+[34m[38;2;68;68;68m  9 [34m[38;2;68;68;68m  9 [34m[0muse syntect::parsing::SyntaxSet;
+[34m[38;5;88m 10 [34m[38;5;28m    [34m[31muse syntect::util::[1;7m{[0m[31mLinesWithEndings[1;7m}[0m[31m;[0m
+[34m[38;5;88m    [34m[38;5;28m 10 [34m[32muse syntect::util::LinesWithEndings;[0m
+[34m[38;2;68;68;68m 11 [34m[38;2;68;68;68m 11 [34m[0muse unidiff::PatchSet;
+[34m[38;2;68;68;68m 12 [34m[38;2;68;68;68m 12 [34m[0m
+[34m[38;5;88m 13 [34m[38;5;28m    [34m[31mpub const DELTA_THEME_DEFAULT: &str = "InspiredGitHub"; [1;7m [0m[31m// base16-mocha.dark[0m
+[34m[38;5;88m    [34m[38;5;28m 13 [34m[32mpub const DELTA_THEME_DEFAULT: &str = "InspiredGitHub"; // base16-mocha.dark[0m
+[34m[38;2;68;68;68m 14 [34m[38;2;68;68;68m 14 [34m[0m
+[34m[38;2;68;68;68m 15 [34m[38;2;68;68;68m 15 [34m[0mconst GREEN: Color = Color {
+[34m[38;2;68;68;68m 16 [34m[38;2;68;68;68m 16 [34m[0m    r: 0xd0,
+
+[34m───────────────[0m[34m┐[0m
+[34m•[0m  fn main() { [34m│[0m
+[34m───────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 30 [34m[38;2;68;68;68m 30 [34m[0m    let ps = SyntaxSet::load_defaults_newlines();
+[34m[38;2;68;68;68m 31 [34m[38;2;68;68;68m 31 [34m[0m    let ts = ThemeSet::load_defaults();
+[34m[38;2;68;68;68m 32 [34m[38;2;68;68;68m 32 [34m[0m    let theme = &ts.themes[DELTA_THEME_DEFAULT];
+[34m[38;5;88m 33 [34m[38;5;28m    [34m[0m
+[34m[38;2;68;68;68m 34 [34m[38;2;68;68;68m 33 [34m[0m    let mut input = String::new();
+[34m[38;5;88m 35 [34m[38;5;28m    [34m[31m    io::stdin().read_to_string(&mut input).expect([1;7m"Error reading input");[0m
+[34m[38;5;88m    [34m[38;5;28m 34 [34m[32m    io::stdin().read_to_string(&mut input).expect([0m
+[34m[38;5;88m    [34m[38;5;28m 35 [34m[32m        "Error reading input",[0m
+[34m[38;5;88m    [34m[38;5;28m 36 [34m[32m    );[0m
+[34m[38;2;68;68;68m 36 [34m[38;2;68;68;68m 37 [34m[0m    let mut patch_set = PatchSet::new();
+[34m[38;5;88m 37 [34m[38;5;28m    [34m[31m    patch_set.parse(&mut input).ok().expect([1;7m"Error parsing input as a diff");[0m
+[34m[38;5;88m    [34m[38;5;28m 38 [34m[32m    patch_set.parse(&mut input).ok().expect([0m
+[34m[38;5;88m    [34m[38;5;28m 39 [34m[32m        "Error parsing input as a diff",[0m
+[34m[38;5;88m    [34m[38;5;28m 40 [34m[32m    );[0m
+[34m[38;2;68;68;68m 38 [34m[38;2;68;68;68m 41 [34m[0m    for patched_file in patch_set {
+[34m[38;2;68;68;68m 39 [34m[38;2;68;68;68m 42 [34m[0m        // TODO: use both source and target to determine language
+[34m[38;2;68;68;68m 40 [34m[38;2;68;68;68m 43 [34m[0m        let path = Path::new(&patched_file.target_file);
+[34m[38;5;88m 41 [34m[38;5;28m    [34m[31m        let extension =[1;7m path.extension()[0m
+[34m[38;5;88m 42 [34m[38;5;28m    [34m[31m            [1;7m.expect([0m[31mformat!("Error determining file type: {}", path.to_str().unwrap())[1;7m.as_str());[0m
+[34m[38;5;88m    [34m[38;5;28m 44 [34m[32m        let extension =[0m
+[34m[38;5;88m    [34m[38;5;28m 45 [34m[32m            path.extension().expect([0m
+[34m[38;5;88m    [34m[38;5;28m 46 [34m[32m            [1;7m    [0m[32mformat!("Error determining file type: {}", path.to_str().unwrap())[0m
+[34m[38;5;88m    [34m[38;5;28m 47 [34m[32m                    .as_str(),[0m
+[34m[38;5;88m    [34m[38;5;28m 48 [34m[32m            );[0m
+[34m[38;2;68;68;68m 43 [34m[38;2;68;68;68m 49 [34m[0m        let extension_str = extension.to_str().unwrap();
+[34m[38;2;68;68;68m 44 [34m[38;2;68;68;68m 50 [34m[0m        let syntax = ps.find_syntax_by_extension(extension_str);
+[34m[38;2;68;68;68m 45 [34m[38;2;68;68;68m 51 [34m[0m
+
+[34m───────────────[0m[34m┐[0m
+[34m•[0m  fn main() { [34m│[0m
+[34m───────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 58 [34m[38;2;68;68;68m 64 [34m[0m                        print!("{}", escaped);
+[34m[38;2;68;68;68m 59 [34m[38;2;68;68;68m 65 [34m[0m                    }
+[34m[38;2;68;68;68m 60 [34m[38;2;68;68;68m 66 [34m[0m                }
+[34m[38;5;88m 61 [34m[38;5;28m    [34m[31m            }[1;7m,[0m
+[34m[38;5;88m    [34m[38;5;28m 67 [34m[32m            }[0m
+[34m[38;2;68;68;68m 62 [34m[38;2;68;68;68m 68 [34m[0m            None => {
+[34m[38;2;68;68;68m 63 [34m[38;2;68;68;68m 69 [34m[0m                for hunk in patched_file {
+[34m[38;2;68;68;68m 64 [34m[38;2;68;68;68m 70 [34m[0m                    for line in LinesWithEndings::from(&hunk.to_string()) {
+
+[34m────────────────────────────────────────────────────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  fn my_as_24_bit_terminal_escaped(v: &[(Style, &str)], background_color: Option<C [34m│[0m
+[34m────────────────────────────────────────────────────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 75 [34m[38;2;68;68;68m 81 [34m[0m    let mut s: String = String::new();
+[34m[38;2;68;68;68m 76 [34m[38;2;68;68;68m 82 [34m[0m    for &(ref style, text) in v.iter() {
+[34m[38;2;68;68;68m 77 [34m[38;2;68;68;68m 83 [34m[0m        match background_color {
+[34m[38;5;88m 78 [34m[38;5;28m    [34m[31m            Some(background_color) => [1;7mwrite!(s,[0m
+[34m[38;5;88m 79 [34m[38;5;28m    [34m[31m                    [1;7m                         [0m[31m"\x1b[48;2;{};{};{}m",[0m
+[34m[38;5;88m 80 [34m[38;5;28m    [34m[31m                    [1;7m                         [0m[31mbackground_color.r,[0m
+[34m[38;5;88m 81 [34m[38;5;28m    [34m[31m                    [1;7m                         [0m[31mbackground_color.g,[0m
+[34m[38;5;88m 82 [34m[38;5;28m    [34m[31m                    [1;7m                         [0m[31mbackground_color.b[1;7m).unwrap(),[0m
+[34m[38;5;88m    [34m[38;5;28m 84 [34m[32m            Some(background_color) => [1;7m{[0m
+[34m[38;5;88m    [34m[38;5;28m 85 [34m[32m                write!([0m
+[34m[38;5;88m    [34m[38;5;28m 86 [34m[32m                    s,[0m
+[34m[38;5;88m    [34m[38;5;28m 87 [34m[32m                    "\x1b[48;2;{};{};{}m",[0m
+[34m[38;5;88m    [34m[38;5;28m 88 [34m[32m                    background_color.r,[0m
+[34m[38;5;88m    [34m[38;5;28m 89 [34m[32m                    background_color.g,[0m
+[34m[38;5;88m    [34m[38;5;28m 90 [34m[32m                    background_color.b[0m
+[34m[38;5;88m    [34m[38;5;28m 91 [34m[32m                ).unwrap()[0m
+[34m[38;5;88m    [34m[38;5;28m 92 [34m[32m            }[0m
+[34m[38;2;68;68;68m 83 [34m[38;2;68;68;68m 93 [34m[0m            None => (),
+[34m[38;2;68;68;68m 84 [34m[38;2;68;68;68m 94 [34m[0m        }
+[34m[38;5;88m 85 [34m[38;5;28m    [34m[31m        write!([1;7ms,[0m
+[34m[38;5;88m 86 [34m[38;5;28m    [34m[31m            [1;7m   [0m[31m"\x1b[38;2;{};{};{}m{}",[0m
+[34m[38;5;88m 87 [34m[38;5;28m    [34m[31m            [1;7m   [0m[31mstyle.foreground.r,[0m
+[34m[38;5;88m 88 [34m[38;5;28m    [34m[31m            [1;7m   [0m[31mstyle.foreground.g,[0m
+[34m[38;5;88m 89 [34m[38;5;28m    [34m[31m            [1;7m   [0m[31mstyle.foreground.b,[0m
+[34m[38;5;88m 90 [34m[38;5;28m    [34m[31m            [1;7m   [0m[31mtext[1;7m)[0m
+[34m[38;5;88m 91 [34m[38;5;28m    [34m[31m        [1;7m    [0m[31m.unwrap();[0m
+[34m[38;5;88m    [34m[38;5;28m 95 [34m[32m        write!([0m
+[34m[38;5;88m    [34m[38;5;28m 96 [34m[32m            s,[0m
+[34m[38;5;88m    [34m[38;5;28m 97 [34m[32m            "\x1b[38;2;{};{};{}m{}",[0m
+[34m[38;5;88m    [34m[38;5;28m 98 [34m[32m            style.foreground.r,[0m
+[34m[38;5;88m    [34m[38;5;28m 99 [34m[32m            style.foreground.g,[0m
+[34m[38;5;88m    [34m[38;5;28m 100[34m[32m            style.foreground.b,[0m
+[34m[38;5;88m    [34m[38;5;28m 101[34m[32m            text[0m
+[34m[38;5;88m    [34m[38;5;28m 102[34m[32m        [1;7m)[0m[32m.unwrap();[0m
+[34m[38;2;68;68;68m 92 [34m[38;2;68;68;68m 103[34m[0m    }
+[34m[38;2;68;68;68m 93 [34m[38;2;68;68;68m 104[34m[0m    s.push_str("\x1b[0m");
+[34m[38;2;68;68;68m 94 [34m[38;2;68;68;68m 105[34m[0m    s

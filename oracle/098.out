@@ -1,0 +1,17 @@
+commit a1becedfd72dce2d0bc21fd4ec6e617df19b00cd
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Tue Jul 2 10:40:16 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Tue Jul 2 23:19:47 2019 -0400
+
+    Makefile
+
+
+[34madded: Makefile[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m[38;5;88m    [34m[38;5;28m  1 [34m[32mbuild:[0m
+[34m[38;5;88m    [34m[38;5;28m  2 [34m[32m        cargo build[0m
+[34m[38;5;88m    [34m[38;5;28m  3 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m  4 [34m[32mtest:[0m
+[34m[38;5;88m    [34m[38;5;28m  5 [34m[32m        bash -c "diff -u <(git show | cut -c 2-) <(git show | delta --width variable | ansifilter | cut -c 2-)"[0m

@@ -1,0 +1,695 @@
+commit 01ce9b3ab437660807e9b6eeadd3d4b47c1071eb
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Wed Jun 26 12:07:23 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Wed Jun 26 12:30:51 2019 -0400
+
+    README
+
+
+[34madded: README.md[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m[38;5;88m    [34m[38;5;28m  1 [34m[32m## Δ[0m
+[34m[38;5;88m    [34m[38;5;28m  2 [34m[32m  A syntax-highlighting pager for git.[0m
+[34m[38;5;88m    [34m[38;5;28m  3 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m  4 [34m[32m  _(This project is at a very early stage, but please feel free to open issues.)_[0m
+[34m[38;5;88m    [34m[38;5;28m  5 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m  6 [34m[32m## Installation[0m
+[34m[38;5;88m    [34m[38;5;28m  7 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m  8 [34m[32m#### 1. Rust development environment.[0m
+[34m[38;5;88m    [34m[38;5;28m  9 [34m[32m  See https://www.rust-lang.org/tools/install.[0m
+[34m[38;5;88m    [34m[38;5;28m 10 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 11 [34m[32m#### 2. Clone this repo.[0m
+[34m[38;5;88m    [34m[38;5;28m 12 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 13 [34m[32m#### 3. Build the executable:[0m
+[34m[38;5;88m    [34m[38;5;28m 14 [34m[32m  ```sh[0m
+[34m[38;5;88m    [34m[38;5;28m 15 [34m[32m  cd delta[0m
+[34m[38;5;88m    [34m[38;5;28m 16 [34m[32m  cargo build[0m
+[34m[38;5;88m    [34m[38;5;28m 17 [34m[32m  ```[0m
+[34m[38;5;88m    [34m[38;5;28m 18 [34m[32m  This creates an executable inside the repo at `target/debug/delta`. Copy or symlink this executable to somewhere on your shell[0m
+[34m[38;5;88m    [34m[38;5;28m 19 [34m[32m  `$PATH`.[0m
+[34m[38;5;88m    [34m[38;5;28m 20 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 21 [34m[32m  If you're not sure what that means, ignore it, and use[0m
+[34m[38;5;88m    [34m[38;5;28m 22 [34m[32m  `/path/to/delta/target/debug/delta | less -R` in the next step.[0m
+[34m[38;5;88m    [34m[38;5;28m 23 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 24 [34m[32m#### 4. Configure git to use delta:[0m
+[34m[38;5;88m    [34m[38;5;28m 25 [34m[32m  Edit your `~/.gitconfig`:[0m
+[34m[38;5;88m    [34m[38;5;28m 26 [34m[32m  ```[0m
+[34m[38;5;88m    [34m[38;5;28m 27 [34m[32m  [core][0m
+[34m[38;5;88m    [34m[38;5;28m 28 [34m[32m      pager = delta | less -R[0m
+[34m[38;5;88m    [34m[38;5;28m 29 [34m[32m  ```[0m
+[34m[38;5;88m    [34m[38;5;28m 30 [34m[32m  Alternatively, run this command:[0m
+[34m[38;5;88m    [34m[38;5;28m 31 [34m[32m  ```[0m
+[34m[38;5;88m    [34m[38;5;28m 32 [34m[32m  git config --global core.pager 'delta | less -R'[0m
+[34m[38;5;88m    [34m[38;5;28m 33 [34m[32m  ```[0m
+[34m[38;5;88m    [34m[38;5;28m 34 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 35 [34m[32mAll git commands that display diff output should now display syntax-highlighted output. For example:[0m
+[34m[38;5;88m    [34m[38;5;28m 36 [34m[32m  - `git diff`[0m
+[34m[38;5;88m    [34m[38;5;28m 37 [34m[32m  - `git show`[0m
+[34m[38;5;88m    [34m[38;5;28m 38 [34m[32m  - `git log -p`[0m
+[34m[38;5;88m    [34m[38;5;28m 39 [34m[32m  - `git stash show -p`[0m
+[34m[38;5;88m    [34m[38;5;28m 40 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 41 [34m[32m## Credit[0m
+[34m[38;5;88m    [34m[38;5;28m 42 [34m[32m  https://github.com/trishume/syntect<br>[0m
+[34m[38;5;88m    [34m[38;5;28m 43 [34m[32m  https://github.com/sharkdp/bat[0m
+
+commit 36d1de25e92a5e07bc18f4ec052bf5ca62894ccb
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Wed Jun 26 10:37:53 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Wed Jun 26 10:46:59 2019 -0400
+
+    Change names
+
+
+[34mΔ src/main.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m───────────────[0m[34m┐[0m
+[34m•[0m  fn main() { [34m│[0m
+[34m───────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 45 [34m[38;2;68;68;68m 45 [34m[0m
+[34m[38;2;68;68;68m 46 [34m[38;2;68;68;68m 46 [34m[0mfn delta() -> std::io::Result<()> {
+[34m[38;2;68;68;68m 47 [34m[38;2;68;68;68m 47 [34m[0m    use std::io::Write;
+[34m[38;5;88m 48 [34m[38;5;28m    [34m[31m    let [1;7mps[0m[31m = SyntaxSet::load_defaults_newlines();[0m
+[34m[38;5;88m 49 [34m[38;5;28m    [34m[31m    let [1;7mts[0m[31m = ThemeSet::load_defaults();[0m
+[34m[38;5;88m 50 [34m[38;5;28m    [34m[31m    let theme = &[1;7mts[0m[31m.themes[DELTA_THEME_DEFAULT];[0m
+[34m[38;5;88m    [34m[38;5;28m 48 [34m[32m    let [1;7msyntax_set[0m[32m = SyntaxSet::load_defaults_newlines();[0m
+[34m[38;5;88m    [34m[38;5;28m 49 [34m[32m    let [1;7mtheme_set[0m[32m = ThemeSet::load_defaults();[0m
+[34m[38;5;88m    [34m[38;5;28m 50 [34m[32m    let theme = &[1;7mtheme_set[0m[32m.themes[DELTA_THEME_DEFAULT];[0m
+[34m[38;2;68;68;68m 51 [34m[38;2;68;68;68m 51 [34m[0m    let mut output = String::new();
+[34m[38;2;68;68;68m 52 [34m[38;2;68;68;68m 52 [34m[0m    let mut state = State::Unknown;
+[34m[38;2;68;68;68m 53 [34m[38;2;68;68;68m 53 [34m[0m    let mut syntax: Option<&SyntaxReference> = None;
+
+[34m───────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  fn delta() -> std::io::Result<()> { [34m│[0m
+[34m───────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 62 [34m[38;2;68;68;68m 62 [34m[0m        if line.starts_with("diff --") {
+[34m[38;2;68;68;68m 63 [34m[38;2;68;68;68m 63 [34m[0m            state = State::DiffMeta;
+[34m[38;2;68;68;68m 64 [34m[38;2;68;68;68m 64 [34m[0m            syntax = match get_file_extension_from_diff_line(&line) {
+[34m[38;5;88m 65 [34m[38;5;28m    [34m[31m                Some(extension) => [1;7mps[0m[31m.find_syntax_by_extension(extension),[0m
+[34m[38;5;88m    [34m[38;5;28m 65 [34m[32m                Some(extension) => [1;7msyntax_set[0m[32m.find_syntax_by_extension(extension),[0m
+[34m[38;2;68;68;68m 66 [34m[38;2;68;68;68m 66 [34m[0m                None => None,
+[34m[38;2;68;68;68m 67 [34m[38;2;68;68;68m 67 [34m[0m            };
+[34m[38;2;68;68;68m 68 [34m[38;2;68;68;68m 68 [34m[0m        } else if line.starts_with("commit") {
+
+[34m───────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  fn delta() -> std::io::Result<()> { [34m│[0m
+[34m───────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 86 [34m[38;2;68;68;68m 86 [34m[0m                    if line.len() < 100 {
+[34m[38;2;68;68;68m 87 [34m[38;2;68;68;68m 87 [34m[0m                        line = format!("{}{}", line, " ".repeat(100 - line.len()));
+[34m[38;2;68;68;68m 88 [34m[38;2;68;68;68m 88 [34m[0m                    }
+[34m[38;5;88m 89 [34m[38;5;28m    [34m[31m                    let ranges: Vec<(Style, &str)> = highlighter.highlight(&line, &[1;7mps[0m[31m);[0m
+[34m[38;5;88m 90 [34m[38;5;28m    [34m[31m                    [1;7mmy_as_24_bit_terminal_escaped[0m[31m(&ranges[..], background_color, &mut output);[0m
+[34m[38;5;88m    [34m[38;5;28m 89 [34m[32m                    let ranges: Vec<(Style, &str)> = highlighter.highlight(&line, &[1;7msyntax_set[0m[32m);[0m
+[34m[38;5;88m    [34m[38;5;28m 90 [34m[32m                    [1;7mpaint_ranges[0m[32m(&ranges[..], background_color, &mut output);[0m
+[34m[38;2;68;68;68m 91 [34m[38;2;68;68;68m 91 [34m[0m                    writeln!(stdout, "{}", output)?;
+[34m[38;2;68;68;68m 92 [34m[38;2;68;68;68m 92 [34m[0m                    output.truncate(0);
+[34m[38;2;68;68;68m 93 [34m[38;2;68;68;68m 93 [34m[0m                    did_emit_line = true;
+
+[34m───────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  fn delta() -> std::io::Result<()> { [34m│[0m
+[34m───────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 103[34m[38;2;68;68;68m 103[34m[0m}
+[34m[38;2;68;68;68m 104[34m[38;2;68;68;68m 104[34m[0m
+[34m[38;2;68;68;68m 105[34m[38;2;68;68;68m 105[34m[0m/// Based on as_24_bit_terminal_escaped from syntect
+[34m[38;5;88m 106[34m[38;5;28m    [34m[31mfn my_as_24_bit_terminal_escaped([0m
+[34m[38;5;88m 107[34m[38;5;28m    [34m[31m    [1;7mv[0m[31m: &[(Style, &str)],[0m
+[34m[38;5;88m    [34m[38;5;28m 106[34m[32mfn paint_ranges([0m
+[34m[38;5;88m    [34m[38;5;28m 107[34m[32m    [1;7mforeground_style_ranges[0m[32m: &[(Style, &str)],[0m
+[34m[38;2;68;68;68m 108[34m[38;2;68;68;68m 108[34m[0m    background_color: Option<Color>,
+[34m[38;2;68;68;68m 109[34m[38;2;68;68;68m 109[34m[0m    buf: &mut String,
+[34m[38;2;68;68;68m 110[34m[38;2;68;68;68m 110[34m[0m) -> () {
+[34m[38;5;88m 111[34m[38;5;28m    [34m[31m    for &(ref style, text) in [1;7mv[0m[31m.iter() {[0m
+[34m[38;5;88m 112[34m[38;5;28m    [34m[31m        [1;7mcolorize[0m[31m(text, Some(style.foreground), background_color, false, buf);[0m
+[34m[38;5;88m    [34m[38;5;28m 111[34m[32m    for &(ref style, text) in [1;7mforeground_style_ranges[0m[32m.iter() {[0m
+[34m[38;5;88m    [34m[38;5;28m 112[34m[32m        [1;7mpaint[0m[32m(text, Some(style.foreground), background_color, false, buf);[0m
+[34m[38;2;68;68;68m 113[34m[38;2;68;68;68m 113[34m[0m    }
+[34m[38;2;68;68;68m 114[34m[38;2;68;68;68m 114[34m[0m    buf.push_str("\x1b[0m");
+[34m[38;2;68;68;68m 115[34m[38;2;68;68;68m 115[34m[0m}
+[34m[38;2;68;68;68m 116[34m[38;2;68;68;68m 116[34m[0m
+[34m[38;2;68;68;68m 117[34m[38;2;68;68;68m 117[34m[0m/// Write text to buffer with color escape codes applied.
+[34m[38;5;88m 118[34m[38;5;28m    [34m[31mfn colorize([0m
+[34m[38;5;88m    [34m[38;5;28m 118[34m[32mfn paint([0m
+[34m[38;2;68;68;68m 119[34m[38;2;68;68;68m 119[34m[0m    text: &str,
+[34m[38;2;68;68;68m 120[34m[38;2;68;68;68m 120[34m[0m    foreground_color: Option<Color>,
+[34m[38;2;68;68;68m 121[34m[38;2;68;68;68m 121[34m[0m    background_color: Option<Color>,
+
+commit 6bc6ccfc1ce7802aa5c51b43140c11ebdaaf1363
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Wed Jun 26 10:34:29 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Wed Jun 26 10:46:59 2019 -0400
+
+    Don't panic unnecessarily
+
+
+[34mΔ src/main.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m──────────────────────────────────────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  fn get_file_extension_from_diff_line(line: &str) -> Option<&str> { [34m│[0m
+[34m──────────────────────────────────────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 167[34m[38;2;68;68;68m 167[34m[0m            if ext1 == ext2 {
+[34m[38;2;68;68;68m 168[34m[38;2;68;68;68m 168[34m[0m                Some(ext1)
+[34m[38;2;68;68;68m 169[34m[38;2;68;68;68m 169[34m[0m            } else {
+[34m[38;5;88m 170[34m[38;5;28m    [34m[31m                // TODO: Just return None and output without color.[0m
+[34m[38;5;88m 171[34m[38;5;28m    [34m[31m                panic!([0m
+[34m[38;5;88m 172[34m[38;5;28m    [34m[31m                [1;7m   [0m[31m [1;7m"Old[0m[31m and new files have different extensions[1;7m: {} vs {}",[0m
+[34m[38;5;88m 173[34m[38;5;28m    [34m[31m                    ext1,[0m
+[34m[38;5;88m 174[34m[38;5;28m    [34m[31m                    ext2[0m
+[34m[38;5;88m 175[34m[38;5;28m    [34m[31m                );[0m
+[34m[38;5;88m    [34m[38;5;28m 170[34m[32m                [1;7m// Unexpected:[0m[32m [1;7mold[0m[32m and new files have different extensions[1;7m.[0m
+[34m[38;5;88m    [34m[38;5;28m 171[34m[32m                None[0m
+[34m[38;2;68;68;68m 176[34m[38;2;68;68;68m 172[34m[0m            }
+[34m[38;2;68;68;68m 177[34m[38;2;68;68;68m 173[34m[0m        }
+[34m[38;2;68;68;68m 178[34m[38;2;68;68;68m 174[34m[0m        (Some(ext1), None) => Some(ext1),
+
+commit 183eba159f7e79a7addb599e2b52b39442cf9ee0
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Wed Jun 26 10:28:02 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Wed Jun 26 10:46:59 2019 -0400
+
+    Right pad to 100 char width
+
+
+[34mΔ src/main.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m───────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  fn delta() -> std::io::Result<()> { [34m│[0m
+[34m───────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 83 [34m[38;2;68;68;68m 83 [34m[0m                        line = line[1..].to_string();
+[34m[38;2;68;68;68m 84 [34m[38;2;68;68;68m 84 [34m[0m                        output.push_str(" ");
+[34m[38;2;68;68;68m 85 [34m[38;2;68;68;68m 85 [34m[0m                    }
+[34m[38;5;88m    [34m[38;5;28m 86 [34m[32m                    if line.len() < 100 {[0m
+[34m[38;5;88m    [34m[38;5;28m 87 [34m[32m                        line = format!("{}{}", line, " ".repeat(100 - line.len()));[0m
+[34m[38;5;88m    [34m[38;5;28m 88 [34m[32m                    }[0m
+[34m[38;2;68;68;68m 86 [34m[38;2;68;68;68m 89 [34m[0m                    let ranges: Vec<(Style, &str)> = highlighter.highlight(&line, &ps);
+[34m[38;2;68;68;68m 87 [34m[38;2;68;68;68m 90 [34m[0m                    my_as_24_bit_terminal_escaped(&ranges[..], background_color, &mut output);
+[34m[38;2;68;68;68m 88 [34m[38;2;68;68;68m 91 [34m[0m                    writeln!(stdout, "{}", output)?;
+
+commit 0f7ef3cdac2fdff0536a37e56a5d4cd05cba7dae
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Wed Jun 26 10:23:41 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Wed Jun 26 10:46:59 2019 -0400
+
+    Propagate unexpected error
+
+
+[34mΔ src/main.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m───────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  fn delta() -> std::io::Result<()> { [34m│[0m
+[34m───────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 56 [34m[38;2;68;68;68m 56 [34m[0m    let mut stdout = io::stdout();
+[34m[38;2;68;68;68m 57 [34m[38;2;68;68;68m 57 [34m[0m
+[34m[38;2;68;68;68m 58 [34m[38;2;68;68;68m 58 [34m[0m    for _line in stdin.lock().lines() {
+[34m[38;5;88m 59 [34m[38;5;28m    [34m[31m        let raw_line = _line[1;7m.unwrap()[0m[31m;[1;7m // TODO: handle None[0m
+[34m[38;5;88m    [34m[38;5;28m 59 [34m[32m        let raw_line = _line[1;7m?[0m[32m;[0m
+[34m[38;2;68;68;68m 60 [34m[38;2;68;68;68m 60 [34m[0m        let mut line = strip_ansi_codes(&raw_line).to_string();
+[34m[38;2;68;68;68m 61 [34m[38;2;68;68;68m 61 [34m[0m        did_emit_line = false;
+[34m[38;2;68;68;68m 62 [34m[38;2;68;68;68m 62 [34m[0m        if line.starts_with("diff --") {
+
+commit 3d927f4ffa9d871240b7f02fb2c7a206646d0ba2
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Wed Jun 26 10:19:30 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Wed Jun 26 10:46:59 2019 -0400
+
+    Only replace a space character if we removed a {+,-}
+
+
+[34mΔ src/main.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m───────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  fn delta() -> std::io::Result<()> { [34m│[0m
+[34m───────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 57 [34m[38;2;68;68;68m 57 [34m[0m
+[34m[38;2;68;68;68m 58 [34m[38;2;68;68;68m 58 [34m[0m    for _line in stdin.lock().lines() {
+[34m[38;2;68;68;68m 59 [34m[38;2;68;68;68m 59 [34m[0m        let raw_line = _line.unwrap(); // TODO: handle None
+[34m[38;5;88m 60 [34m[38;5;28m    [34m[31m        let line = strip_ansi_codes(&raw_line).to_string();[0m
+[34m[38;5;88m    [34m[38;5;28m 60 [34m[32m        let [1;7mmut [0m[32mline = strip_ansi_codes(&raw_line).to_string();[0m
+[34m[38;2;68;68;68m 61 [34m[38;2;68;68;68m 61 [34m[0m        did_emit_line = false;
+[34m[38;2;68;68;68m 62 [34m[38;2;68;68;68m 62 [34m[0m        if line.starts_with("diff --") {
+[34m[38;2;68;68;68m 63 [34m[38;2;68;68;68m 63 [34m[0m            state = State::DiffMeta;
+
+[34m───────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  fn delta() -> std::io::Result<()> { [34m│[0m
+[34m───────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 73 [34m[38;2;68;68;68m 73 [34m[0m            match syntax {
+[34m[38;2;68;68;68m 74 [34m[38;2;68;68;68m 74 [34m[0m                Some(syntax) => {
+[34m[38;2;68;68;68m 75 [34m[38;2;68;68;68m 75 [34m[0m                    let mut highlighter = HighlightLines::new(syntax, theme);
+[34m[38;5;88m 76 [34m[38;5;28m    [34m[31m                    let [1;7mbackground_color[0m[31m = [1;7mmatch [0m[31mline.chars().next()[1;7m {[0m
+[34m[38;5;88m    [34m[38;5;28m 76 [34m[32m                    let [1;7mfirst_char[0m[32m = line.chars().next()[1;7m;[0m
+[34m[38;5;88m    [34m[38;5;28m 77 [34m[32m                    let background_color = match first_char {[0m
+[34m[38;2;68;68;68m 77 [34m[38;2;68;68;68m 78 [34m[0m                        Some('+') => Some(GREEN),
+[34m[38;2;68;68;68m 78 [34m[38;2;68;68;68m 79 [34m[0m                        Some('-') => Some(RED),
+[34m[38;2;68;68;68m 79 [34m[38;2;68;68;68m 80 [34m[0m                        _ => None,
+[34m[38;2;68;68;68m 80 [34m[38;2;68;68;68m 81 [34m[0m                    };
+[34m[38;5;88m 81 [34m[38;5;28m    [34m[31m                    let line_without_plus_minus = if line.len() > 0 { &line[1..] } else { &line };[0m
+[34m[38;5;88m 82 [34m[38;5;28m    [34m[31m                    let ranges: Vec<(Style, &str)> =[0m
+[34m[38;5;88m 83 [34m[38;5;28m    [34m[31m                        highlighter.highlight(line_without_plus_minus, &ps);[0m
+[34m[38;5;88m    [34m[38;5;28m 82 [34m[32m                    if first_char == Some('+') || first_char == Some('-') {[0m
+[34m[38;5;88m    [34m[38;5;28m 83 [34m[32m                        line = line[1..].to_string();[0m
+[34m[38;5;88m    [34m[38;5;28m 84 [34m[32m                        output.push_str(" ");[0m
+[34m[38;5;88m    [34m[38;5;28m 85 [34m[32m                    }[0m
+[34m[38;5;88m    [34m[38;5;28m 86 [34m[32m                    let ranges: Vec<(Style, &str)> =[1;7m highlighter.highlight(&line, &ps);[0m
+[34m[38;2;68;68;68m 84 [34m[38;2;68;68;68m 87 [34m[0m                    my_as_24_bit_terminal_escaped(&ranges[..], background_color, &mut output);
+[34m[38;5;88m 85 [34m[38;5;28m    [34m[31m                    writeln!(stdout, "[1;7m [0m[31m{}", output)?;[0m
+[34m[38;5;88m    [34m[38;5;28m 88 [34m[32m                    writeln!(stdout, "{}", output)?;[0m
+[34m[38;2;68;68;68m 86 [34m[38;2;68;68;68m 89 [34m[0m                    output.truncate(0);
+[34m[38;2;68;68;68m 87 [34m[38;2;68;68;68m 90 [34m[0m                    did_emit_line = true;
+[34m[38;2;68;68;68m 88 [34m[38;2;68;68;68m 91 [34m[0m                }
+
+commit 147e923c49c410522b0f1b6372d71254f5015413
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Wed Jun 26 10:00:13 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Wed Jun 26 10:46:59 2019 -0400
+
+    Change variable name
+
+
+[34mΔ src/main.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m───────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  fn delta() -> std::io::Result<()> { [34m│[0m
+[34m───────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 51 [34m[38;2;68;68;68m 51 [34m[0m    let mut output = String::new();
+[34m[38;2;68;68;68m 52 [34m[38;2;68;68;68m 52 [34m[0m    let mut state = State::Unknown;
+[34m[38;2;68;68;68m 53 [34m[38;2;68;68;68m 53 [34m[0m    let mut syntax: Option<&SyntaxReference> = None;
+[34m[38;5;88m 54 [34m[38;5;28m    [34m[31m    let mut [1;7mhave_printed_line[0m[31m: bool;[0m
+[34m[38;5;88m    [34m[38;5;28m 54 [34m[32m    let mut [1;7mdid_emit_line[0m[32m: bool;[0m
+[34m[38;2;68;68;68m 55 [34m[38;2;68;68;68m 55 [34m[0m    let stdin = io::stdin();
+[34m[38;2;68;68;68m 56 [34m[38;2;68;68;68m 56 [34m[0m    let mut stdout = io::stdout();
+[34m[38;2;68;68;68m 57 [34m[38;2;68;68;68m 57 [34m[0m
+[34m[38;2;68;68;68m 58 [34m[38;2;68;68;68m 58 [34m[0m    for _line in stdin.lock().lines() {
+[34m[38;2;68;68;68m 59 [34m[38;2;68;68;68m 59 [34m[0m        let raw_line = _line.unwrap(); // TODO: handle None
+[34m[38;2;68;68;68m 60 [34m[38;2;68;68;68m 60 [34m[0m        let line = strip_ansi_codes(&raw_line).to_string();
+[34m[38;5;88m 61 [34m[38;5;28m    [34m[31m        have_printed_line = false;[0m
+[34m[38;5;88m    [34m[38;5;28m 61 [34m[32m        did_emit_line = false;[0m
+[34m[38;2;68;68;68m 62 [34m[38;2;68;68;68m 62 [34m[0m        if line.starts_with("diff --") {
+[34m[38;2;68;68;68m 63 [34m[38;2;68;68;68m 63 [34m[0m            state = State::DiffMeta;
+[34m[38;2;68;68;68m 64 [34m[38;2;68;68;68m 64 [34m[0m            syntax = match get_file_extension_from_diff_line(&line) {
+
+[34m───────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  fn delta() -> std::io::Result<()> { [34m│[0m
+[34m───────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 84 [34m[38;2;68;68;68m 84 [34m[0m                    my_as_24_bit_terminal_escaped(&ranges[..], background_color, &mut output);
+[34m[38;2;68;68;68m 85 [34m[38;2;68;68;68m 85 [34m[0m                    writeln!(stdout, " {}", output)?;
+[34m[38;2;68;68;68m 86 [34m[38;2;68;68;68m 86 [34m[0m                    output.truncate(0);
+[34m[38;5;88m 87 [34m[38;5;28m    [34m[31m                    have_printed_line = true;[0m
+[34m[38;5;88m    [34m[38;5;28m 87 [34m[32m                    did_emit_line = true;[0m
+[34m[38;2;68;68;68m 88 [34m[38;2;68;68;68m 88 [34m[0m                }
+[34m[38;2;68;68;68m 89 [34m[38;2;68;68;68m 89 [34m[0m                None => (),
+[34m[38;2;68;68;68m 90 [34m[38;2;68;68;68m 90 [34m[0m            }
+[34m[38;2;68;68;68m 91 [34m[38;2;68;68;68m 91 [34m[0m        }
+[34m[38;5;88m 92 [34m[38;5;28m    [34m[31m        if !have_printed_line {[0m
+[34m[38;5;88m    [34m[38;5;28m 92 [34m[32m        if !did_emit_line {[0m
+[34m[38;2;68;68;68m 93 [34m[38;2;68;68;68m 93 [34m[0m            writeln!(stdout, "{}", raw_line)?;
+[34m[38;2;68;68;68m 94 [34m[38;2;68;68;68m 94 [34m[0m        }
+[34m[38;2;68;68;68m 95 [34m[38;2;68;68;68m 95 [34m[0m    }
+
+commit 4d54c0f7e28e95d4958bd2dcbf76189fd8cfe305
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Wed Jun 26 09:57:07 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Wed Jun 26 10:46:59 2019 -0400
+
+    Handle broken pipe
+
+
+[34mΔ src/main.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m[38;5;88m  1 [34m[38;5;28m    [34m[31muse std::[1;7mfmt[0m[31m::[1;7mWrite[0m[31m;[0m
+[34m[38;5;88m  2 [34m[38;5;28m    [34m[31muse std::io::{self, BufRead};[0m
+[34m[38;5;88m    [34m[38;5;28m  1 [34m[32muse std::[1;7mio[0m[32m::[1;7m{self, BufRead, ErrorKind}[0m[32m;[0m
+[34m[38;2;68;68;68m  3 [34m[38;2;68;68;68m  2 [34m[0muse std::path::Path;
+[34m[38;5;88m    [34m[38;5;28m  3 [34m[32muse std::process;[0m
+[34m[38;2;68;68;68m  4 [34m[38;2;68;68;68m  4 [34m[0m
+[34m[38;2;68;68;68m  5 [34m[38;2;68;68;68m  5 [34m[0muse console::strip_ansi_codes;
+[34m[38;2;68;68;68m  6 [34m[38;2;68;68;68m  6 [34m[0muse syntect::easy::HighlightLines;
+
+[34m────────────────[0m[34m┐[0m
+[34m•[0m  enum State { [34m│[0m
+[34m────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 32 [34m[38;2;68;68;68m 32 [34m[0m}
+[34m[38;2;68;68;68m 33 [34m[38;2;68;68;68m 33 [34m[0m
+[34m[38;2;68;68;68m 34 [34m[38;2;68;68;68m 34 [34m[0mfn main() {
+[34m[38;5;88m    [34m[38;5;28m 35 [34m[32m    match delta() {[0m
+[34m[38;5;88m    [34m[38;5;28m 36 [34m[32m        Err(error) => {[0m
+[34m[38;5;88m    [34m[38;5;28m 37 [34m[32m            match error.kind() {[0m
+[34m[38;5;88m    [34m[38;5;28m 38 [34m[32m                ErrorKind::BrokenPipe => process::exit(0),[0m
+[34m[38;5;88m    [34m[38;5;28m 39 [34m[32m                _ => eprintln!("{}", error),[0m
+[34m[38;5;88m    [34m[38;5;28m 40 [34m[32m            }[0m
+[34m[38;5;88m    [34m[38;5;28m 41 [34m[32m        }[0m
+[34m[38;5;88m    [34m[38;5;28m 42 [34m[32m        _ => (),[0m
+[34m[38;5;88m    [34m[38;5;28m 43 [34m[32m    }[0m
+[34m[38;5;88m    [34m[38;5;28m 44 [34m[32m}[0m
+[34m[38;5;88m    [34m[38;5;28m 45 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 46 [34m[32mfn delta() -> std::io::Result<()> {[0m
+[34m[38;5;88m    [34m[38;5;28m 47 [34m[32m    use std::io::Write;[0m
+[34m[38;2;68;68;68m 35 [34m[38;2;68;68;68m 48 [34m[0m    let ps = SyntaxSet::load_defaults_newlines();
+[34m[38;2;68;68;68m 36 [34m[38;2;68;68;68m 49 [34m[0m    let ts = ThemeSet::load_defaults();
+[34m[38;2;68;68;68m 37 [34m[38;2;68;68;68m 50 [34m[0m    let theme = &ts.themes[DELTA_THEME_DEFAULT];
+
+[34m───────────────[0m[34m┐[0m
+[34m•[0m  fn main() { [34m│[0m
+[34m───────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 39 [34m[38;2;68;68;68m 52 [34m[0m    let mut state = State::Unknown;
+[34m[38;2;68;68;68m 40 [34m[38;2;68;68;68m 53 [34m[0m    let mut syntax: Option<&SyntaxReference> = None;
+[34m[38;2;68;68;68m 41 [34m[38;2;68;68;68m 54 [34m[0m    let mut have_printed_line: bool;
+[34m[38;5;88m    [34m[38;5;28m 55 [34m[32m    let stdin = io::stdin();[0m
+[34m[38;5;88m    [34m[38;5;28m 56 [34m[32m    let mut stdout = io::stdout();[0m
+[34m[38;2;68;68;68m 42 [34m[38;2;68;68;68m 57 [34m[0m
+[34m[38;5;88m 43 [34m[38;5;28m    [34m[31m    for _line in [1;7mio::[0m[31mstdin[1;7m()[0m[31m.lock().lines() {[0m
+[34m[38;5;88m    [34m[38;5;28m 58 [34m[32m    for _line in stdin.lock().lines() {[0m
+[34m[38;2;68;68;68m 44 [34m[38;2;68;68;68m 59 [34m[0m        let raw_line = _line.unwrap(); // TODO: handle None
+[34m[38;2;68;68;68m 45 [34m[38;2;68;68;68m 60 [34m[0m        let line = strip_ansi_codes(&raw_line).to_string();
+[34m[38;2;68;68;68m 46 [34m[38;2;68;68;68m 61 [34m[0m        have_printed_line = false;
+
+[34m───────────────[0m[34m┐[0m
+[34m•[0m  fn main() { [34m│[0m
+[34m───────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 67 [34m[38;2;68;68;68m 82 [34m[0m                    let ranges: Vec<(Style, &str)> =
+[34m[38;2;68;68;68m 68 [34m[38;2;68;68;68m 83 [34m[0m                        highlighter.highlight(line_without_plus_minus, &ps);
+[34m[38;2;68;68;68m 69 [34m[38;2;68;68;68m 84 [34m[0m                    my_as_24_bit_terminal_escaped(&ranges[..], background_color, &mut output);
+[34m[38;5;88m 70 [34m[38;5;28m    [34m[31m                    [1;7mprintln[0m[31m!(" {}", output);[0m
+[34m[38;5;88m    [34m[38;5;28m 85 [34m[32m                    [1;7mwriteln[0m[32m!([1;7mstdout, [0m[32m" {}", output)[1;7m?[0m[32m;[0m
+[34m[38;2;68;68;68m 71 [34m[38;2;68;68;68m 86 [34m[0m                    output.truncate(0);
+[34m[38;2;68;68;68m 72 [34m[38;2;68;68;68m 87 [34m[0m                    have_printed_line = true;
+[34m[38;2;68;68;68m 73 [34m[38;2;68;68;68m 88 [34m[0m                }
+
+[34m───────────────[0m[34m┐[0m
+[34m•[0m  fn main() { [34m│[0m
+[34m───────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 75 [34m[38;2;68;68;68m 90 [34m[0m            }
+[34m[38;2;68;68;68m 76 [34m[38;2;68;68;68m 91 [34m[0m        }
+[34m[38;2;68;68;68m 77 [34m[38;2;68;68;68m 92 [34m[0m        if !have_printed_line {
+[34m[38;5;88m 78 [34m[38;5;28m    [34m[31m            [1;7mprintln[0m[31m!("{}", raw_line);[0m
+[34m[38;5;88m    [34m[38;5;28m 93 [34m[32m            [1;7mwriteln[0m[32m!([1;7mstdout, [0m[32m"{}", raw_line)[1;7m?[0m[32m;[0m
+[34m[38;2;68;68;68m 79 [34m[38;2;68;68;68m 94 [34m[0m        }
+[34m[38;2;68;68;68m 80 [34m[38;2;68;68;68m 95 [34m[0m    }
+[34m[38;5;88m    [34m[38;5;28m 96 [34m[32m    Ok(())[0m
+[34m[38;2;68;68;68m 81 [34m[38;2;68;68;68m 97 [34m[0m}
+[34m[38;2;68;68;68m 82 [34m[38;2;68;68;68m 98 [34m[0m
+[34m[38;2;68;68;68m 83 [34m[38;2;68;68;68m 99 [34m[0m/// Based on as_24_bit_terminal_escaped from syntect
+
+[34m────────────────[0m[34m┐[0m
+[34m•[0m  fn colorize( [34m│[0m
+[34m────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 100[34m[38;2;68;68;68m 116[34m[0m    reset_color: bool,
+[34m[38;2;68;68;68m 101[34m[38;2;68;68;68m 117[34m[0m    buf: &mut String,
+[34m[38;2;68;68;68m 102[34m[38;2;68;68;68m 118[34m[0m) -> () {
+[34m[38;5;88m    [34m[38;5;28m 119[34m[32m    use std::fmt::Write;[0m
+[34m[38;2;68;68;68m 103[34m[38;2;68;68;68m 120[34m[0m    match background_color {
+[34m[38;2;68;68;68m 104[34m[38;2;68;68;68m 121[34m[0m        Some(background_color) => {
+[34m[38;2;68;68;68m 105[34m[38;2;68;68;68m 122[34m[0m            write!(
+
+commit fab69669814b3d88868b5a4f6f0dc03b5165a3aa
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Wed Jun 26 01:06:44 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Wed Jun 26 10:46:59 2019 -0400
+
+    Dark theme
+
+
+[34mΔ src/main.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m──────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  use syntect::easy::HighlightLines; [34m│[0m
+[34m──────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m  7 [34m[38;2;68;68;68m  7 [34m[0muse syntect::highlighting::{Color, Style, ThemeSet};
+[34m[38;2;68;68;68m  8 [34m[38;2;68;68;68m  8 [34m[0muse syntect::parsing::{SyntaxReference, SyntaxSet};
+[34m[38;2;68;68;68m  9 [34m[38;2;68;68;68m  9 [34m[0m
+[34m[38;5;88m 10 [34m[38;5;28m    [34m[31mpub const DELTA_THEME_DEFAULT: &str = "[1;7mInspiredGitHub"; // [0m[31mbase16-mocha.dark[0m
+[34m[38;5;88m    [34m[38;5;28m 10 [34m[32mpub const DELTA_THEME_DEFAULT: &str = "base16-mocha.dark[1;7m";[0m
+[34m[38;2;68;68;68m 11 [34m[38;2;68;68;68m 11 [34m[0m
+[34m[38;2;68;68;68m 12 [34m[38;2;68;68;68m 12 [34m[0mconst GREEN: Color = Color {
+[34m[38;5;88m 13 [34m[38;5;28m    [34m[31m    r: [1;7m0xd0[0m[31m,[0m
+[34m[38;5;88m 14 [34m[38;5;28m    [34m[31m    g: [1;7m0xff[0m[31m,[0m
+[34m[38;5;88m 15 [34m[38;5;28m    [34m[31m    b: [1;7m0xd0[0m[31m,[0m
+[34m[38;5;88m    [34m[38;5;28m 13 [34m[32m    r: [1;7m0x01[0m[32m,[0m
+[34m[38;5;88m    [34m[38;5;28m 14 [34m[32m    g: [1;7m0x18[0m[32m,[0m
+[34m[38;5;88m    [34m[38;5;28m 15 [34m[32m    b: [1;7m0x00[0m[32m,[0m
+[34m[38;2;68;68;68m 16 [34m[38;2;68;68;68m 16 [34m[0m    a: 0x00,
+[34m[38;2;68;68;68m 17 [34m[38;2;68;68;68m 17 [34m[0m};
+[34m[38;2;68;68;68m 18 [34m[38;2;68;68;68m 18 [34m[0m
+[34m[38;2;68;68;68m 19 [34m[38;2;68;68;68m 19 [34m[0mconst RED: Color = Color {
+[34m[38;5;88m 20 [34m[38;5;28m    [34m[31m    r: [1;7m0xff[0m[31m,[0m
+[34m[38;5;88m 21 [34m[38;5;28m    [34m[31m    g: [1;7m0xd0[0m[31m,[0m
+[34m[38;5;88m 22 [34m[38;5;28m    [34m[31m    b: [1;7m0xd0[0m[31m,[0m
+[34m[38;5;88m    [34m[38;5;28m 20 [34m[32m    r: [1;7m0x24[0m[32m,[0m
+[34m[38;5;88m    [34m[38;5;28m 21 [34m[32m    g: [1;7m0x00[0m[32m,[0m
+[34m[38;5;88m    [34m[38;5;28m 22 [34m[32m    b: [1;7m0x01[0m[32m,[0m
+[34m[38;2;68;68;68m 23 [34m[38;2;68;68;68m 23 [34m[0m    a: 0x00,
+[34m[38;2;68;68;68m 24 [34m[38;2;68;68;68m 24 [34m[0m};
+[34m[38;2;68;68;68m 25 [34m[38;2;68;68;68m 25 [34m[0m
+
+commit 044913f0bcd319b51733c9f6f91788d72314d40a
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Wed Jun 26 00:37:38 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Wed Jun 26 09:59:01 2019 -0400
+
+    Don't output +/- at beginning of diff lines
+
+
+[34mΔ src/main.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m───────────────[0m[34m┐[0m
+[34m•[0m  fn main() { [34m│[0m
+[34m───────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 63 [34m[38;2;68;68;68m 63 [34m[0m                        Some('-') => Some(RED),
+[34m[38;2;68;68;68m 64 [34m[38;2;68;68;68m 64 [34m[0m                        _ => None,
+[34m[38;2;68;68;68m 65 [34m[38;2;68;68;68m 65 [34m[0m                    };
+[34m[38;5;88m 66 [34m[38;5;28m    [34m[31m                    let ranges: Vec<(Style, &str)> =[1;7m highlighter.highlight(&line, &ps);[0m
+[34m[38;5;88m    [34m[38;5;28m 66 [34m[32m                    let line_without_plus_minus = if line.len() > 0 { &line[1..] } else { &line };[0m
+[34m[38;5;88m    [34m[38;5;28m 67 [34m[32m                    let ranges: Vec<(Style, &str)> =[0m
+[34m[38;5;88m    [34m[38;5;28m 68 [34m[32m                        highlighter.highlight(line_without_plus_minus, &ps);[0m
+[34m[38;2;68;68;68m 67 [34m[38;2;68;68;68m 69 [34m[0m                    my_as_24_bit_terminal_escaped(&ranges[..], background_color, &mut output);
+[34m[38;5;88m 68 [34m[38;5;28m    [34m[31m                    println!("{}", output);[0m
+[34m[38;5;88m    [34m[38;5;28m 70 [34m[32m                    println!("[1;7m [0m[32m{}", output);[0m
+[34m[38;2;68;68;68m 69 [34m[38;2;68;68;68m 71 [34m[0m                    output.truncate(0);
+[34m[38;2;68;68;68m 70 [34m[38;2;68;68;68m 72 [34m[0m                    have_printed_line = true;
+[34m[38;2;68;68;68m 71 [34m[38;2;68;68;68m 73 [34m[0m                }
+
+commit c6f1a38bcc9e61aad7598845176817c21bac54cd
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Wed Jun 26 00:28:35 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Wed Jun 26 09:59:01 2019 -0400
+
+    Retain original colors except in diff hunks
+
+
+[34mΔ Cargo.toml[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m─────────────────────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  authors = ["Dan Davison <dandavison7@gmail.com>"] [34m│[0m
+[34m─────────────────────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m  5 [34m[38;2;68;68;68m  5 [34m[0medition = "2018"
+[34m[38;2;68;68;68m  6 [34m[38;2;68;68;68m  6 [34m[0m
+[34m[38;2;68;68;68m  7 [34m[38;2;68;68;68m  7 [34m[0m[dependencies]
+[34m[38;5;88m    [34m[38;5;28m  8 [34m[32mconsole = "0.7.7"[0m
+[34m[38;2;68;68;68m  8 [34m[38;2;68;68;68m  9 [34m[0mparsepatch = "0.2.0"
+[34m[38;2;68;68;68m  9 [34m[38;2;68;68;68m 10 [34m[0msyntect = "3.2"
+
+[34mΔ src/main.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m────────────────────────[0m[34m┐[0m
+[34m•[0m  use std::fmt::Write; [34m│[0m
+[34m────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m  2 [34m[38;2;68;68;68m  2 [34m[0muse std::io::{self, BufRead};
+[34m[38;2;68;68;68m  3 [34m[38;2;68;68;68m  3 [34m[0muse std::path::Path;
+[34m[38;2;68;68;68m  4 [34m[38;2;68;68;68m  4 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m  5 [34m[32muse console::strip_ansi_codes;[0m
+[34m[38;2;68;68;68m  5 [34m[38;2;68;68;68m  6 [34m[0muse syntect::easy::HighlightLines;
+[34m[38;2;68;68;68m  6 [34m[38;2;68;68;68m  7 [34m[0muse syntect::highlighting::{Color, Style, ThemeSet};
+[34m[38;2;68;68;68m  7 [34m[38;2;68;68;68m  8 [34m[0muse syntect::parsing::{SyntaxReference, SyntaxSet};
+
+[34m───────────────[0m[34m┐[0m
+[34m•[0m  fn main() { [34m│[0m
+[34m───────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 40 [34m[38;2;68;68;68m 41 [34m[0m    let mut have_printed_line: bool;
+[34m[38;2;68;68;68m 41 [34m[38;2;68;68;68m 42 [34m[0m
+[34m[38;2;68;68;68m 42 [34m[38;2;68;68;68m 43 [34m[0m    for _line in io::stdin().lock().lines() {
+[34m[38;5;88m 43 [34m[38;5;28m    [34m[31m        let [1;7mline[0m[31m = _line.unwrap(); // TODO: handle None[0m
+[34m[38;5;88m    [34m[38;5;28m 44 [34m[32m        let [1;7mraw_line[0m[32m = _line.unwrap(); // TODO: handle None[0m
+[34m[38;5;88m    [34m[38;5;28m 45 [34m[32m        let line = strip_ansi_codes(&raw_line).to_string();[0m
+[34m[38;2;68;68;68m 44 [34m[38;2;68;68;68m 46 [34m[0m        have_printed_line = false;
+[34m[38;2;68;68;68m 45 [34m[38;2;68;68;68m 47 [34m[0m        if line.starts_with("diff --") {
+[34m[38;2;68;68;68m 46 [34m[38;2;68;68;68m 48 [34m[0m            state = State::DiffMeta;
+
+[34m───────────────[0m[34m┐[0m
+[34m•[0m  fn main() { [34m│[0m
+[34m───────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 71 [34m[38;2;68;68;68m 73 [34m[0m            }
+[34m[38;2;68;68;68m 72 [34m[38;2;68;68;68m 74 [34m[0m        }
+[34m[38;2;68;68;68m 73 [34m[38;2;68;68;68m 75 [34m[0m        if !have_printed_line {
+[34m[38;5;88m 74 [34m[38;5;28m    [34m[31m            println!("{}", [1;7mline[0m[31m);[0m
+[34m[38;5;88m    [34m[38;5;28m 76 [34m[32m            println!("{}", [1;7mraw_line[0m[32m);[0m
+[34m[38;2;68;68;68m 75 [34m[38;2;68;68;68m 77 [34m[0m        }
+[34m[38;2;68;68;68m 76 [34m[38;2;68;68;68m 78 [34m[0m    }
+[34m[38;2;68;68;68m 77 [34m[38;2;68;68;68m 79 [34m[0m}
+
+commit be5f329e1b5394e840012f2d70456cd0422001c2
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Tue Jun 25 23:57:13 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Wed Jun 26 09:59:01 2019 -0400
+
+    Refactor colorizing
+
+
+[34mΔ src/main.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m─────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  fn my_as_24_bit_terminal_escaped( [34m│[0m
+[34m─────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 83 [34m[38;2;68;68;68m 83 [34m[0m    buf: &mut String,
+[34m[38;2;68;68;68m 84 [34m[38;2;68;68;68m 84 [34m[0m) -> () {
+[34m[38;2;68;68;68m 85 [34m[38;2;68;68;68m 85 [34m[0m    for &(ref style, text) in v.iter() {
+[34m[38;5;88m 86 [34m[38;5;28m    [34m[31m        match background_color {[0m
+[34m[38;5;88m 87 [34m[38;5;28m    [34m[31m            Some(background_color) => {[0m
+[34m[38;5;88m 88 [34m[38;5;28m    [34m[31m                write!([0m
+[34m[38;5;88m 89 [34m[38;5;28m    [34m[31m                    buf,[0m
+[34m[38;5;88m 90 [34m[38;5;28m    [34m[31m                    "\x1b[48;2;{};{};{}m",[0m
+[34m[38;5;88m 91 [34m[38;5;28m    [34m[31m        [1;7m           [0m[31m background_color[1;7m.r[0m[31m,[0m
+[34m[38;5;88m 92 [34m[38;5;28m    [34m[31m                    background_color.g,[0m
+[34m[38;5;88m 93 [34m[38;5;28m    [34m[31m                    background_color.b[0m
+[34m[38;5;88m 94 [34m[38;5;28m    [34m[31m                ).unwrap()[0m
+[34m[38;5;88m 95 [34m[38;5;28m    [34m[31m            }[0m
+[34m[38;5;88m 96 [34m[38;5;28m    [34m[31m            None => (),[0m
+[34m[38;5;88m 97 [34m[38;5;28m    [34m[31m        }[0m
+[34m[38;5;88m 98 [34m[38;5;28m    [34m[31m        write!([0m
+[34m[38;5;88m 99 [34m[38;5;28m    [34m[31m            buf,[0m
+[34m[38;5;88m 100[34m[38;5;28m    [34m[31m            "\x1b[38;2;{};{};{}m{}",[0m
+[34m[38;5;88m 101[34m[38;5;28m    [34m[31m            style.foreground.r,[0m
+[34m[38;5;88m 102[34m[38;5;28m    [34m[31m            style.foreground.g,[0m
+[34m[38;5;88m 103[34m[38;5;28m    [34m[31m            style.foreground.b,[0m
+[34m[38;5;88m 104[34m[38;5;28m    [34m[31m            text[0m
+[34m[38;5;88m 105[34m[38;5;28m    [34m[31m        ).unwrap();[0m
+[34m[38;5;88m    [34m[38;5;28m 86 [34m[32m        [1;7mcolorize(text, Some(style.foreground),[0m[32m background_color[1;7m, false[0m[32m,[1;7m buf);[0m
+[34m[38;2;68;68;68m 106[34m[38;2;68;68;68m 87 [34m[0m    }
+[34m[38;2;68;68;68m 107[34m[38;2;68;68;68m 88 [34m[0m    buf.push_str("\x1b[0m");
+[34m[38;2;68;68;68m 108[34m[38;2;68;68;68m 89 [34m[0m}
+[34m[38;2;68;68;68m 109[34m[38;2;68;68;68m 90 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 91 [34m[32m/// Write text to buffer with color escape codes applied.[0m
+[34m[38;5;88m    [34m[38;5;28m 92 [34m[32mfn colorize([0m
+[34m[38;5;88m    [34m[38;5;28m 93 [34m[32m    text: &str,[0m
+[34m[38;5;88m    [34m[38;5;28m 94 [34m[32m    foreground_color: Option<Color>,[0m
+[34m[38;5;88m    [34m[38;5;28m 95 [34m[32m    background_color: Option<Color>,[0m
+[34m[38;5;88m    [34m[38;5;28m 96 [34m[32m    reset_color: bool,[0m
+[34m[38;5;88m    [34m[38;5;28m 97 [34m[32m    buf: &mut String,[0m
+[34m[38;5;88m    [34m[38;5;28m 98 [34m[32m) -> () {[0m
+[34m[38;5;88m    [34m[38;5;28m 99 [34m[32m    match background_color {[0m
+[34m[38;5;88m    [34m[38;5;28m 100[34m[32m        Some(background_color) => {[0m
+[34m[38;5;88m    [34m[38;5;28m 101[34m[32m            write!([0m
+[34m[38;5;88m    [34m[38;5;28m 102[34m[32m                buf,[0m
+[34m[38;5;88m    [34m[38;5;28m 103[34m[32m                "\x1b[48;2;{};{};{}m",[0m
+[34m[38;5;88m    [34m[38;5;28m 104[34m[32m                background_color.r,[0m
+[34m[38;5;88m    [34m[38;5;28m 105[34m[32m                background_color.g,[0m
+[34m[38;5;88m    [34m[38;5;28m 106[34m[32m                background_color.b[0m
+[34m[38;5;88m    [34m[38;5;28m 107[34m[32m            ).unwrap();[0m
+[34m[38;5;88m    [34m[38;5;28m 108[34m[32m            if reset_color {[0m
+[34m[38;5;88m    [34m[38;5;28m 109[34m[32m                buf.push_str("\x1b[0m");[0m
+[34m[38;5;88m    [34m[38;5;28m 110[34m[32m            }[0m
+[34m[38;5;88m    [34m[38;5;28m 111[34m[32m        }[0m
+[34m[38;5;88m    [34m[38;5;28m 112[34m[32m        None => (),[0m
+[34m[38;5;88m    [34m[38;5;28m 113[34m[32m    }[0m
+[34m[38;5;88m    [34m[38;5;28m 114[34m[32m    match foreground_color {[0m
+[34m[38;5;88m    [34m[38;5;28m 115[34m[32m        Some(foreground_color) => {[0m
+[34m[38;5;88m    [34m[38;5;28m 116[34m[32m            write!([0m
+[34m[38;5;88m    [34m[38;5;28m 117[34m[32m                buf,[0m
+[34m[38;5;88m    [34m[38;5;28m 118[34m[32m                "\x1b[38;2;{};{};{}m{}",[0m
+[34m[38;5;88m    [34m[38;5;28m 119[34m[32m                foreground_color.r,[0m
+[34m[38;5;88m    [34m[38;5;28m 120[34m[32m                foreground_color.g,[0m
+[34m[38;5;88m    [34m[38;5;28m 121[34m[32m                foreground_color.b,[0m
+[34m[38;5;88m    [34m[38;5;28m 122[34m[32m                text[0m
+[34m[38;5;88m    [34m[38;5;28m 123[34m[32m            ).unwrap();[0m
+[34m[38;5;88m    [34m[38;5;28m 124[34m[32m            if reset_color {[0m
+[34m[38;5;88m    [34m[38;5;28m 125[34m[32m                buf.push_str("\x1b[0m");[0m
+[34m[38;5;88m    [34m[38;5;28m 126[34m[32m            }[0m
+[34m[38;5;88m    [34m[38;5;28m 127[34m[32m        }[0m
+[34m[38;5;88m    [34m[38;5;28m 128[34m[32m        None => {[0m
+[34m[38;5;88m    [34m[38;5;28m 129[34m[32m            write!(buf, "{}", text).unwrap();[0m
+[34m[38;5;88m    [34m[38;5;28m 130[34m[32m        }[0m
+[34m[38;5;88m    [34m[38;5;28m 131[34m[32m    }[0m
+[34m[38;5;88m    [34m[38;5;28m 132[34m[32m}[0m
+[34m[38;5;88m    [34m[38;5;28m 133[34m[0m
+[34m[38;2;68;68;68m 110[34m[38;2;68;68;68m 134[34m[0m/// Given input like
+[34m[38;2;68;68;68m 111[34m[38;2;68;68;68m 135[34m[0m/// "diff --git a/src/main.rs b/src/main.rs"
+[34m[38;2;68;68;68m 112[34m[38;2;68;68;68m 136[34m[0m/// Return "rs", i.e. a single file extension consistent with both files.
+
+commit 0cabaa4b4a3d55857fa3cda445ad066b8dac5d1c
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Tue Jun 25 23:11:54 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Wed Jun 26 09:59:01 2019 -0400
+
+    Revert "Only output color if stdout is a tty"
+    
+    This reverts commit e0e2d5fb1ea52294afb0d7ed4ab59752b13b3c41.
+    
+    Pipe to ansifilter if this is needed
+
+
+[34mΔ Cargo.toml[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m─────────────────────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  authors = ["Dan Davison <dandavison7@gmail.com>"] [34m│[0m
+[34m─────────────────────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m  5 [34m[38;2;68;68;68m  5 [34m[0medition = "2018"
+[34m[38;2;68;68;68m  6 [34m[38;2;68;68;68m  6 [34m[0m
+[34m[38;2;68;68;68m  7 [34m[38;2;68;68;68m  7 [34m[0m[dependencies]
+[34m[38;5;88m  8 [34m[38;5;28m    [34m[31matty = "0.2.2"[0m
+[34m[38;2;68;68;68m  9 [34m[38;2;68;68;68m  8 [34m[0mparsepatch = "0.2.0"
+[34m[38;2;68;68;68m 10 [34m[38;2;68;68;68m  9 [34m[0msyntect = "3.2"
+
+[34mΔ src/main.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m────────────────────────[0m[34m┐[0m
+[34m•[0m  use std::fmt::Write; [34m│[0m
+[34m────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m  2 [34m[38;2;68;68;68m  2 [34m[0muse std::io::{self, BufRead};
+[34m[38;2;68;68;68m  3 [34m[38;2;68;68;68m  3 [34m[0muse std::path::Path;
+[34m[38;2;68;68;68m  4 [34m[38;2;68;68;68m  4 [34m[0m
+[34m[38;5;88m  5 [34m[38;5;28m    [34m[31muse atty::{self, Stream};[0m
+[34m[38;2;68;68;68m  6 [34m[38;2;68;68;68m  5 [34m[0muse syntect::easy::HighlightLines;
+[34m[38;2;68;68;68m  7 [34m[38;2;68;68;68m  6 [34m[0muse syntect::highlighting::{Color, Style, ThemeSet};
+[34m[38;2;68;68;68m  8 [34m[38;2;68;68;68m  7 [34m[0muse syntect::parsing::{SyntaxReference, SyntaxSet};
+
+[34m───────────────[0m[34m┐[0m
+[34m•[0m  fn main() { [34m│[0m
+[34m───────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 40 [34m[38;2;68;68;68m 39 [34m[0m    let mut syntax: Option<&SyntaxReference> = None;
+[34m[38;2;68;68;68m 41 [34m[38;2;68;68;68m 40 [34m[0m    let mut have_printed_line: bool;
+[34m[38;2;68;68;68m 42 [34m[38;2;68;68;68m 41 [34m[0m
+[34m[38;5;88m 43 [34m[38;5;28m    [34m[31m    let should_apply_colors = atty::is(Stream::Stdout);[0m
+[34m[38;5;88m 44 [34m[38;5;28m    [34m[0m
+[34m[38;2;68;68;68m 45 [34m[38;2;68;68;68m 42 [34m[0m    for _line in io::stdin().lock().lines() {
+[34m[38;2;68;68;68m 46 [34m[38;2;68;68;68m 43 [34m[0m        let line = _line.unwrap(); // TODO: handle None
+[34m[38;5;88m 47 [34m[38;5;28m    [34m[31m        if !should_apply_colors {[0m
+[34m[38;5;88m 48 [34m[38;5;28m    [34m[31m            println!("{}", line);[0m
+[34m[38;5;88m 49 [34m[38;5;28m    [34m[31m            continue;[0m
+[34m[38;5;88m 50 [34m[38;5;28m    [34m[31m        }[0m
+[34m[38;2;68;68;68m 51 [34m[38;2;68;68;68m 44 [34m[0m        have_printed_line = false;
+[34m[38;2;68;68;68m 52 [34m[38;2;68;68;68m 45 [34m[0m        if line.starts_with("diff --") {
+[34m[38;2;68;68;68m 53 [34m[38;2;68;68;68m 46 [34m[0m            state = State::DiffMeta;

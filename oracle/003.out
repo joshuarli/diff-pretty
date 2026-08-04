@@ -1,0 +1,43 @@
+commit d4130bad3d9892908e5682659d02924c28182471
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Sun Jun 23 18:30:55 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Sun Jun 23 18:30:55 2019 -0400
+
+    Parse diff on stdin
+
+
+[34mΔ Cargo.toml[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m─────────────────────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  authors = ["Dan Davison <dandavison7@gmail.com>"] [34m│[0m
+[34m─────────────────────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m  5 [34m[38;2;68;68;68m  5 [34m[0medition = "2018"
+[34m[38;2;68;68;68m  6 [34m[38;2;68;68;68m  6 [34m[0m
+[34m[38;2;68;68;68m  7 [34m[38;2;68;68;68m  7 [34m[0m[dependencies]
+[34m[38;5;88m    [34m[38;5;28m  8 [34m[32munidiff = "0.3.1"[0m
+\ No newline at end of file
+
+[34mΔ src/main.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m[38;5;88m    [34m[38;5;28m  1 [34m[32mextern crate unidiff;[0m
+[34m[38;5;88m    [34m[38;5;28m  2 [34m[0m
+[34m[38;2;68;68;68m  1 [34m[38;2;68;68;68m  3 [34m[0muse std::io::{self, Read, Write};
+[34m[38;2;68;68;68m  2 [34m[38;2;68;68;68m  4 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m  5 [34m[32muse unidiff::PatchSet;[0m
+[34m[38;5;88m    [34m[38;5;28m  6 [34m[0m
+[34m[38;2;68;68;68m  3 [34m[38;2;68;68;68m  7 [34m[0mfn main() {
+[34m[38;5;88m  4 [34m[38;5;28m    [34m[31m    let mut [1;7mstdin[0m[31m = [1;7mio[0m[31m::[1;7mstdin[0m[31m();[0m
+[34m[38;5;88m  5 [34m[38;5;28m    [34m[31m    let mut [1;7mstdout[0m[31m = [1;7mio[0m[31m::[1;7mstdout[0m[31m();[0m
+[34m[38;5;88m  6 [34m[38;5;28m    [34m[31m    let mut buf = String::new();[0m
+[34m[38;5;88m  7 [34m[38;5;28m    [34m[31m    stdin.read_to_string(&mut [1;7mbuf[0m[31m);[0m
+[34m[38;5;88m  8 [34m[38;5;28m    [34m[31m    stdout.write_all([1;7mbuf[0m[31m.as_bytes());[0m
+[34m[38;5;88m  9 [34m[38;5;28m    [34m[31m    stdout.flush();[0m
+[34m[38;5;88m    [34m[38;5;28m  8 [34m[32m    let mut [1;7mdiff_str[0m[32m = [1;7mString[0m[32m::[1;7mnew[0m[32m();[0m
+[34m[38;5;88m    [34m[38;5;28m  9 [34m[32m    let mut [1;7mpatch[0m[32m = [1;7mPatchSet[0m[32m::[1;7mnew[0m[32m();[0m
+[34m[38;5;88m    [34m[38;5;28m 10 [34m[32m    [1;7mio::[0m[32mstdin[1;7m()[0m[32m.read_to_string(&mut [1;7mdiff_str[0m[32m);[0m
+[34m[38;5;88m    [34m[38;5;28m 11 [34m[32m    patch.parse(&mut diff_str).ok().expect("Error parsing diff");[0m
+[34m[38;5;88m    [34m[38;5;28m 12 [34m[32m    [1;7mio::[0m[32mstdout[1;7m()[0m[32m.write_all([1;7mdiff_str[0m[32m.as_bytes());[0m
+[34m[38;2;68;68;68m 10 [34m[38;2;68;68;68m 13 [34m[0m}

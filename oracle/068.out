@@ -1,0 +1,44 @@
+commit 042f293a202e2f88970cf4615cd352dc01d54776
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Sat Jun 29 18:18:30 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Sat Jun 29 18:18:30 2019 -0400
+
+    Update README
+
+
+[34mΔ README.md[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m──────────[0m[34m┐[0m
+[34m•[0m  USAGE: [34m│[0m
+[34m──────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 16 [34m[38;2;68;68;68m 16 [34m[0m    delta [FLAGS] [OPTIONS]
+[34m[38;2;68;68;68m 17 [34m[38;2;68;68;68m 17 [34m[0m
+[34m[38;2;68;68;68m 18 [34m[38;2;68;68;68m 18 [34m[0mFLAGS:
+[34m[38;5;88m 19 [34m[38;5;28m    [34m[31m        --dark       Use diff highlighting colors appropriate for a dark terminal background.[0m
+[34m[38;5;88m 20 [34m[38;5;28m    [34m[31m    -h, --help       Prints help information[0m
+[34m[38;5;88m 21 [34m[38;5;28m    [34m[31m        --light      Use diff highlighting colors appropriate for a light terminal background. This is the[1;7m default.[0m
+[34m[38;5;88m 22 [34m[38;5;28m    [34m[31m    -V, --version    Prints version information[0m
+[34m[38;5;88m    [34m[38;5;28m 19 [34m[32m        --dark       [1;7m       [0m[32mUse diff highlighting colors appropriate for a dark terminal background.[0m
+[34m[38;5;88m    [34m[38;5;28m 20 [34m[32m    -h, --help       [1;7m       [0m[32mPrints help information[0m
+[34m[38;5;88m    [34m[38;5;28m 21 [34m[32m        --light      [1;7m       [0m[32mUse diff highlighting colors appropriate for a light terminal background. This is the[0m
+[34m[38;5;88m    [34m[38;5;28m 22 [34m[32m                            default.[0m
+[34m[38;5;88m    [34m[38;5;28m 23 [34m[32m        --list-languages    List supported languages and associated file extensions.[0m
+[34m[38;5;88m    [34m[38;5;28m 24 [34m[32m        --list-themes       List available syntax highlighting themes.[0m
+[34m[38;5;88m    [34m[38;5;28m 25 [34m[32m    -V, --version    [1;7m       [0m[32mPrints version information[0m
+[34m[38;2;68;68;68m 23 [34m[38;2;68;68;68m 26 [34m[0m
+[34m[38;2;68;68;68m 24 [34m[38;2;68;68;68m 27 [34m[0mOPTIONS:
+[34m[38;2;68;68;68m 25 [34m[38;2;68;68;68m 28 [34m[0m        --minus-color <minus_color>    The background color (RGB hex) to use for removed lines. The default is "#ffd0d0"
+
+[34m────────────[0m[34m┐[0m
+[34m•[0m  OPTIONS: [34m│[0m
+[34m────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 30 [34m[38;2;68;68;68m 33 [34m[0m                                       "Solarized (light)", "base16-ocean.light"), Dark: ("Solarized, (dark)", "base16-
+[34m[38;2;68;68;68m 31 [34m[38;2;68;68;68m 34 [34m[0m                                       eighties.dark", "base16-mocha.dark", "base16-ocean.dark").
+[34m[38;2;68;68;68m 32 [34m[38;2;68;68;68m 35 [34m[0m    -w, --width <width>                The width (in characters) of the diff highlighting. By default, the highlighting
+[34m[38;5;88m 33 [34m[38;5;28m    [34m[31m                                       extends to the last character on each line[0m
+[34m[38;5;88m    [34m[38;5;28m 36 [34m[32m                                       extends to the last character on each line[1;7m.[0m
+[34m[38;2;68;68;68m 34 [34m[38;2;68;68;68m 37 [34m[0m```
+[34m[38;2;68;68;68m 35 [34m[38;2;68;68;68m 38 [34m[0m
+[34m[38;2;68;68;68m 36 [34m[38;2;68;68;68m 39 [34m[0m## Installation

@@ -1,0 +1,55 @@
+commit da441a8f8d7c7bdc916817d89ee4bf189cb17e8a
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Thu Jun 27 11:38:45 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Thu Jun 27 11:41:07 2019 -0400
+
+    Simplify CLI argument handling
+
+diff --git a/src/main.rs b/src/main.rs
+index ba96271..fbe93d6 100644
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -85,24 +85,14 @@ fn delta() -> std::io::Result<()> {
+     let mut opt = Opt::from_args();
+ 
+     if opt.light && opt.dark {
+-        panic!("--light or --dark cannot be used together. Default is --light.")
++        eprintln!("--light or --dark cannot be used together. Default is --light.");
++        process::exit(1);
+     }
+     match &opt.theme {
+         Some(theme) => {
+-            if paint::LIGHT_THEMES.contains(&theme.as_str()) {
+-                if opt.dark {
+-                    panic!("--dark is invalid with light theme '{}'", theme);
+-                } else {
+-                    opt.light = true;
+-                }
+-            } else if paint::DARK_THEMES.contains(&theme.as_str()) {
+-                if opt.light {
+-                    panic!("--light is invalid with dark theme '{}'", theme);
+-                } else {
+-                    opt.dark = true;
+-                }
+-            } else {
+-                panic!("Invalid theme: '{}'", theme);
++            if !theme_set.themes.contains_key(theme.as_str()) {
++                eprintln!("Invalid theme: '{}'", theme);
++                process::exit(1);
+             }
+         }
+         None => {
+diff --git a/src/paint.rs b/src/paint.rs
+index c5ed9af..ed6a30e 100644
+--- a/src/paint.rs
++++ b/src/paint.rs
+@@ -2,8 +2,6 @@ use syntect::easy::HighlightLines;
+ use syntect::highlighting::{Color, Style, Theme};
+ use syntect::parsing::{SyntaxReference, SyntaxSet};
+ 
+-pub const LIGHT_THEMES: [&str; 3] = ["InspiredGitHub", "Solarized (light)", "base16-ocean.light"];
+-
+ pub const DARK_THEMES: [&str; 4] = [
+     "Solarized (dark)",
+     "base16-eighties.dark",

@@ -1,0 +1,23 @@
+commit 4404c17c22e593db5758884e26327309c4ccb219
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Sun Jun 23 18:06:47 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Sun Jun 23 18:06:47 2019 -0400
+
+    Read from stdin, write to stdout
+
+
+[34mΔ src/main.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m[38;5;88m    [34m[38;5;28m  1 [34m[32muse std::io::{self, Read, Write};[0m
+[34m[38;5;88m    [34m[38;5;28m  2 [34m[0m
+[34m[38;2;68;68;68m  1 [34m[38;2;68;68;68m  3 [34m[0mfn main() {
+[34m[38;5;88m  2 [34m[38;5;28m    [34m[31m    println!("Hello, world!");[0m
+[34m[38;5;88m    [34m[38;5;28m  4 [34m[32m    let mut stdin = io::stdin();[0m
+[34m[38;5;88m    [34m[38;5;28m  5 [34m[32m    let mut stdout = io::stdout();[0m
+[34m[38;5;88m    [34m[38;5;28m  6 [34m[32m    let mut buf = String::new();[0m
+[34m[38;5;88m    [34m[38;5;28m  7 [34m[32m    stdin.read_to_string(&mut buf);[0m
+[34m[38;5;88m    [34m[38;5;28m  8 [34m[32m    stdout.write_all(buf.as_bytes());[0m
+[34m[38;5;88m    [34m[38;5;28m  9 [34m[32m    stdout.flush();[0m
+[34m[38;2;68;68;68m  3 [34m[38;2;68;68;68m 10 [34m[0m}

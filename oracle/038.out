@@ -1,0 +1,117 @@
+commit 67b05c6f2e74bfef7f2e339ccbbac01e92c34e3c
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Wed Jun 26 21:45:20 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Wed Jun 26 21:45:20 2019 -0400
+
+    Factor out parse module
+
+
+[34mΔ src/main.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m[38;2;68;68;68m  1 [34m[38;2;68;68;68m  1 [34m[0mextern crate structopt;
+[34m[38;2;68;68;68m  2 [34m[38;2;68;68;68m  2 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m  3 [34m[32mmod parse;[0m
+[34m[38;5;88m    [34m[38;5;28m  4 [34m[0m
+[34m[38;2;68;68;68m  3 [34m[38;2;68;68;68m  5 [34m[0muse std::io::{self, BufRead, ErrorKind};
+[34m[38;5;88m  4 [34m[38;5;28m    [34m[31muse std::path::Path;[0m
+[34m[38;2;68;68;68m  5 [34m[38;2;68;68;68m  6 [34m[0muse std::process;
+[34m[38;2;68;68;68m  6 [34m[38;2;68;68;68m  7 [34m[0m
+[34m[38;2;68;68;68m  7 [34m[38;2;68;68;68m  8 [34m[0muse console::strip_ansi_codes;
+
+[34m───────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  fn delta() -> std::io::Result<()> { [34m│[0m
+[34m───────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 85 [34m[38;2;68;68;68m 86 [34m[0m        did_emit_line = false;
+[34m[38;2;68;68;68m 86 [34m[38;2;68;68;68m 87 [34m[0m        if line.starts_with("diff --") {
+[34m[38;2;68;68;68m 87 [34m[38;2;68;68;68m 88 [34m[0m            state = State::DiffMeta;
+[34m[38;5;88m 88 [34m[38;5;28m    [34m[31m            syntax = match get_file_extension_from_diff_line(&line) {[0m
+[34m[38;5;88m    [34m[38;5;28m 89 [34m[32m            syntax = match [1;7mparse::[0m[32mget_file_extension_from_diff_line(&line) {[0m
+[34m[38;2;68;68;68m 89 [34m[38;2;68;68;68m 90 [34m[0m                Some(extension) => syntax_set.find_syntax_by_extension(extension),
+[34m[38;2;68;68;68m 90 [34m[38;2;68;68;68m 91 [34m[0m                None => None,
+[34m[38;2;68;68;68m 91 [34m[38;2;68;68;68m 92 [34m[0m            };
+
+[34m─────────────[0m[34m┐[0m
+[34m•[0m  fn paint( [34m│[0m
+[34m─────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 181[34m[38;2;68;68;68m 182[34m[0m        }
+[34m[38;2;68;68;68m 182[34m[38;2;68;68;68m 183[34m[0m    }
+[34m[38;2;68;68;68m 183[34m[38;2;68;68;68m 184[34m[0m}
+[34m[38;5;88m 184[34m[38;5;28m    [34m[0m
+[34m[38;5;88m 185[34m[38;5;28m    [34m[31m/// Given input like[0m
+[34m[38;5;88m 186[34m[38;5;28m    [34m[31m/// "diff --git a/src/main.rs b/src/main.rs"[0m
+[34m[38;5;88m 187[34m[38;5;28m    [34m[31m/// Return "rs", i.e. a single file extension consistent with both files.[0m
+[34m[38;5;88m 188[34m[38;5;28m    [34m[31mfn get_file_extension_from_diff_line(line: &str) -> Option<&str> {[0m
+[34m[38;5;88m 189[34m[38;5;28m    [34m[31m    match get_file_extensions_from_diff_line(line) {[0m
+[34m[38;5;88m 190[34m[38;5;28m    [34m[31m        (Some(ext1), Some(ext2)) => {[0m
+[34m[38;5;88m 191[34m[38;5;28m    [34m[31m            if ext1 == ext2 {[0m
+[34m[38;5;88m 192[34m[38;5;28m    [34m[31m                Some(ext1)[0m
+[34m[38;5;88m 193[34m[38;5;28m    [34m[31m            } else {[0m
+[34m[38;5;88m 194[34m[38;5;28m    [34m[31m                // Unexpected: old and new files have different extensions.[0m
+[34m[38;5;88m 195[34m[38;5;28m    [34m[31m                None[0m
+[34m[38;5;88m 196[34m[38;5;28m    [34m[31m            }[0m
+[34m[38;5;88m 197[34m[38;5;28m    [34m[31m        }[0m
+[34m[38;5;88m 198[34m[38;5;28m    [34m[31m        (Some(ext1), None) => Some(ext1),[0m
+[34m[38;5;88m 199[34m[38;5;28m    [34m[31m        (None, Some(ext2)) => Some(ext2),[0m
+[34m[38;5;88m 200[34m[38;5;28m    [34m[31m        (None, None) => None,[0m
+[34m[38;5;88m 201[34m[38;5;28m    [34m[31m    }[0m
+[34m[38;5;88m 202[34m[38;5;28m    [34m[31m}[0m
+[34m[38;5;88m 203[34m[38;5;28m    [34m[0m
+[34m[38;5;88m 204[34m[38;5;28m    [34m[31m/// Given input like "diff --git a/src/main.rs b/src/main.rs"[0m
+[34m[38;5;88m 205[34m[38;5;28m    [34m[31m/// return ("rs", "rs").[0m
+[34m[38;5;88m 206[34m[38;5;28m    [34m[31mfn get_file_extensions_from_diff_line(line: &str) -> (Option<&str>, Option<&str>) {[0m
+[34m[38;5;88m 207[34m[38;5;28m    [34m[31m    let mut iter = line.split(" ");[0m
+[34m[38;5;88m 208[34m[38;5;28m    [34m[31m    iter.next(); // diff[0m
+[34m[38;5;88m 209[34m[38;5;28m    [34m[31m    iter.next(); // --git[0m
+[34m[38;5;88m 210[34m[38;5;28m    [34m[31m    ([0m
+[34m[38;5;88m 211[34m[38;5;28m    [34m[31m        iter.next().and_then(|s| get_extension(&s[2..])),[0m
+[34m[38;5;88m 212[34m[38;5;28m    [34m[31m        iter.next().and_then(|s| get_extension(&s[2..])),[0m
+[34m[38;5;88m 213[34m[38;5;28m    [34m[31m    )[0m
+[34m[38;5;88m 214[34m[38;5;28m    [34m[31m}[0m
+[34m[38;5;88m 215[34m[38;5;28m    [34m[0m
+[34m[38;5;88m 216[34m[38;5;28m    [34m[31m/// Attempt to parse input as a file path and return extension as a &str.[0m
+[34m[38;5;88m 217[34m[38;5;28m    [34m[31mfn get_extension(s: &str) -> Option<&str> {[0m
+[34m[38;5;88m 218[34m[38;5;28m    [34m[31m    Path::new(s).extension().and_then(|e| e.to_str())[0m
+[34m[38;5;88m 219[34m[38;5;28m    [34m[31m}[0m
+
+[34madded: src/parse.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m[38;5;88m    [34m[38;5;28m  1 [34m[32muse std::path::Path;[0m
+[34m[38;5;88m    [34m[38;5;28m  2 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m  3 [34m[32m/// Given input like[0m
+[34m[38;5;88m    [34m[38;5;28m  4 [34m[32m/// "diff --git a/src/main.rs b/src/main.rs"[0m
+[34m[38;5;88m    [34m[38;5;28m  5 [34m[32m/// Return "rs", i.e. a single file extension consistent with both files.[0m
+[34m[38;5;88m    [34m[38;5;28m  6 [34m[32mpub fn get_file_extension_from_diff_line(line: &str) -> Option<&str> {[0m
+[34m[38;5;88m    [34m[38;5;28m  7 [34m[32m    match get_file_extensions_from_diff_line(line) {[0m
+[34m[38;5;88m    [34m[38;5;28m  8 [34m[32m        (Some(ext1), Some(ext2)) => {[0m
+[34m[38;5;88m    [34m[38;5;28m  9 [34m[32m            if ext1 == ext2 {[0m
+[34m[38;5;88m    [34m[38;5;28m 10 [34m[32m                Some(ext1)[0m
+[34m[38;5;88m    [34m[38;5;28m 11 [34m[32m            } else {[0m
+[34m[38;5;88m    [34m[38;5;28m 12 [34m[32m                // Unexpected: old and new files have different extensions.[0m
+[34m[38;5;88m    [34m[38;5;28m 13 [34m[32m                None[0m
+[34m[38;5;88m    [34m[38;5;28m 14 [34m[32m            }[0m
+[34m[38;5;88m    [34m[38;5;28m 15 [34m[32m        }[0m
+[34m[38;5;88m    [34m[38;5;28m 16 [34m[32m        (Some(ext1), None) => Some(ext1),[0m
+[34m[38;5;88m    [34m[38;5;28m 17 [34m[32m        (None, Some(ext2)) => Some(ext2),[0m
+[34m[38;5;88m    [34m[38;5;28m 18 [34m[32m        (None, None) => None,[0m
+[34m[38;5;88m    [34m[38;5;28m 19 [34m[32m    }[0m
+[34m[38;5;88m    [34m[38;5;28m 20 [34m[32m}[0m
+[34m[38;5;88m    [34m[38;5;28m 21 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 22 [34m[32m/// Given input like "diff --git a/src/main.rs b/src/main.rs"[0m
+[34m[38;5;88m    [34m[38;5;28m 23 [34m[32m/// return ("rs", "rs").[0m
+[34m[38;5;88m    [34m[38;5;28m 24 [34m[32mfn get_file_extensions_from_diff_line(line: &str) -> (Option<&str>, Option<&str>) {[0m
+[34m[38;5;88m    [34m[38;5;28m 25 [34m[32m    let mut iter = line.split(" ");[0m
+[34m[38;5;88m    [34m[38;5;28m 26 [34m[32m    iter.next(); // diff[0m
+[34m[38;5;88m    [34m[38;5;28m 27 [34m[32m    iter.next(); // --git[0m
+[34m[38;5;88m    [34m[38;5;28m 28 [34m[32m    ([0m
+[34m[38;5;88m    [34m[38;5;28m 29 [34m[32m        iter.next().and_then(|s| get_extension(&s[2..])),[0m
+[34m[38;5;88m    [34m[38;5;28m 30 [34m[32m        iter.next().and_then(|s| get_extension(&s[2..])),[0m
+[34m[38;5;88m    [34m[38;5;28m 31 [34m[32m    )[0m
+[34m[38;5;88m    [34m[38;5;28m 32 [34m[32m}[0m
+[34m[38;5;88m    [34m[38;5;28m 33 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 34 [34m[32m/// Attempt to parse input as a file path and return extension as a &str.[0m
+[34m[38;5;88m    [34m[38;5;28m 35 [34m[32mfn get_extension(s: &str) -> Option<&str> {[0m
+[34m[38;5;88m    [34m[38;5;28m 36 [34m[32m    Path::new(s).extension().and_then(|e| e.to_str())[0m
+[34m[38;5;88m    [34m[38;5;28m 37 [34m[32m}[0m

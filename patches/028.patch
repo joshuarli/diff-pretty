@@ -1,0 +1,21 @@
+commit 0f7ef3cdac2fdff0536a37e56a5d4cd05cba7dae
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Wed Jun 26 10:23:41 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Wed Jun 26 10:46:59 2019 -0400
+
+    Propagate unexpected error
+
+diff --git a/src/main.rs b/src/main.rs
+index 0f3a61c..af40530 100644
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -56,7 +56,7 @@ fn delta() -> std::io::Result<()> {
+     let mut stdout = io::stdout();
+ 
+     for _line in stdin.lock().lines() {
+-        let raw_line = _line.unwrap(); // TODO: handle None
++        let raw_line = _line?;
+         let mut line = strip_ansi_codes(&raw_line).to_string();
+         did_emit_line = false;
+         if line.starts_with("diff --") {

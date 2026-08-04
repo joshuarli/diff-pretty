@@ -1,0 +1,23 @@
+commit 54d342cedd1fc0b5b52a5a3767f19d788cf505e0
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Mon Jul 1 00:48:49 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Mon Jul 1 00:48:49 2019 -0400
+
+    Add license
+
+
+[34madded: LICENSE[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m[38;5;88m    [34m[38;5;28m  1 [34m[32mCopyright (c) 2019 delta-developers (https://github.com/dandavison/delta)[0m
+[34m[38;5;88m    [34m[38;5;28m  2 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m  3 [34m[32mPermission is hereby granted, free of charge, to any person obtaining a copy[0m
+[34m[38;5;88m    [34m[38;5;28m  4 [34m[32mof this software and associated documentation files (the "Software"), to deal[0m
+[34m[38;5;88m    [34m[38;5;28m  5 [34m[32min the Software without restriction, including without limitation the rights[0m
+[34m[38;5;88m    [34m[38;5;28m  6 [34m[32mto use, copy, modify, merge, publish, distribute, sublicense, and/or sell[0m
+[34m[38;5;88m    [34m[38;5;28m  7 [34m[32mcopies of the Software, and to permit persons to whom the Software is[0m
+[34m[38;5;88m    [34m[38;5;28m  8 [34m[32mfurnished to do so, subject to the following conditions:[0m
+[34m[38;5;88m    [34m[38;5;28m  9 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 10 [34m[32mThe above copyright notice and this permission notice shall be included in all[0m
+[34m[38;5;88m    [34m[38;5;28m 11 [34m[32mcopies or substantial portions of the Software.[0m

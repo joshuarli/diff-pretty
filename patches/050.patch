@@ -1,0 +1,23 @@
+commit 93b6cf6e36c350593d79df3ec1abb54fb49d9e1c
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Thu Jun 27 12:28:28 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Thu Jun 27 12:28:28 2019 -0400
+
+    Add image
+
+diff --git a/README.md b/README.md
+index 1834f22..79a3493 100644
+--- a/README.md
++++ b/README.md
+@@ -3,6 +3,10 @@
+ 
+   _(This project is at a very early stage, but please feel free to open issues.)_
+ 
++<img width=500px style="border: 1px solid black"
++    src="https://user-images.githubusercontent.com/52205/60282969-230d2c80-98d6-11e9-8656-09073c8a0985.png"
++    alt="image" />
++
+ ## Usage
+ ```
+ delta 0.1.0

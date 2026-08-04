@@ -1,0 +1,72 @@
+commit c2ac72bf6d991f47fcfa971cd69407eec692bf2d
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Sun Jun 30 16:24:44 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Sun Jun 30 16:24:44 2019 -0400
+
+    bash completion
+
+
+[34madded: completion/bash/completion.sh[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m[38;5;88m    [34m[38;5;28m  1 [34m[32m#!/bin/bash[0m
+[34m[38;5;88m    [34m[38;5;28m  2 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m  3 [34m[32m__delta_previous_extglob_setting=$(shopt -p extglob)[0m
+[34m[38;5;88m    [34m[38;5;28m  4 [34m[32mshopt -s extglob[0m
+[34m[38;5;88m    [34m[38;5;28m  5 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m  6 [34m[32m__delta_complete_commands() {[0m
+[34m[38;5;88m    [34m[38;5;28m  7 [34m[32m    COMPREPLY=( $(compgen -W "${commands[*]}" -- "$cur") )[0m
+[34m[38;5;88m    [34m[38;5;28m  8 [34m[32m}[0m
+[34m[38;5;88m    [34m[38;5;28m  9 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 10 [34m[32m_delta_delta() {[0m
+[34m[38;5;88m    [34m[38;5;28m 11 [34m[32m    __delta_complete_commands[0m
+[34m[38;5;88m    [34m[38;5;28m 12 [34m[32m}[0m
+[34m[38;5;88m    [34m[38;5;28m 13 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 14 [34m[32m_delta() {[0m
+[34m[38;5;88m    [34m[38;5;28m 15 [34m[32m    local previous_extglob_setting=$(shopt -p extglob)[0m
+[34m[38;5;88m    [34m[38;5;28m 16 [34m[32m    shopt -s extglob[0m
+[34m[38;5;88m    [34m[38;5;28m 17 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 18 [34m[32m    local commands=([0m
+[34m[38;5;88m    [34m[38;5;28m 19 [34m[32m        --compare-themes[0m
+[34m[38;5;88m    [34m[38;5;28m 20 [34m[32m        --dark[0m
+[34m[38;5;88m    [34m[38;5;28m 21 [34m[32m        --help[0m
+[34m[38;5;88m    [34m[38;5;28m 22 [34m[32m        --light[0m
+[34m[38;5;88m    [34m[38;5;28m 23 [34m[32m        --list-languages[0m
+[34m[38;5;88m    [34m[38;5;28m 24 [34m[32m        --list-themes[0m
+[34m[38;5;88m    [34m[38;5;28m 25 [34m[32m        --minus-color[0m
+[34m[38;5;88m    [34m[38;5;28m 26 [34m[32m        --plus-color[0m
+[34m[38;5;88m    [34m[38;5;28m 27 [34m[32m        --theme[0m
+[34m[38;5;88m    [34m[38;5;28m 28 [34m[32m        --version[0m
+[34m[38;5;88m    [34m[38;5;28m 29 [34m[32m        --width[0m
+[34m[38;5;88m    [34m[38;5;28m 30 [34m[32m    )[0m
+[34m[38;5;88m    [34m[38;5;28m 31 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 32 [34m[32m    COMPREPLY=()[0m
+[34m[38;5;88m    [34m[38;5;28m 33 [34m[32m    local cur prev words cword[0m
+[34m[38;5;88m    [34m[38;5;28m 34 [34m[32m    _get_comp_words_by_ref -n : cur prev words cword[0m
+[34m[38;5;88m    [34m[38;5;28m 35 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 36 [34m[32m    local command='delta' command_pos=0[0m
+[34m[38;5;88m    [34m[38;5;28m 37 [34m[32m    local counter=1[0m
+[34m[38;5;88m    [34m[38;5;28m 38 [34m[32m    while [ $counter -lt $cword ]; do[0m
+[34m[38;5;88m    [34m[38;5;28m 39 [34m[32m      case "${words[$counter]}" in[0m
+[34m[38;5;88m    [34m[38;5;28m 40 [34m[32m          *)[0m
+[34m[38;5;88m    [34m[38;5;28m 41 [34m[32m              command="${words[$counter]}"[0m
+[34m[38;5;88m    [34m[38;5;28m 42 [34m[32m              command_pos=$counter[0m
+[34m[38;5;88m    [34m[38;5;28m 43 [34m[32m              break[0m
+[34m[38;5;88m    [34m[38;5;28m 44 [34m[32m              ;;[0m
+[34m[38;5;88m    [34m[38;5;28m 45 [34m[32m      esac[0m
+[34m[38;5;88m    [34m[38;5;28m 46 [34m[32m      (( counter++ ))[0m
+[34m[38;5;88m    [34m[38;5;28m 47 [34m[32m    done[0m
+[34m[38;5;88m    [34m[38;5;28m 48 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 49 [34m[32m    local completions_func=_delta_${command}[0m
+[34m[38;5;88m    [34m[38;5;28m 50 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 51 [34m[32m    declare -F $completions_func >/dev/null && $completions_func[0m
+[34m[38;5;88m    [34m[38;5;28m 52 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 53 [34m[32m    eval "$previous_extglob_setting"[0m
+[34m[38;5;88m    [34m[38;5;28m 54 [34m[32m    return 0[0m
+[34m[38;5;88m    [34m[38;5;28m 55 [34m[32m}[0m
+[34m[38;5;88m    [34m[38;5;28m 56 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 57 [34m[32meval "$__delta_previous_extglob_setting"[0m
+[34m[38;5;88m    [34m[38;5;28m 58 [34m[32munset __delta_previous_extglob_setting[0m
+[34m[38;5;88m    [34m[38;5;28m 59 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 60 [34m[32mcomplete -F _delta delta[0m

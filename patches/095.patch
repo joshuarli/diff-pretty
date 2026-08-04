@@ -1,0 +1,25 @@
+commit 54d342cedd1fc0b5b52a5a3767f19d788cf505e0
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Mon Jul 1 00:48:49 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Mon Jul 1 00:48:49 2019 -0400
+
+    Add license
+
+diff --git a/LICENSE b/LICENSE
+new file mode 100644
+index 0000000..58cd696
+--- /dev/null
++++ b/LICENSE
+@@ -0,0 +1,11 @@
++Copyright (c) 2019 delta-developers (https://github.com/dandavison/delta)
++
++Permission is hereby granted, free of charge, to any person obtaining a copy
++of this software and associated documentation files (the "Software"), to deal
++in the Software without restriction, including without limitation the rights
++to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
++copies of the Software, and to permit persons to whom the Software is
++furnished to do so, subject to the following conditions:
++
++The above copyright notice and this permission notice shall be included in all
++copies or substantial portions of the Software.

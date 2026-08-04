@@ -1,0 +1,34 @@
+commit d75727ff348ef657709bf621810dbc28711359d7
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Mon Jul 1 00:35:43 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Mon Jul 1 00:36:43 2019 -0400
+
+    Clean up README
+
+
+[34mΔ README.md[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m[38;2;68;68;68m  1 [34m[38;2;68;68;68m  1 [34m[0m## Δ
+[34m[38;2;68;68;68m  2 [34m[38;2;68;68;68m  2 [34m[0m  A syntax-highlighter for git.
+[34m[38;2;68;68;68m  3 [34m[38;2;68;68;68m  3 [34m[0m
+[34m[38;5;88m  4 [34m[38;5;28m    [34m[31m  _(This project is at an early stage, but please feel free to open issues.)_[0m
+[34m[38;5;88m  5 [34m[38;5;28m    [34m[0m
+[34m[38;2;68;68;68m  6 [34m[38;2;68;68;68m  4 [34m[0m<table>
+[34m[38;2;68;68;68m  7 [34m[38;2;68;68;68m  5 [34m[0m  <tr>
+[34m[38;2;68;68;68m  8 [34m[38;2;68;68;68m  6 [34m[0m    <td>
+[34m[38;5;88m  9 [34m[38;5;28m    [34m[31m      <img width=[1;7m500px[0m[31m style="border: 1px solid black"[0m
+[34m[38;5;88m 10 [34m[38;5;28m    [34m[31m           src="https://user-images.githubusercontent.com/52205/[1;7m60282969[0m[31m-[1;7m230d2c80[0m[31m-[1;7m98d6[0m[31m-11e9-[1;7m8656[0m[31m-[1;7m09073c8a0985[0m[31m.png"[0m
+[34m[38;5;88m    [34m[38;5;28m  7 [34m[32m      <img width=[1;7m518px[0m[32m style="border: 1px solid black"[0m
+[34m[38;5;88m    [34m[38;5;28m  8 [34m[32m           src="https://user-images.githubusercontent.com/52205/[1;7m60410484[0m[32m-[1;7m8cbb5e00[0m[32m-[1;7m9b96[0m[32m-11e9-[1;7m9d56[0m[32m-[1;7mbb84ac0bce82[0m[32m.png"[0m
+[34m[38;2;68;68;68m 11 [34m[38;2;68;68;68m  9 [34m[0m           alt="image" />
+[34m[38;2;68;68;68m 12 [34m[38;2;68;68;68m 10 [34m[0m    </td>
+[34m[38;2;68;68;68m 13 [34m[38;2;68;68;68m 11 [34m[0m    <td>
+[34m[38;5;88m 14 [34m[38;5;28m    [34m[31m      <img width=[1;7m518px[0m[31m style="border: 1px solid black"[0m
+[34m[38;5;88m 15 [34m[38;5;28m    [34m[31m           src="https://user-images.githubusercontent.com/52205/[1;7m60410484[0m[31m-[1;7m8cbb5e00[0m[31m-[1;7m9b96[0m[31m-11e9-[1;7m9d56[0m[31m-[1;7mbb84ac0bce82[0m[31m.png"[0m
+[34m[38;5;88m    [34m[38;5;28m 12 [34m[32m      <img width=[1;7m500px[0m[32m style="border: 1px solid black"[0m
+[34m[38;5;88m    [34m[38;5;28m 13 [34m[32m           src="https://user-images.githubusercontent.com/52205/[1;7m60282969[0m[32m-[1;7m230d2c80[0m[32m-[1;7m98d6[0m[32m-11e9-[1;7m8656[0m[32m-[1;7m09073c8a0985[0m[32m.png"[0m
+[34m[38;2;68;68;68m 16 [34m[38;2;68;68;68m 14 [34m[0m           alt="image" />
+[34m[38;2;68;68;68m 17 [34m[38;2;68;68;68m 15 [34m[0m    </td>
+[34m[38;2;68;68;68m 18 [34m[38;2;68;68;68m 16 [34m[0m  </tr>

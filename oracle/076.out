@@ -1,0 +1,105 @@
+commit 72832631b6b0bdcff32cb472f1aa7e43fd6135c8
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Sun Jun 30 16:07:14 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Sun Jun 30 16:12:09 2019 -0400
+
+    Error if {--light, --dark} conflict with theme
+
+
+[34mΔ src/main.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m──────────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  use syntect::parsing::SyntaxReference; [34m│[0m
+[34m──────────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 15 [34m[38;2;68;68;68m 15 [34m[0m            about = "A syntax-highlighter for git. \
+[34m[38;2;68;68;68m 16 [34m[38;2;68;68;68m 16 [34m[0m                     Use 'delta | less -R' as core.pager in .gitconfig")]
+[34m[38;2;68;68;68m 17 [34m[38;2;68;68;68m 17 [34m[0mstruct Opt {
+[34m[38;5;88m 18 [34m[38;5;28m    [34m[31m    /// Use [1;7mdiff highlighting [0m[31mcolors appropriate for a light terminal[0m
+[34m[38;5;88m 19 [34m[38;5;28m    [34m[31m    /// background. This is the default.[0m
+[34m[38;5;88m    [34m[38;5;28m 18 [34m[32m    /// Use colors appropriate for a light terminal[1;7m background. For[0m
+[34m[38;5;88m    [34m[38;5;28m 19 [34m[32m    /// more control, see --theme, --plus-color, and --minus-color.[0m
+[34m[38;2;68;68;68m 20 [34m[38;2;68;68;68m 20 [34m[0m    #[structopt(long = "light")]
+[34m[38;2;68;68;68m 21 [34m[38;2;68;68;68m 21 [34m[0m    light: bool,
+[34m[38;2;68;68;68m 22 [34m[38;2;68;68;68m 22 [34m[0m
+[34m[38;2;68;68;68m 23 [34m[38;2;68;68;68m 23 [34m[0m    /// Use diff highlighting colors appropriate for a dark terminal
+[34m[38;5;88m 24 [34m[38;5;28m    [34m[31m    /// background.[0m
+[34m[38;5;88m    [34m[38;5;28m 24 [34m[32m    /// background.  For more control, see --theme, --plus-color, and[0m
+[34m[38;5;88m    [34m[38;5;28m 25 [34m[32m    /// --minus-color.[0m
+[34m[38;2;68;68;68m 25 [34m[38;2;68;68;68m 26 [34m[0m    #[structopt(long = "dark")]
+[34m[38;2;68;68;68m 26 [34m[38;2;68;68;68m 27 [34m[0m    dark: bool,
+[34m[38;2;68;68;68m 27 [34m[38;2;68;68;68m 28 [34m[0m
+
+[34m──────────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  fn process_command_line_arguments<'a>( [34m│[0m
+[34m──────────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 159[34m[38;2;68;68;68m 160[34m[0m        eprintln!("--light and --dark cannot be used together.");
+[34m[38;2;68;68;68m 160[34m[38;2;68;68;68m 161[34m[0m        process::exit(1);
+[34m[38;2;68;68;68m 161[34m[38;2;68;68;68m 162[34m[0m    }
+[34m[38;5;88m    [34m[38;5;28m 163[34m[32m    match &opt.theme {[0m
+[34m[38;5;88m    [34m[38;5;28m 164[34m[32m        Some(theme) => {[0m
+[34m[38;5;88m    [34m[38;5;28m 165[34m[32m            if !assets.theme_set.themes.contains_key(theme.as_str()) {[0m
+[34m[38;5;88m    [34m[38;5;28m 166[34m[32m                eprintln!("Invalid theme: '{}'", theme);[0m
+[34m[38;5;88m    [34m[38;5;28m 167[34m[32m                process::exit(1);[0m
+[34m[38;5;88m    [34m[38;5;28m 168[34m[32m            }[0m
+[34m[38;5;88m    [34m[38;5;28m 169[34m[32m            let is_light_theme = paint::LIGHT_THEMES.contains(&theme.as_str());[0m
+[34m[38;5;88m    [34m[38;5;28m 170[34m[32m            if is_light_theme && opt.dark {[0m
+[34m[38;5;88m    [34m[38;5;28m 171[34m[32m                eprintln!([0m
+[34m[38;5;88m    [34m[38;5;28m 172[34m[32m                    "{} is a light theme, but you supplied --dark. \[0m
+[34m[38;5;88m    [34m[38;5;28m 173[34m[32m                     If you use --theme, you do not need to supply --light or --dark.",[0m
+[34m[38;5;88m    [34m[38;5;28m 174[34m[32m                    theme[0m
+[34m[38;5;88m    [34m[38;5;28m 175[34m[32m                );[0m
+[34m[38;5;88m    [34m[38;5;28m 176[34m[32m                process::exit(1);[0m
+[34m[38;5;88m    [34m[38;5;28m 177[34m[32m            } else if !is_light_theme && opt.light {[0m
+[34m[38;5;88m    [34m[38;5;28m 178[34m[32m                eprintln!([0m
+[34m[38;5;88m    [34m[38;5;28m 179[34m[32m                    "{} is a dark theme, but you supplied --light. \[0m
+[34m[38;5;88m    [34m[38;5;28m 180[34m[32m                     If you use --theme, you do not need to supply --light or --dark.",[0m
+[34m[38;5;88m    [34m[38;5;28m 181[34m[32m                    theme[0m
+[34m[38;5;88m    [34m[38;5;28m 182[34m[32m                );[0m
+[34m[38;5;88m    [34m[38;5;28m 183[34m[32m                process::exit(1);[0m
+[34m[38;5;88m    [34m[38;5;28m 184[34m[32m            }[0m
+[34m[38;5;88m    [34m[38;5;28m 185[34m[32m        }[0m
+[34m[38;5;88m    [34m[38;5;28m 186[34m[32m        None => (),[0m
+[34m[38;5;88m    [34m[38;5;28m 187[34m[32m    };[0m
+[34m[38;2;68;68;68m 162[34m[38;2;68;68;68m 188[34m[0m
+[34m[38;2;68;68;68m 163[34m[38;2;68;68;68m 189[34m[0m    let width = match opt.width.as_ref().map(String::as_str) {
+[34m[38;2;68;68;68m 164[34m[38;2;68;68;68m 190[34m[0m        Some(width) => {
+
+[34mΔ src/paint.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m[38;2;68;68;68m  1 [34m[38;2;68;68;68m  1 [34m[0muse std::fmt::Write;
+[34m[38;5;88m  2 [34m[38;5;28m    [34m[31muse std::process;[0m
+[34m[38;2;68;68;68m  3 [34m[38;2;68;68;68m  2 [34m[0muse std::str::FromStr;
+[34m[38;2;68;68;68m  4 [34m[38;2;68;68;68m  3 [34m[0m
+[34m[38;2;68;68;68m  5 [34m[38;2;68;68;68m  4 [34m[0muse syntect::easy::HighlightLines;
+
+[34m──────────────────────────[0m[34m┐[0m
+[34m•[0m  pub fn get_config<'a>( [34m│[0m
+[34m──────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 53 [34m[38;2;68;68;68m 52 [34m[0m    syntax_set: &'a SyntaxSet,
+[34m[38;2;68;68;68m 54 [34m[38;2;68;68;68m 53 [34m[0m    theme: &Option<String>,
+[34m[38;2;68;68;68m 55 [34m[38;2;68;68;68m 54 [34m[0m    theme_set: &'a ThemeSet,
+[34m[38;5;88m 56 [34m[38;5;28m    [34m[31m    light: bool,[0m
+[34m[38;5;88m    [34m[38;5;28m 55 [34m[32m    user_requests_theme_for_light_terminal_background: bool,[0m
+[34m[38;2;68;68;68m 57 [34m[38;2;68;68;68m 56 [34m[0m    plus_color_str: &Option<String>,
+[34m[38;2;68;68;68m 58 [34m[38;2;68;68;68m 57 [34m[0m    minus_color_str: &Option<String>,
+[34m[38;2;68;68;68m 59 [34m[38;2;68;68;68m 58 [34m[0m    width: Option<usize>,
+[34m[38;2;68;68;68m 60 [34m[38;2;68;68;68m 59 [34m[0m) -> Config<'a> {
+[34m[38;2;68;68;68m 61 [34m[38;2;68;68;68m 60 [34m[0m
+[34m[38;2;68;68;68m 62 [34m[38;2;68;68;68m 61 [34m[0m    let theme_name = match theme {
+[34m[38;5;88m 63 [34m[38;5;28m    [34m[31m        Some(ref theme) => [1;7m{[0m
+[34m[38;5;88m 64 [34m[38;5;28m    [34m[31m            if !theme_set.themes.contains_key(theme.as_str()) {[0m
+[34m[38;5;88m 65 [34m[38;5;28m    [34m[31m                eprintln!("Invalid theme: '{}'", theme);[0m
+[34m[38;5;88m 66 [34m[38;5;28m    [34m[31m                process::exit(1);[0m
+[34m[38;5;88m 67 [34m[38;5;28m    [34m[31m            }[0m
+[34m[38;5;88m 68 [34m[38;5;28m    [34m[31m            theme[0m
+[34m[38;5;88m 69 [34m[38;5;28m    [34m[31m        }[0m
+[34m[38;5;88m    [34m[38;5;28m 62 [34m[32m        Some(ref theme) => [1;7mtheme,[0m
+[34m[38;2;68;68;68m 70 [34m[38;2;68;68;68m 63 [34m[0m        None => {
+[34m[38;5;88m 71 [34m[38;5;28m    [34m[31m            match light {[0m
+[34m[38;5;88m    [34m[38;5;28m 64 [34m[32m            match user_requests_theme_for_light_terminal_background {[0m
+[34m[38;2;68;68;68m 72 [34m[38;2;68;68;68m 65 [34m[0m                true => "GitHub",
+[34m[38;2;68;68;68m 73 [34m[38;2;68;68;68m 66 [34m[0m                false => "base16",
+[34m[38;2;68;68;68m 74 [34m[38;2;68;68;68m 67 [34m[0m            }

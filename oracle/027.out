@@ -1,0 +1,51 @@
+commit 3d927f4ffa9d871240b7f02fb2c7a206646d0ba2
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Wed Jun 26 10:19:30 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Wed Jun 26 10:46:59 2019 -0400
+
+    Only replace a space character if we removed a {+,-}
+
+
+[34mΔ src/main.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m───────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  fn delta() -> std::io::Result<()> { [34m│[0m
+[34m───────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 57 [34m[38;2;68;68;68m 57 [34m[0m
+[34m[38;2;68;68;68m 58 [34m[38;2;68;68;68m 58 [34m[0m    for _line in stdin.lock().lines() {
+[34m[38;2;68;68;68m 59 [34m[38;2;68;68;68m 59 [34m[0m        let raw_line = _line.unwrap(); // TODO: handle None
+[34m[38;5;88m 60 [34m[38;5;28m    [34m[31m        let line = strip_ansi_codes(&raw_line).to_string();[0m
+[34m[38;5;88m    [34m[38;5;28m 60 [34m[32m        let [1;7mmut [0m[32mline = strip_ansi_codes(&raw_line).to_string();[0m
+[34m[38;2;68;68;68m 61 [34m[38;2;68;68;68m 61 [34m[0m        did_emit_line = false;
+[34m[38;2;68;68;68m 62 [34m[38;2;68;68;68m 62 [34m[0m        if line.starts_with("diff --") {
+[34m[38;2;68;68;68m 63 [34m[38;2;68;68;68m 63 [34m[0m            state = State::DiffMeta;
+
+[34m───────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  fn delta() -> std::io::Result<()> { [34m│[0m
+[34m───────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 73 [34m[38;2;68;68;68m 73 [34m[0m            match syntax {
+[34m[38;2;68;68;68m 74 [34m[38;2;68;68;68m 74 [34m[0m                Some(syntax) => {
+[34m[38;2;68;68;68m 75 [34m[38;2;68;68;68m 75 [34m[0m                    let mut highlighter = HighlightLines::new(syntax, theme);
+[34m[38;5;88m 76 [34m[38;5;28m    [34m[31m                    let [1;7mbackground_color[0m[31m = [1;7mmatch [0m[31mline.chars().next()[1;7m {[0m
+[34m[38;5;88m    [34m[38;5;28m 76 [34m[32m                    let [1;7mfirst_char[0m[32m = line.chars().next()[1;7m;[0m
+[34m[38;5;88m    [34m[38;5;28m 77 [34m[32m                    let background_color = match first_char {[0m
+[34m[38;2;68;68;68m 77 [34m[38;2;68;68;68m 78 [34m[0m                        Some('+') => Some(GREEN),
+[34m[38;2;68;68;68m 78 [34m[38;2;68;68;68m 79 [34m[0m                        Some('-') => Some(RED),
+[34m[38;2;68;68;68m 79 [34m[38;2;68;68;68m 80 [34m[0m                        _ => None,
+[34m[38;2;68;68;68m 80 [34m[38;2;68;68;68m 81 [34m[0m                    };
+[34m[38;5;88m 81 [34m[38;5;28m    [34m[31m                    let line_without_plus_minus = if line.len() > 0 { &line[1..] } else { &line };[0m
+[34m[38;5;88m 82 [34m[38;5;28m    [34m[31m                    let ranges: Vec<(Style, &str)> =[0m
+[34m[38;5;88m 83 [34m[38;5;28m    [34m[31m                        highlighter.highlight(line_without_plus_minus, &ps);[0m
+[34m[38;5;88m    [34m[38;5;28m 82 [34m[32m                    if first_char == Some('+') || first_char == Some('-') {[0m
+[34m[38;5;88m    [34m[38;5;28m 83 [34m[32m                        line = line[1..].to_string();[0m
+[34m[38;5;88m    [34m[38;5;28m 84 [34m[32m                        output.push_str(" ");[0m
+[34m[38;5;88m    [34m[38;5;28m 85 [34m[32m                    }[0m
+[34m[38;5;88m    [34m[38;5;28m 86 [34m[32m                    let ranges: Vec<(Style, &str)> =[1;7m highlighter.highlight(&line, &ps);[0m
+[34m[38;2;68;68;68m 84 [34m[38;2;68;68;68m 87 [34m[0m                    my_as_24_bit_terminal_escaped(&ranges[..], background_color, &mut output);
+[34m[38;5;88m 85 [34m[38;5;28m    [34m[31m                    writeln!(stdout, "[1;7m [0m[31m{}", output)?;[0m
+[34m[38;5;88m    [34m[38;5;28m 88 [34m[32m                    writeln!(stdout, "{}", output)?;[0m
+[34m[38;2;68;68;68m 86 [34m[38;2;68;68;68m 89 [34m[0m                    output.truncate(0);
+[34m[38;2;68;68;68m 87 [34m[38;2;68;68;68m 90 [34m[0m                    did_emit_line = true;
+[34m[38;2;68;68;68m 88 [34m[38;2;68;68;68m 91 [34m[0m                }

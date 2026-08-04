@@ -1,0 +1,26 @@
+commit 70097af27385be715248e04a8a8952a82b922ba3
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Mon Jun 24 10:34:30 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Mon Jun 24 10:58:19 2019 -0400
+
+    Use target file to determine extension
+    
+    TODO: should use the unique extension obtained from both
+
+
+[34mΔ src/main.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m───────────────[0m[34m┐[0m
+[34m•[0m  fn main() { [34m│[0m
+[34m───────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 21 [34m[38;2;68;68;68m 21 [34m[0m    let mut patch_set = PatchSet::new();
+[34m[38;2;68;68;68m 22 [34m[38;2;68;68;68m 22 [34m[0m    patch_set.parse(&mut input).ok().expect("Error parsing input as a diff");
+[34m[38;2;68;68;68m 23 [34m[38;2;68;68;68m 23 [34m[0m    for patched_file in patch_set {
+[34m[38;5;88m 24 [34m[38;5;28m    [34m[31m        let path = Path::new(&patched_file.[1;7msource_file[0m[31m);[0m
+[34m[38;5;88m    [34m[38;5;28m 24 [34m[32m        // TODO: use both source and target to determine language[0m
+[34m[38;5;88m    [34m[38;5;28m 25 [34m[32m        let path = Path::new(&patched_file.[1;7mtarget_file[0m[32m);[0m
+[34m[38;2;68;68;68m 25 [34m[38;2;68;68;68m 26 [34m[0m        let extension = path.extension()
+[34m[38;2;68;68;68m 26 [34m[38;2;68;68;68m 27 [34m[0m            .expect(format!("Error determining file type: {}", path.to_str().unwrap()).as_str());
+[34m[38;2;68;68;68m 27 [34m[38;2;68;68;68m 28 [34m[0m        let extension_str = extension.to_str().unwrap();

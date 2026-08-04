@@ -1,0 +1,41 @@
+commit e096e6d7e6e29309346c3521971b784bbc30ddfd
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Sun Jun 30 12:20:19 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Sun Jun 30 12:20:19 2019 -0400
+
+    Revert "DNC: Use Display trait instead of String"
+    
+    This reverts commit ba3dbe6c5d6ecf9c7ee9898e7ad9eededd4bf4f3.
+
+diff --git a/src/main.rs b/src/main.rs
+index d102b0c..55cdef3 100644
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -2,7 +2,6 @@ mod assets;
+ mod paint;
+ mod parse_diff;
+ 
+-use std::fmt::Display;
+ use std::io::{self, BufRead, ErrorKind, Write};
+ use std::process;
+ 
+@@ -100,15 +99,11 @@ fn main() -> std::io::Result<()> {
+     Ok(())
+ }
+ 
+-fn delta<I>(
+-    lines: I,
++fn delta(
++    lines: impl Iterator<Item = String>,
+     paint_config: &paint::Config,
+     assets: &HighlightingAssets,
+-) -> std::io::Result<()>
+-where
+-    I: Iterator,
+-    I::Item: Display,
+-{
++) -> std::io::Result<()> {
+ 
+     let mut syntax: Option<&SyntaxReference> = None;
+     let mut output = String::new();

@@ -1,0 +1,27 @@
+commit 6bc6ccfc1ce7802aa5c51b43140c11ebdaaf1363
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Wed Jun 26 10:34:29 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Wed Jun 26 10:46:59 2019 -0400
+
+    Don't panic unnecessarily
+
+diff --git a/src/main.rs b/src/main.rs
+index ed7ca15..1854a11 100644
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -167,12 +167,8 @@ fn get_file_extension_from_diff_line(line: &str) -> Option<&str> {
+             if ext1 == ext2 {
+                 Some(ext1)
+             } else {
+-                // TODO: Just return None and output without color.
+-                panic!(
+-                    "Old and new files have different extensions: {} vs {}",
+-                    ext1,
+-                    ext2
+-                );
++                // Unexpected: old and new files have different extensions.
++                None
+             }
+         }
+         (Some(ext1), None) => Some(ext1),

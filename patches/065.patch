@@ -1,0 +1,109 @@
+commit 480e7fcbc1b94e846f8a65dcb041b37f30eb1f68
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Sat Jun 29 17:49:04 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Sat Jun 29 18:13:01 2019 -0400
+
+    Make list_languages work. Ref #6
+
+diff --git a/Cargo.toml b/Cargo.toml
+index 8d049d2..d5f0275 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -5,6 +5,7 @@ authors = ["Dan Davison <dandavison7@gmail.com>"]
+ edition = "2018"
+ 
+ [dependencies]
++ansi_term = "0.11"
+ console = "0.7.7"
+ parsepatch = "0.2.0"
+ structopt = "0.2.16"
+diff --git a/src/assets.rs b/src/assets.rs
+index 3b6feec..b5adafb 100644
+--- a/src/assets.rs
++++ b/src/assets.rs
+@@ -12,6 +12,10 @@
+ // The above copyright notice and this permission notice shall be included in all
+ // copies or substantial portions of the Software.
+ 
++use std::io::{self, Write};
++
++use ansi_term::Colour::Green;
++use ansi_term::Style;
+ use syntect::dumps::from_binary;
+ use syntect::highlighting::ThemeSet;
+ use syntect::parsing::SyntaxSet;
+@@ -45,8 +49,7 @@ impl HighlightingAssets {
+     }
+ }
+ 
+-
+-pub fn list_languages(config: &Config) -> Result<()> {
++pub fn list_languages() -> std::io::Result<()> {
+     let assets = HighlightingAssets::new();
+     let mut languages = assets
+         .syntax_set
+@@ -58,10 +61,13 @@ pub fn list_languages(config: &Config) -> Result<()> {
+         .collect::<Vec<_>>();
+     languages.sort_by_key(|lang| lang.name.to_uppercase());
+ 
++    let loop_through = false;
++    let colored_output = true;
++
+     let stdout = io::stdout();
+     let mut stdout = stdout.lock();
+ 
+-    if config.loop_through {
++    if loop_through {
+         for lang in languages {
+             write!(stdout, "{}:{}\n", lang.name, lang.file_extensions.join(","))?;
+         }
+@@ -75,9 +81,9 @@ pub fn list_languages(config: &Config) -> Result<()> {
+         let comma_separator = ", ";
+         let separator = " ";
+         // Line-wrapping for the possible file extension overflow.
+-        let desired_width = config.term_width - longest - separator.len();
++        let desired_width = 100;
+ 
+-        let style = if config.colored_output {
++        let style = if colored_output {
+             Green.normal()
+         } else {
+             Style::default()
+diff --git a/src/main.rs b/src/main.rs
+index a4ae269..0d9e9b3 100644
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -6,7 +6,7 @@ use std::io::{self, BufRead, ErrorKind, Write};
+ use std::process;
+ 
+ use console::strip_ansi_codes;
+-use assets::HighlightingAssets;
++use assets::{HighlightingAssets, list_languages};
+ use structopt::StructOpt;
+ use syntect::highlighting::ThemeSet;
+ use syntect::parsing::{SyntaxReference, SyntaxSet};
+@@ -50,6 +50,10 @@ struct Opt {
+     /// each line.
+     #[structopt(short = "w", long = "width")]
+     width: Option<String>,
++
++    /// List supported languages and associated file extensions.
++    #[structopt(long = "list-languages")]
++    list_languages: bool,
+ }
+ 
+ #[derive(PartialEq)]
+@@ -74,6 +78,12 @@ fn main() {
+ 
+ fn delta() -> std::io::Result<()> {
+     let mut opt = Opt::from_args();
++
++    if opt.list_languages {
++        list_languages()?;
++        process::exit(0);
++    }
++
+     let assets = HighlightingAssets::new();
+     let theme_set = ThemeSet::load_defaults();
+     let paint_config = parse_args(&assets.syntax_set, &theme_set, &mut opt);

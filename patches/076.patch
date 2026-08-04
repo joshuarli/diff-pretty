@@ -1,0 +1,98 @@
+commit 72832631b6b0bdcff32cb472f1aa7e43fd6135c8
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Sun Jun 30 16:07:14 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Sun Jun 30 16:12:09 2019 -0400
+
+    Error if {--light, --dark} conflict with theme
+
+diff --git a/src/main.rs b/src/main.rs
+index 6508eb6..b109714 100644
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -15,13 +15,14 @@ use syntect::parsing::SyntaxReference;
+             about = "A syntax-highlighter for git. \
+                      Use 'delta | less -R' as core.pager in .gitconfig")]
+ struct Opt {
+-    /// Use diff highlighting colors appropriate for a light terminal
+-    /// background. This is the default.
++    /// Use colors appropriate for a light terminal background. For
++    /// more control, see --theme, --plus-color, and --minus-color.
+     #[structopt(long = "light")]
+     light: bool,
+ 
+     /// Use diff highlighting colors appropriate for a dark terminal
+-    /// background.
++    /// background.  For more control, see --theme, --plus-color, and
++    /// --minus-color.
+     #[structopt(long = "dark")]
+     dark: bool,
+ 
+@@ -159,6 +160,31 @@ fn process_command_line_arguments<'a>(
+         eprintln!("--light and --dark cannot be used together.");
+         process::exit(1);
+     }
++    match &opt.theme {
++        Some(theme) => {
++            if !assets.theme_set.themes.contains_key(theme.as_str()) {
++                eprintln!("Invalid theme: '{}'", theme);
++                process::exit(1);
++            }
++            let is_light_theme = paint::LIGHT_THEMES.contains(&theme.as_str());
++            if is_light_theme && opt.dark {
++                eprintln!(
++                    "{} is a light theme, but you supplied --dark. \
++                     If you use --theme, you do not need to supply --light or --dark.",
++                    theme
++                );
++                process::exit(1);
++            } else if !is_light_theme && opt.light {
++                eprintln!(
++                    "{} is a dark theme, but you supplied --light. \
++                     If you use --theme, you do not need to supply --light or --dark.",
++                    theme
++                );
++                process::exit(1);
++            }
++        }
++        None => (),
++    };
+ 
+     let width = match opt.width.as_ref().map(String::as_str) {
+         Some(width) => {
+diff --git a/src/paint.rs b/src/paint.rs
+index 92f6c4e..b7582ab 100644
+--- a/src/paint.rs
++++ b/src/paint.rs
+@@ -1,5 +1,4 @@
+ use std::fmt::Write;
+-use std::process;
+ use std::str::FromStr;
+ 
+ use syntect::easy::HighlightLines;
+@@ -53,22 +52,16 @@ pub fn get_config<'a>(
+     syntax_set: &'a SyntaxSet,
+     theme: &Option<String>,
+     theme_set: &'a ThemeSet,
+-    light: bool,
++    user_requests_theme_for_light_terminal_background: bool,
+     plus_color_str: &Option<String>,
+     minus_color_str: &Option<String>,
+     width: Option<usize>,
+ ) -> Config<'a> {
+ 
+     let theme_name = match theme {
+-        Some(ref theme) => {
+-            if !theme_set.themes.contains_key(theme.as_str()) {
+-                eprintln!("Invalid theme: '{}'", theme);
+-                process::exit(1);
+-            }
+-            theme
+-        }
++        Some(ref theme) => theme,
+         None => {
+-            match light {
++            match user_requests_theme_for_light_terminal_background {
+                 true => "GitHub",
+                 false => "base16",
+             }

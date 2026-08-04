@@ -1,0 +1,35 @@
+commit 8f16a88b20cf8f0267214302babdb1ce4439fb2b
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Thu Jun 27 15:50:54 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Thu Jun 27 15:50:54 2019 -0400
+
+    README: passing arguments in .gitconfig
+
+diff --git a/README.md b/README.md
+index 40e6a4b..906ab0c 100644
+--- a/README.md
++++ b/README.md
+@@ -58,7 +58,7 @@ OPTIONS:
+     `/path/to/delta/target/debug/delta | less -R` in the next step.
+ 
+ 4. **Configure git to use delta:**<br>
+-    (Note that delta defaults to a light theme, so if you're using a dark terminal background, you'll want to use `--dark` or `--theme <theme-name>`.)
++    (Note that delta defaults to a light theme, so if you're using a dark terminal background, you'll want to use `--dark` or `--theme=<theme-name>`.)
+ 
+     Edit your `~/.gitconfig`:
+     ```
+@@ -70,6 +70,13 @@ OPTIONS:
+     git config --global core.pager 'delta | less -R'
+     ```
+ 
++    You can pass arguments to delta in your `.gitconfig`. An example is
++    ```
++    [core]
++        pager = delta --width=100 --plus-color="#012800" --minus-color="#340001" --theme="base16-ocean.dark" | less -R
++    ```
++    Please include the `=` characters; I'm not sure why yet, but they're necessary when writing a delta command line in `.gitconfig`!
++
+ All git commands that display diff output should now display syntax-highlighted output. For example:
+   - `git diff`
+   - `git show`

@@ -1,0 +1,120 @@
+commit adcef5f72363c24b5723536a15d4214b11c5afa5
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Fri Jun 28 00:38:14 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Fri Jun 28 00:39:13 2019 -0400
+
+    Refactor: continue paint config refactor
+
+
+[34mΔ src/main.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m───────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  fn delta() -> std::io::Result<()> { [34m│[0m
+[34m───────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 110[34m[38;2;68;68;68m 110[34m[0m        |s| Color::from_str(s).ok(),
+[34m[38;2;68;68;68m 111[34m[38;2;68;68;68m 111[34m[0m    );
+[34m[38;2;68;68;68m 112[34m[38;2;68;68;68m 112[34m[0m    let theme_name = opt.theme.unwrap();
+[34m[38;5;88m 113[34m[38;5;28m    [34m[31m    let paint_config = paint::get_config([1;7m&theme_set.themes[&theme_name], &theme_name, opt.width);[0m
+[34m[38;5;88m    [34m[38;5;28m 113[34m[32m    let paint_config = paint::get_config([0m
+[34m[38;5;88m    [34m[38;5;28m 114[34m[32m        &theme_set.themes[&theme_name],[0m
+[34m[38;5;88m    [34m[38;5;28m 115[34m[32m        &theme_name,[0m
+[34m[38;5;88m    [34m[38;5;28m 116[34m[32m        plus_color,[0m
+[34m[38;5;88m    [34m[38;5;28m 117[34m[32m        minus_color,[0m
+[34m[38;5;88m    [34m[38;5;28m 118[34m[32m        opt.width,[0m
+[34m[38;5;88m    [34m[38;5;28m 119[34m[32m    );[0m
+[34m[38;2;68;68;68m 114[34m[38;2;68;68;68m 120[34m[0m
+[34m[38;2;68;68;68m 115[34m[38;2;68;68;68m 121[34m[0m    for _line in stdin.lock().lines() {
+[34m[38;2;68;68;68m 116[34m[38;2;68;68;68m 122[34m[0m        let raw_line = _line?;
+
+[34m───────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  fn delta() -> std::io::Result<()> { [34m│[0m
+[34m───────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 129[34m[38;2;68;68;68m 135[34m[0m        } else if state == State::DiffHunk {
+[34m[38;2;68;68;68m 130[34m[38;2;68;68;68m 136[34m[0m            match syntax {
+[34m[38;2;68;68;68m 131[34m[38;2;68;68;68m 137[34m[0m                Some(syntax) => {
+[34m[38;5;88m 132[34m[38;5;28m    [34m[31m                    paint::paint_line([0m
+[34m[38;5;88m 133[34m[38;5;28m    [34m[31m                        line,[0m
+[34m[38;5;88m 134[34m[38;5;28m    [34m[31m                        syntax,[0m
+[34m[38;5;88m 135[34m[38;5;28m    [34m[31m                        &theme_name,[0m
+[34m[38;5;88m 136[34m[38;5;28m    [34m[31m                        plus_color,[0m
+[34m[38;5;88m 137[34m[38;5;28m    [34m[31m                        minus_color,[0m
+[34m[38;5;88m 138[34m[38;5;28m    [34m[31m                        &paint_config,[0m
+[34m[38;5;88m 139[34m[38;5;28m    [34m[31m                        &mut output,[0m
+[34m[38;5;88m 140[34m[38;5;28m    [34m[31m                    );[0m
+[34m[38;5;88m    [34m[38;5;28m 138[34m[32m                    paint::paint_line([1;7mline, syntax, &paint_config, &mut output);[0m
+[34m[38;2;68;68;68m 141[34m[38;2;68;68;68m 139[34m[0m                    writeln!(stdout, "{}", output)?;
+[34m[38;2;68;68;68m 142[34m[38;2;68;68;68m 140[34m[0m                    output.truncate(0);
+[34m[38;2;68;68;68m 143[34m[38;2;68;68;68m 141[34m[0m                    did_emit_line = true;
+
+[34mΔ src/paint.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m─────────────────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  const DARK_THEME_MINUS_COLOR: Color = Color { [34m│[0m
+[34m─────────────────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 41 [34m[38;2;68;68;68m 41 [34m[0m
+[34m[38;2;68;68;68m 42 [34m[38;2;68;68;68m 42 [34m[0mpub struct Config<'a> {
+[34m[38;2;68;68;68m 43 [34m[38;2;68;68;68m 43 [34m[0m    pub theme: &'a Theme,
+[34m[38;5;88m    [34m[38;5;28m 44 [34m[32m    plus_color: Color,[0m
+[34m[38;5;88m    [34m[38;5;28m 45 [34m[32m    minus_color: Color,[0m
+[34m[38;2;68;68;68m 44 [34m[38;2;68;68;68m 46 [34m[0m    pub syntax_set: SyntaxSet,
+[34m[38;2;68;68;68m 45 [34m[38;2;68;68;68m 47 [34m[0m    pub width: Option<usize>,
+[34m[38;2;68;68;68m 46 [34m[38;2;68;68;68m 48 [34m[0m}
+
+[34m───────────────────────────[0m[34m┐[0m
+[34m•[0m  pub struct Config<'a> { [34m│[0m
+[34m───────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 48 [34m[38;2;68;68;68m 50 [34m[0mpub fn get_config<'a>(
+[34m[38;2;68;68;68m 49 [34m[38;2;68;68;68m 51 [34m[0m    theme: &'a Theme,
+[34m[38;2;68;68;68m 50 [34m[38;2;68;68;68m 52 [34m[0m    theme_name: &'a String,
+[34m[38;5;88m    [34m[38;5;28m 53 [34m[32m    plus_color: Option<Color>,[0m
+[34m[38;5;88m    [34m[38;5;28m 54 [34m[32m    minus_color: Option<Color>,[0m
+[34m[38;2;68;68;68m 51 [34m[38;2;68;68;68m 55 [34m[0m    width: Option<usize>,
+[34m[38;2;68;68;68m 52 [34m[38;2;68;68;68m 56 [34m[0m) -> Config<'a> {
+[34m[38;5;88m    [34m[38;5;28m 57 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 58 [34m[32m    let is_dark = DARK_THEMES.contains(&theme_name.as_str());[0m
+[34m[38;5;88m    [34m[38;5;28m 59 [34m[0m
+[34m[38;2;68;68;68m 53 [34m[38;2;68;68;68m 60 [34m[0m    Config {
+[34m[38;2;68;68;68m 54 [34m[38;2;68;68;68m 61 [34m[0m        theme: theme,
+[34m[38;5;88m    [34m[38;5;28m 62 [34m[32m        plus_color: plus_color.unwrap_or_else(|| if is_dark {[0m
+[34m[38;5;88m    [34m[38;5;28m 63 [34m[32m            DARK_THEME_PLUS_COLOR[0m
+[34m[38;5;88m    [34m[38;5;28m 64 [34m[32m        } else {[0m
+[34m[38;5;88m    [34m[38;5;28m 65 [34m[32m            LIGHT_THEME_PLUS_COLOR[0m
+[34m[38;5;88m    [34m[38;5;28m 66 [34m[32m        }),[0m
+[34m[38;5;88m    [34m[38;5;28m 67 [34m[32m        minus_color: minus_color.unwrap_or_else(|| if is_dark {[0m
+[34m[38;5;88m    [34m[38;5;28m 68 [34m[32m            DARK_THEME_MINUS_COLOR[0m
+[34m[38;5;88m    [34m[38;5;28m 69 [34m[32m        } else {[0m
+[34m[38;5;88m    [34m[38;5;28m 70 [34m[32m            LIGHT_THEME_MINUS_COLOR[0m
+[34m[38;5;88m    [34m[38;5;28m 71 [34m[32m        }),[0m
+[34m[38;2;68;68;68m 55 [34m[38;2;68;68;68m 72 [34m[0m        width: width,
+[34m[38;2;68;68;68m 56 [34m[38;2;68;68;68m 73 [34m[0m        syntax_set: SyntaxSet::load_defaults_newlines(),
+[34m[38;2;68;68;68m 57 [34m[38;2;68;68;68m 74 [34m[0m    }
+[34m[38;2;68;68;68m 58 [34m[38;2;68;68;68m 75 [34m[0m}
+[34m[38;2;68;68;68m 59 [34m[38;2;68;68;68m 76 [34m[0m
+[34m[38;2;68;68;68m 60 [34m[38;2;68;68;68m 77 [34m[0m/// Write line to buffer with color escape codes applied.
+[34m[38;5;88m 61 [34m[38;5;28m    [34m[31mpub fn paint_line([0m
+[34m[38;5;88m 62 [34m[38;5;28m    [34m[31m    mut line: String,[0m
+[34m[38;5;88m 63 [34m[38;5;28m    [34m[1;7;31m [0m[31m   syntax: &SyntaxReference,[0m
+[34m[38;5;88m 64 [34m[38;5;28m    [34m[31m    theme_name: &String,[0m
+[34m[38;5;88m 65 [34m[38;5;28m    [34m[31m    plus_color: Option<Color>,[0m
+[34m[38;5;88m 66 [34m[38;5;28m    [34m[31m    minus_color: Option<Color>,[0m
+[34m[38;5;88m 67 [34m[38;5;28m    [34m[31m    config: &Config,[0m
+[34m[38;5;88m 68 [34m[38;5;28m    [34m[31m    buf: &mut String,[0m
+[34m[38;5;88m 69 [34m[38;5;28m    [34m[31m) {[0m
+[34m[38;5;88m    [34m[38;5;28m 78 [34m[1;7;32mpub fn paint_line(mut[0m[32m [1;7mline:[0m[32m [1;7mString,[0m[32m syntax: &SyntaxReference,[1;7m config: &Config, buf: &mut String) {[0m
+[34m[38;2;68;68;68m 70 [34m[38;2;68;68;68m 79 [34m[0m    let mut highlighter = HighlightLines::new(syntax, config.theme);
+[34m[38;2;68;68;68m 71 [34m[38;2;68;68;68m 80 [34m[0m    let first_char = line.chars().next();
+[34m[38;5;88m 72 [34m[38;5;28m    [34m[31m    let is_dark = DARK_THEMES.contains(&theme_name.as_str());[0m
+[34m[38;5;88m 73 [34m[38;5;28m    [34m[31m    let background_color = match [1;7m([0m[31mfirst_char[1;7m, is_dark)[0m[31m {[0m
+[34m[38;5;88m 74 [34m[38;5;28m    [34m[31m        (Some('+'), true) => plus_color.or_else(|| Some(DARK_THEME_PLUS_COLOR)),[0m
+[34m[38;5;88m 75 [34m[38;5;28m    [34m[31m        (Some('-'), true) => minus_color.or_else(|| Some(DARK_THEME_MINUS_COLOR)),[0m
+[34m[38;5;88m 76 [34m[38;5;28m    [34m[31m        (Some('+'), false) => plus_color.or_else(|| Some(LIGHT_THEME_PLUS_COLOR)),[0m
+[34m[38;5;88m 77 [34m[38;5;28m    [34m[31m        (Some('-'), false) => minus_color.or_else(|| Some(LIGHT_THEME_MINUS_COLOR)),[0m
+[34m[38;5;88m    [34m[38;5;28m 81 [34m[32m    let background_color = match first_char {[0m
+[34m[38;5;88m    [34m[38;5;28m 82 [34m[32m        Some('+') => Some(config.plus_color),[0m
+[34m[38;5;88m    [34m[38;5;28m 83 [34m[32m        Some('-') => Some(config.minus_color),[0m
+[34m[38;2;68;68;68m 78 [34m[38;2;68;68;68m 84 [34m[0m        _ => None,
+[34m[38;2;68;68;68m 79 [34m[38;2;68;68;68m 85 [34m[0m    };
+[34m[38;2;68;68;68m 80 [34m[38;2;68;68;68m 86 [34m[0m    if first_char == Some('+') || first_char == Some('-') {

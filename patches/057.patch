@@ -1,0 +1,110 @@
+commit adcef5f72363c24b5723536a15d4214b11c5afa5
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Fri Jun 28 00:38:14 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Fri Jun 28 00:39:13 2019 -0400
+
+    Refactor: continue paint config refactor
+
+diff --git a/src/main.rs b/src/main.rs
+index 692748c..6837913 100644
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -110,7 +110,13 @@ fn delta() -> std::io::Result<()> {
+         |s| Color::from_str(s).ok(),
+     );
+     let theme_name = opt.theme.unwrap();
+-    let paint_config = paint::get_config(&theme_set.themes[&theme_name], &theme_name, opt.width);
++    let paint_config = paint::get_config(
++        &theme_set.themes[&theme_name],
++        &theme_name,
++        plus_color,
++        minus_color,
++        opt.width,
++    );
+ 
+     for _line in stdin.lock().lines() {
+         let raw_line = _line?;
+@@ -129,15 +135,7 @@ fn delta() -> std::io::Result<()> {
+         } else if state == State::DiffHunk {
+             match syntax {
+                 Some(syntax) => {
+-                    paint::paint_line(
+-                        line,
+-                        syntax,
+-                        &theme_name,
+-                        plus_color,
+-                        minus_color,
+-                        &paint_config,
+-                        &mut output,
+-                    );
++                    paint::paint_line(line, syntax, &paint_config, &mut output);
+                     writeln!(stdout, "{}", output)?;
+                     output.truncate(0);
+                     did_emit_line = true;
+diff --git a/src/paint.rs b/src/paint.rs
+index 09934f7..7a684a6 100644
+--- a/src/paint.rs
++++ b/src/paint.rs
+@@ -41,6 +41,8 @@ const DARK_THEME_MINUS_COLOR: Color = Color {
+ 
+ pub struct Config<'a> {
+     pub theme: &'a Theme,
++    plus_color: Color,
++    minus_color: Color,
+     pub syntax_set: SyntaxSet,
+     pub width: Option<usize>,
+ }
+@@ -48,33 +50,37 @@ pub struct Config<'a> {
+ pub fn get_config<'a>(
+     theme: &'a Theme,
+     theme_name: &'a String,
++    plus_color: Option<Color>,
++    minus_color: Option<Color>,
+     width: Option<usize>,
+ ) -> Config<'a> {
++
++    let is_dark = DARK_THEMES.contains(&theme_name.as_str());
++
+     Config {
+         theme: theme,
++        plus_color: plus_color.unwrap_or_else(|| if is_dark {
++            DARK_THEME_PLUS_COLOR
++        } else {
++            LIGHT_THEME_PLUS_COLOR
++        }),
++        minus_color: minus_color.unwrap_or_else(|| if is_dark {
++            DARK_THEME_MINUS_COLOR
++        } else {
++            LIGHT_THEME_MINUS_COLOR
++        }),
+         width: width,
+         syntax_set: SyntaxSet::load_defaults_newlines(),
+     }
+ }
+ 
+ /// Write line to buffer with color escape codes applied.
+-pub fn paint_line(
+-    mut line: String,
+-    syntax: &SyntaxReference,
+-    theme_name: &String,
+-    plus_color: Option<Color>,
+-    minus_color: Option<Color>,
+-    config: &Config,
+-    buf: &mut String,
+-) {
++pub fn paint_line(mut line: String, syntax: &SyntaxReference, config: &Config, buf: &mut String) {
+     let mut highlighter = HighlightLines::new(syntax, config.theme);
+     let first_char = line.chars().next();
+-    let is_dark = DARK_THEMES.contains(&theme_name.as_str());
+-    let background_color = match (first_char, is_dark) {
+-        (Some('+'), true) => plus_color.or_else(|| Some(DARK_THEME_PLUS_COLOR)),
+-        (Some('-'), true) => minus_color.or_else(|| Some(DARK_THEME_MINUS_COLOR)),
+-        (Some('+'), false) => plus_color.or_else(|| Some(LIGHT_THEME_PLUS_COLOR)),
+-        (Some('-'), false) => minus_color.or_else(|| Some(LIGHT_THEME_MINUS_COLOR)),
++    let background_color = match first_char {
++        Some('+') => Some(config.plus_color),
++        Some('-') => Some(config.minus_color),
+         _ => None,
+     };
+     if first_char == Some('+') || first_char == Some('-') {

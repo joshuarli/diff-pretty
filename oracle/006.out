@@ -1,0 +1,59 @@
+commit 673c73532af9dff46ae4193e02e1b21fad294732
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Sun Jun 23 20:10:53 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Sun Jun 23 21:29:47 2019 -0400
+
+    syntax-highlight hunks
+
+
+[34mΔ Cargo.toml[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m─────────────────────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  authors = ["Dan Davison <dandavison7@gmail.com>"] [34m│[0m
+[34m─────────────────────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m  5 [34m[38;2;68;68;68m  5 [34m[0medition = "2018"
+[34m[38;2;68;68;68m  6 [34m[38;2;68;68;68m  6 [34m[0m
+[34m[38;2;68;68;68m  7 [34m[38;2;68;68;68m  7 [34m[0m[dependencies]
+[34m[38;5;88m    [34m[38;5;28m  8 [34m[32msyntect = "3.2"[0m
+[34m[38;2;68;68;68m  8 [34m[38;2;68;68;68m  9 [34m[0munidiff = "0.3.1"
+\ No newline at end of file
+
+[34mΔ src/main.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m[38;2;68;68;68m  1 [34m[38;2;68;68;68m  1 [34m[0mextern crate unidiff;
+[34m[38;2;68;68;68m  2 [34m[38;2;68;68;68m  2 [34m[0m
+[34m[38;2;68;68;68m  3 [34m[38;2;68;68;68m  3 [34m[0muse std::io::{self, Read, Write};
+[34m[38;5;88m    [34m[38;5;28m  4 [34m[32muse std::path::Path;[0m
+[34m[38;2;68;68;68m  4 [34m[38;2;68;68;68m  5 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m  6 [34m[32muse syntect::easy::HighlightLines;[0m
+[34m[38;5;88m    [34m[38;5;28m  7 [34m[32muse syntect::highlighting::{ThemeSet, Style};[0m
+[34m[38;5;88m    [34m[38;5;28m  8 [34m[32muse syntect::parsing::SyntaxSet;[0m
+[34m[38;5;88m    [34m[38;5;28m  9 [34m[32muse syntect::util::{as_24_bit_terminal_escaped, LinesWithEndings};[0m
+[34m[38;2;68;68;68m  5 [34m[38;2;68;68;68m 10 [34m[0muse unidiff::PatchSet;
+[34m[38;2;68;68;68m  6 [34m[38;2;68;68;68m 11 [34m[0m
+[34m[38;2;68;68;68m  7 [34m[38;2;68;68;68m 12 [34m[0mfn main() {
+[34m[38;5;88m    [34m[38;5;28m 13 [34m[32m    let ps = SyntaxSet::load_defaults_newlines();[0m
+[34m[38;5;88m    [34m[38;5;28m 14 [34m[32m    let ts = ThemeSet::load_defaults();[0m
+[34m[38;5;88m    [34m[38;5;28m 15 [34m[0m
+[34m[38;2;68;68;68m  8 [34m[38;2;68;68;68m 16 [34m[0m    let mut input = String::new();
+[34m[38;2;68;68;68m  9 [34m[38;2;68;68;68m 17 [34m[0m    io::stdin().read_to_string(&mut input);
+[34m[38;2;68;68;68m 10 [34m[38;2;68;68;68m 18 [34m[0m    let mut patch_set = PatchSet::new();
+[34m[38;2;68;68;68m 11 [34m[38;2;68;68;68m 19 [34m[0m    patch_set.parse(&mut input).ok().expect("Error parsing diff");
+[34m[38;2;68;68;68m 12 [34m[38;2;68;68;68m 20 [34m[0m    for patched_file in patch_set {
+[34m[38;5;88m    [34m[38;5;28m 21 [34m[32m        let path = Path::new(&patched_file.source_file);[0m
+[34m[38;5;88m    [34m[38;5;28m 22 [34m[32m        let syntax = ps.find_syntax_by_extension(path.extension().unwrap().to_str().unwrap()).unwrap();[0m
+[34m[38;5;88m    [34m[38;5;28m 23 [34m[32m        let mut h = HighlightLines::new(syntax, &ts.themes["base16-ocean.dark"]);[0m
+[34m[38;2;68;68;68m 13 [34m[38;2;68;68;68m 24 [34m[0m        io::stdout().write_all(format!("\n<<<<<<<<<<<<<<<<<<<<<< file: {}\n", patched_file.source_file).as_bytes());
+[34m[38;2;68;68;68m 14 [34m[38;2;68;68;68m 25 [34m[0m        for hunk in patched_file {
+[34m[38;5;88m 15 [34m[38;5;28m    [34m[31m            io::stdout().write_all(hunk.to_string().as_bytes());[0m
+[34m[38;5;88m    [34m[38;5;28m 26 [34m[32m            for line in LinesWithEndings::from(&hunk.to_string()) {[0m
+[34m[38;5;88m    [34m[38;5;28m 27 [34m[32m                let ranges: Vec<(Style, &str)> = h.highlight(line, &ps);[0m
+[34m[38;5;88m    [34m[38;5;28m 28 [34m[32m                let escaped = as_24_bit_terminal_escaped(&ranges[..], true);[0m
+[34m[38;5;88m    [34m[38;5;28m 29 [34m[32m                println!("{}", escaped);[0m
+[34m[38;5;88m    [34m[38;5;28m 30 [34m[32m            }[0m
+[34m[38;2;68;68;68m 16 [34m[38;2;68;68;68m 31 [34m[0m        }
+[34m[38;2;68;68;68m 17 [34m[38;2;68;68;68m 32 [34m[0m    }
+[34m[38;2;68;68;68m 18 [34m[38;2;68;68;68m 33 [34m[0m}

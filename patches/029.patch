@@ -1,0 +1,22 @@
+commit 183eba159f7e79a7addb599e2b52b39442cf9ee0
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Wed Jun 26 10:28:02 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Wed Jun 26 10:46:59 2019 -0400
+
+    Right pad to 100 char width
+
+diff --git a/src/main.rs b/src/main.rs
+index af40530..ed7ca15 100644
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -83,6 +83,9 @@ fn delta() -> std::io::Result<()> {
+                         line = line[1..].to_string();
+                         output.push_str(" ");
+                     }
++                    if line.len() < 100 {
++                        line = format!("{}{}", line, " ".repeat(100 - line.len()));
++                    }
+                     let ranges: Vec<(Style, &str)> = highlighter.highlight(&line, &ps);
+                     my_as_24_bit_terminal_escaped(&ranges[..], background_color, &mut output);
+                     writeln!(stdout, "{}", output)?;

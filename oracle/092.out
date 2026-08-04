@@ -1,0 +1,30 @@
+commit 9b15c892da51ab4f6a183c07b5539c3ea249a924
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Mon Jul 1 00:18:44 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Mon Jul 1 00:18:44 2019 -0400
+
+    Clean up README
+
+
+[34mΔ README.md[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m────────────[0m[34m┐[0m
+[34m•[0m  OPTIONS: [34m│[0m
+[34m────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 74 [34m[38;2;68;68;68m 74 [34m[0m    ```
+[34m[38;2;68;68;68m 75 [34m[38;2;68;68;68m 75 [34m[0m    Alternatively, run this command:
+[34m[38;2;68;68;68m 76 [34m[38;2;68;68;68m 76 [34m[0m    ```
+[34m[38;5;88m 77 [34m[38;5;28m    [34m[31m    git config --global core.pager [1;7m'[0m[31mdelta[1;7m'[0m
+[34m[38;5;88m    [34m[38;5;28m 77 [34m[32m    git config --global core.pager delta[0m
+[34m[38;2;68;68;68m 78 [34m[38;2;68;68;68m 78 [34m[0m    ```
+[34m[38;2;68;68;68m 79 [34m[38;2;68;68;68m 79 [34m[0m
+[34m[38;2;68;68;68m 80 [34m[38;2;68;68;68m 80 [34m[0m    You can pass arguments to delta in your `.gitconfig`. An example is
+[34m[38;2;68;68;68m 81 [34m[38;2;68;68;68m 81 [34m[0m    ```
+[34m[38;2;68;68;68m 82 [34m[38;2;68;68;68m 82 [34m[0m    [core]
+[34m[38;5;88m 83 [34m[38;5;28m    [34m[31m        pager = delta --[1;7mwidth=100 --[0m[31mplus-color="#012800" --minus-color="#340001" --theme="base16-ocean.dark"[0m
+[34m[38;5;88m    [34m[38;5;28m 83 [34m[32m        pager = delta --plus-color="#012800" --minus-color="#340001" --theme="base16-ocean.dark"[0m
+[34m[38;2;68;68;68m 84 [34m[38;2;68;68;68m 84 [34m[0m    ```
+[34m[38;2;68;68;68m 85 [34m[38;2;68;68;68m 85 [34m[0m    Please include the `=` characters; I'm not sure why yet, but they're necessary when writing a delta command line in `.gitconfig`!
+[34m[38;2;68;68;68m 86 [34m[38;2;68;68;68m 86 [34m[0m

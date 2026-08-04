@@ -1,0 +1,53 @@
+commit 62dce186a0c79628c89e09dcbb7eba431a75ccfc
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Sun Jun 30 12:18:34 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Sun Jun 30 12:18:34 2019 -0400
+
+    Clean up
+
+
+[34mΔ src/main.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m───────────────────[0m[34m┐[0m
+[34m•[0m  mod parse_diff; [34m│[0m
+[34m───────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m  5 [34m[38;2;68;68;68m  5 [34m[0muse std::io::{self, BufRead, ErrorKind, Write};
+[34m[38;2;68;68;68m  6 [34m[38;2;68;68;68m  6 [34m[0muse std::process;
+[34m[38;2;68;68;68m  7 [34m[38;2;68;68;68m  7 [34m[0m
+[34m[38;5;88m  8 [34m[38;5;28m    [34m[31muse console::strip_ansi_codes;[0m
+[34m[38;2;68;68;68m  9 [34m[38;2;68;68;68m  8 [34m[0muse assets::{HighlightingAssets, list_languages, list_themes};
+[34m[38;5;88m    [34m[38;5;28m  9 [34m[32muse console::strip_ansi_codes;[0m
+[34m[38;2;68;68;68m 10 [34m[38;2;68;68;68m 10 [34m[0muse structopt::StructOpt;
+[34m[38;2;68;68;68m 11 [34m[38;2;68;68;68m 11 [34m[0muse syntect::highlighting::ThemeSet;
+[34m[38;2;68;68;68m 12 [34m[38;2;68;68;68m 12 [34m[0muse syntect::parsing::{SyntaxReference, SyntaxSet};
+
+[34m───────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  fn delta() -> std::io::Result<()> { [34m│[0m
+[34m───────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 93 [34m[38;2;68;68;68m 93 [34m[0m
+[34m[38;2;68;68;68m 94 [34m[38;2;68;68;68m 94 [34m[0m    let assets = HighlightingAssets::new();
+[34m[38;2;68;68;68m 95 [34m[38;2;68;68;68m 95 [34m[0m    let theme_set = ThemeSet::load_defaults();
+[34m[38;5;88m 96 [34m[38;5;28m    [34m[31m    let paint_config = parse_args(&assets.syntax_set, &theme_set, &[1;7mmut [0m[31mopt);[0m
+[34m[38;5;88m    [34m[38;5;28m 96 [34m[32m    let paint_config = parse_args(&assets.syntax_set, &theme_set, &opt);[0m
+[34m[38;2;68;68;68m 97 [34m[38;2;68;68;68m 97 [34m[0m
+[34m[38;2;68;68;68m 98 [34m[38;2;68;68;68m 98 [34m[0m    let stdin = io::stdin();
+[34m[38;2;68;68;68m 99 [34m[38;2;68;68;68m 99 [34m[0m    let mut stdout = io::stdout();
+
+[34m───────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  fn delta() -> std::io::Result<()> { [34m│[0m
+[34m───────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 139[34m[38;2;68;68;68m 139[34m[0mfn parse_args<'a>(
+[34m[38;2;68;68;68m 140[34m[38;2;68;68;68m 140[34m[0m    syntax_set: &'a SyntaxSet,
+[34m[38;2;68;68;68m 141[34m[38;2;68;68;68m 141[34m[0m    theme_set: &'a ThemeSet,
+[34m[38;5;88m 142[34m[38;5;28m    [34m[31m    opt: &'a [1;7mmut [0m[31mOpt,[0m
+[34m[38;5;88m    [34m[38;5;28m 142[34m[32m    opt: &'a Opt,[0m
+[34m[38;2;68;68;68m 143[34m[38;2;68;68;68m 143[34m[0m) -> paint::Config<'a> {
+[34m[38;2;68;68;68m 144[34m[38;2;68;68;68m 144[34m[0m
+[34m[38;2;68;68;68m 145[34m[38;2;68;68;68m 145[34m[0m    if opt.light && opt.dark {
+[34m[38;5;88m 146[34m[38;5;28m    [34m[31m        eprintln!("--light [1;7mor[0m[31m --dark cannot be used together.[1;7m Default is --light.[0m[31m");[0m
+[34m[38;5;88m    [34m[38;5;28m 146[34m[32m        eprintln!("--light [1;7mand[0m[32m --dark cannot be used together.");[0m
+[34m[38;2;68;68;68m 147[34m[38;2;68;68;68m 147[34m[0m        process::exit(1);
+[34m[38;2;68;68;68m 148[34m[38;2;68;68;68m 148[34m[0m    }
+[34m[38;2;68;68;68m 149[34m[38;2;68;68;68m 149[34m[0m

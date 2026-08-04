@@ -1,0 +1,50 @@
+commit 0cabaa4b4a3d55857fa3cda445ad066b8dac5d1c
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Tue Jun 25 23:11:54 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Wed Jun 26 09:59:01 2019 -0400
+
+    Revert "Only output color if stdout is a tty"
+    
+    This reverts commit e0e2d5fb1ea52294afb0d7ed4ab59752b13b3c41.
+    
+    Pipe to ansifilter if this is needed
+
+diff --git a/Cargo.toml b/Cargo.toml
+index 6c4b450..3d1a82d 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -5,6 +5,5 @@ authors = ["Dan Davison <dandavison7@gmail.com>"]
+ edition = "2018"
+ 
+ [dependencies]
+-atty = "0.2.2"
+ parsepatch = "0.2.0"
+ syntect = "3.2"
+diff --git a/src/main.rs b/src/main.rs
+index f6060f8..1c10792 100644
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -2,7 +2,6 @@ use std::fmt::Write;
+ use std::io::{self, BufRead};
+ use std::path::Path;
+ 
+-use atty::{self, Stream};
+ use syntect::easy::HighlightLines;
+ use syntect::highlighting::{Color, Style, ThemeSet};
+ use syntect::parsing::{SyntaxReference, SyntaxSet};
+@@ -40,14 +39,8 @@ fn main() {
+     let mut syntax: Option<&SyntaxReference> = None;
+     let mut have_printed_line: bool;
+ 
+-    let should_apply_colors = atty::is(Stream::Stdout);
+-
+     for _line in io::stdin().lock().lines() {
+         let line = _line.unwrap(); // TODO: handle None
+-        if !should_apply_colors {
+-            println!("{}", line);
+-            continue;
+-        }
+         have_printed_line = false;
+         if line.starts_with("diff --") {
+             state = State::DiffMeta;

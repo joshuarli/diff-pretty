@@ -1,0 +1,46 @@
+commit 7dc1c93a4057085eed9721b56aa1db472ba7fef3
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Tue Jun 25 22:53:04 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Wed Jun 26 09:59:01 2019 -0400
+
+    Output all input lines
+
+
+[34mΔ src/main.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m───────────────[0m[34m┐[0m
+[34m•[0m  fn main() { [34m│[0m
+[34m───────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 37 [34m[38;2;68;68;68m 37 [34m[0m    let mut output = String::new();
+[34m[38;2;68;68;68m 38 [34m[38;2;68;68;68m 38 [34m[0m    let mut state = State::Unknown;
+[34m[38;2;68;68;68m 39 [34m[38;2;68;68;68m 39 [34m[0m    let mut syntax: Option<&SyntaxReference> = None;
+[34m[38;5;88m    [34m[38;5;28m 40 [34m[32m    let mut have_printed_line: bool;[0m
+[34m[38;2;68;68;68m 40 [34m[38;2;68;68;68m 41 [34m[0m
+[34m[38;2;68;68;68m 41 [34m[38;2;68;68;68m 42 [34m[0m    for _line in io::stdin().lock().lines() {
+[34m[38;5;88m 42 [34m[38;5;28m    [34m[31m        let line = _line.unwrap();[0m
+[34m[38;5;88m    [34m[38;5;28m 43 [34m[32m        let line = _line.unwrap();[1;7m // TODO: handle None[0m
+[34m[38;5;88m    [34m[38;5;28m 44 [34m[32m        have_printed_line = false;[0m
+[34m[38;2;68;68;68m 43 [34m[38;2;68;68;68m 45 [34m[0m        if line.starts_with("diff --") {
+[34m[38;2;68;68;68m 44 [34m[38;2;68;68;68m 46 [34m[0m            state = State::DiffMeta;
+[34m[38;2;68;68;68m 45 [34m[38;2;68;68;68m 47 [34m[0m            syntax = match get_file_extension_from_diff_line(&line) {
+
+[34m───────────────[0m[34m┐[0m
+[34m•[0m  fn main() { [34m│[0m
+[34m───────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 63 [34m[38;2;68;68;68m 65 [34m[0m                    my_as_24_bit_terminal_escaped(&ranges[..], background_color, &mut output);
+[34m[38;2;68;68;68m 64 [34m[38;2;68;68;68m 66 [34m[0m                    println!("{}", output);
+[34m[38;2;68;68;68m 65 [34m[38;2;68;68;68m 67 [34m[0m                    output.truncate(0);
+[34m[38;5;88m    [34m[38;5;28m 68 [34m[32m                    have_printed_line = true;[0m
+[34m[38;2;68;68;68m 66 [34m[38;2;68;68;68m 69 [34m[0m                }
+[34m[38;5;88m 67 [34m[38;5;28m    [34m[31m                None => [1;7mprintln![0m[31m([1;7m"{}", line[0m[31m),[0m
+[34m[38;5;88m    [34m[38;5;28m 70 [34m[32m                None => (),[0m
+[34m[38;2;68;68;68m 68 [34m[38;2;68;68;68m 71 [34m[0m            }
+[34m[38;2;68;68;68m 69 [34m[38;2;68;68;68m 72 [34m[0m        }
+[34m[38;5;88m    [34m[38;5;28m 73 [34m[32m        if !have_printed_line {[0m
+[34m[38;5;88m    [34m[38;5;28m 74 [34m[32m            println!("{}", line);[0m
+[34m[38;5;88m    [34m[38;5;28m 75 [34m[32m        }[0m
+[34m[38;2;68;68;68m 70 [34m[38;2;68;68;68m 76 [34m[0m    }
+[34m[38;2;68;68;68m 71 [34m[38;2;68;68;68m 77 [34m[0m}
+[34m[38;2;68;68;68m 72 [34m[38;2;68;68;68m 78 [34m[0m

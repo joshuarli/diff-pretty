@@ -1,0 +1,24 @@
+commit df892375a0677d4f7b274aff070d1349718883af
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Sun Jun 30 17:09:54 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Sun Jun 30 17:09:54 2019 -0400
+
+    Honor {--light, --dark} in --compare-themes
+
+diff --git a/src/main.rs b/src/main.rs
+index 413876a..bf7611e 100644
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -210,6 +210,11 @@ fn compare_themes(assets: &HighlightingAssets) -> std::io::Result<()> {
+     let hline = "-".repeat(100);
+ 
+     for (theme, _) in assets.theme_set.themes.iter() {
++
++        if opt.light && !paint::is_light_theme(theme) || opt.dark && paint::is_light_theme(theme) {
++            continue;
++        }
++
+         writeln!(stdout, "{}\n{}\n{}\n", hline, theme, hline)?;
+         opt.theme = Some(theme.to_string());
+         paint_config = process_command_line_arguments(&assets, &opt);

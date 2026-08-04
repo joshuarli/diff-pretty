@@ -1,0 +1,171 @@
+commit cf4751aabc26bdb9dbbbbd47a872b4bd94911ec9
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Tue Jun 25 11:36:57 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Wed Jun 26 09:59:01 2019 -0400
+
+    DNC: simplify diff parsing
+
+
+[34mΔ Cargo.toml[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m─────────────────────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  authors = ["Dan Davison <dandavison7@gmail.com>"] [34m│[0m
+[34m─────────────────────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m  5 [34m[38;2;68;68;68m  5 [34m[0medition = "2018"
+[34m[38;2;68;68;68m  6 [34m[38;2;68;68;68m  6 [34m[0m
+[34m[38;2;68;68;68m  7 [34m[38;2;68;68;68m  7 [34m[0m[dependencies]
+[34m[38;5;88m    [34m[38;5;28m  8 [34m[32mparsepatch = "0.2.0"[0m
+[34m[38;2;68;68;68m  8 [34m[38;2;68;68;68m  9 [34m[0msyntect = "3.2"
+[34m[38;5;88m  9 [34m[38;5;28m    [34m[31munidiff = "0.3.1"[0m
+\ No newline at end of file
+
+[34mΔ src/main.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m[38;5;88m  1 [34m[38;5;28m    [34m[31mextern crate unidiff;[0m
+[34m[38;5;88m  2 [34m[38;5;28m    [34m[0m
+[34m[38;2;68;68;68m  3 [34m[38;2;68;68;68m  1 [34m[0muse std::fmt::Write;
+[34m[38;5;88m  4 [34m[38;5;28m    [34m[31muse std::io::{self, [1;7mRead[0m[31m};[0m
+[34m[38;5;88m    [34m[38;5;28m  2 [34m[32muse std::io::{self, [1;7mBufRead[0m[32m};[0m
+[34m[38;2;68;68;68m  5 [34m[38;2;68;68;68m  3 [34m[0muse std::path::Path;
+[34m[38;2;68;68;68m  6 [34m[38;2;68;68;68m  4 [34m[0m
+[34m[38;2;68;68;68m  7 [34m[38;2;68;68;68m  5 [34m[0muse syntect::easy::HighlightLines;
+[34m[38;2;68;68;68m  8 [34m[38;2;68;68;68m  6 [34m[0muse syntect::highlighting::{Color, Style, ThemeSet};
+[34m[38;2;68;68;68m  9 [34m[38;2;68;68;68m  7 [34m[0muse syntect::parsing::SyntaxSet;
+[34m[38;5;88m 10 [34m[38;5;28m    [34m[31muse syntect::util::LinesWithEndings;[0m
+[34m[38;5;88m 11 [34m[38;5;28m    [34m[31muse unidiff::PatchSet;[0m
+[34m[38;2;68;68;68m 12 [34m[38;2;68;68;68m  8 [34m[0m
+[34m[38;2;68;68;68m 13 [34m[38;2;68;68;68m  9 [34m[0mpub const DELTA_THEME_DEFAULT: &str = "InspiredGitHub"; // base16-mocha.dark
+[34m[38;2;68;68;68m 14 [34m[38;2;68;68;68m 10 [34m[0m
+
+[34m──────────────────────────────[0m[34m┐[0m
+[34m•[0m  const RED: Color = Color { [34m│[0m
+[34m──────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 26 [34m[38;2;68;68;68m 22 [34m[0m    a: 0x00,
+[34m[38;2;68;68;68m 27 [34m[38;2;68;68;68m 23 [34m[0m};
+[34m[38;2;68;68;68m 28 [34m[38;2;68;68;68m 24 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 25 [34m[32m#[derive(PartialEq)][0m
+[34m[38;5;88m    [34m[38;5;28m 26 [34m[32menum State {[0m
+[34m[38;5;88m    [34m[38;5;28m 27 [34m[32m    Commit,[0m
+[34m[38;5;88m    [34m[38;5;28m 28 [34m[32m    DiffMeta,[0m
+[34m[38;5;88m    [34m[38;5;28m 29 [34m[32m    DiffHunk,[0m
+[34m[38;5;88m    [34m[38;5;28m 30 [34m[32m    Unknown,[0m
+[34m[38;5;88m    [34m[38;5;28m 31 [34m[32m}[0m
+[34m[38;5;88m    [34m[38;5;28m 32 [34m[0m
+[34m[38;2;68;68;68m 29 [34m[38;2;68;68;68m 33 [34m[0mfn main() {
+[34m[38;2;68;68;68m 30 [34m[38;2;68;68;68m 34 [34m[0m    let ps = SyntaxSet::load_defaults_newlines();
+[34m[38;2;68;68;68m 31 [34m[38;2;68;68;68m 35 [34m[0m    let ts = ThemeSet::load_defaults();
+[34m[38;2;68;68;68m 32 [34m[38;2;68;68;68m 36 [34m[0m    let theme = &ts.themes[DELTA_THEME_DEFAULT];
+[34m[38;5;88m 33 [34m[38;5;28m    [34m[31m    let mut input = String::new();[0m
+[34m[38;2;68;68;68m 34 [34m[38;2;68;68;68m 37 [34m[0m    let mut output = String::new();
+[34m[38;2;68;68;68m 35 [34m[38;2;68;68;68m 38 [34m[0m
+[34m[38;5;88m 36 [34m[38;5;28m    [34m[31m    io::stdin().read_to_string(&mut input).expect([0m
+[34m[38;5;88m 37 [34m[38;5;28m    [34m[31m        "Error reading input",[0m
+[34m[38;5;88m 38 [34m[38;5;28m    [34m[31m    );[0m
+[34m[38;5;88m 39 [34m[38;5;28m    [34m[31m    let mut patch_set = PatchSet::new();[0m
+[34m[38;5;88m 40 [34m[38;5;28m    [34m[31m    patch_set.parse(&mut input).ok().expect([0m
+[34m[38;5;88m 41 [34m[38;5;28m    [34m[31m        "Error parsing input as a diff",[0m
+[34m[38;5;88m 42 [34m[38;5;28m    [34m[31m    );[0m
+[34m[38;5;88m 43 [34m[38;5;28m    [34m[31m    for patched_file in patch_set {[0m
+[34m[38;5;88m 44 [34m[38;5;28m    [34m[31m        // TODO: use both source and target to determine language[0m
+[34m[38;5;88m 45 [34m[38;5;28m    [34m[31m        let path = Path::new(&patched_file.target_file);[0m
+[34m[38;5;88m 46 [34m[38;5;28m    [34m[31m        let extension =[0m
+[34m[38;5;88m 47 [34m[38;5;28m    [34m[31m            path.extension().expect([0m
+[34m[38;5;88m 48 [34m[38;5;28m    [34m[31m                format!("Error determining file type: {}", path.to_str().unwrap())[0m
+[34m[38;5;88m 49 [34m[38;5;28m    [34m[31m                    .as_str(),[0m
+[34m[38;5;88m 50 [34m[38;5;28m    [34m[31m            );[0m
+[34m[38;5;88m 51 [34m[38;5;28m    [34m[31m        let extension_str = extension.to_str().unwrap();[0m
+[34m[38;5;88m 52 [34m[38;5;28m    [34m[31m        let syntax = ps.find_syntax_by_extension(extension_str);[0m
+[34m[38;5;88m    [34m[38;5;28m 39 [34m[32m    let mut state = State::Unknown;[0m
+[34m[38;5;88m    [34m[38;5;28m 40 [34m[32m    let mut highlighter: Option<HighlightLines> = None;[0m
+[34m[38;2;68;68;68m 53 [34m[38;2;68;68;68m 41 [34m[0m
+[34m[38;5;88m 54 [34m[38;5;28m    [34m[31m        print!([0m
+[34m[38;5;88m 55 [34m[38;5;28m    [34m[31m            "\n{}\n{}\n\n",[0m
+[34m[38;5;88m 56 [34m[38;5;28m    [34m[31m            "__________________________________________________________________",[0m
+[34m[38;5;88m 57 [34m[38;5;28m    [34m[31m            path.display(),[0m
+[34m[38;5;88m 58 [34m[38;5;28m    [34m[31m        );[0m
+[34m[38;5;88m 59 [34m[38;5;28m    [34m[0m
+[34m[38;5;88m 60 [34m[38;5;28m    [34m[31m        match syntax {[0m
+[34m[38;5;88m 61 [34m[38;5;28m    [34m[31m            Some(syntax) => {[0m
+[34m[38;5;88m 62 [34m[38;5;28m    [34m[31m                let mut highlighter = HighlightLines::new(syntax, theme);[0m
+[34m[38;5;88m 63 [34m[38;5;28m    [34m[31m                for hunk in patched_file {[0m
+[34m[38;5;88m 64 [34m[38;5;28m    [34m[31m                    for line in LinesWithEndings::from(&hunk.to_string()) {[0m
+[34m[38;5;88m 65 [34m[38;5;28m    [34m[31m                        let background_color = match line.chars().next() {[0m
+[34m[38;5;88m 66 [34m[38;5;28m    [34m[31m                            Some('+') => Some(GREEN),[0m
+[34m[38;5;88m 67 [34m[38;5;28m    [34m[31m                            Some('-') => Some(RED),[0m
+[34m[38;5;88m 68 [34m[38;5;28m    [34m[31m                            _ => None,[0m
+[34m[38;5;88m 69 [34m[38;5;28m    [34m[31m                [1;7m        [0m[31m}[1;7m;[0m
+[34m[38;5;88m 70 [34m[38;5;28m    [34m[31m                        let ranges: Vec<(Style, &str)> = highlighter.highlight(line, &ps);[0m
+[34m[38;5;88m 71 [34m[38;5;28m    [34m[31m                        my_as_24_bit_terminal_escaped(&ranges[..], background_color, &mut output);[0m
+[34m[38;5;88m 72 [34m[38;5;28m    [34m[31m                    [1;7m    [0m[31mprint!("{}", [1;7moutput[0m[31m);[0m
+[34m[38;5;88m 73 [34m[38;5;28m    [34m[31m                        output.truncate(0);[0m
+[34m[38;5;88m 74 [34m[38;5;28m    [34m[31m                    }[0m
+[34m[38;5;88m    [34m[38;5;28m 42 [34m[32m    for _line in io::stdin().lock().lines() {[0m
+[34m[38;5;88m    [34m[38;5;28m 43 [34m[32m        let line = _line.unwrap();[0m
+[34m[38;5;88m    [34m[38;5;28m 44 [34m[32m        if line.starts_with("diff --") {[0m
+[34m[38;5;88m    [34m[38;5;28m 45 [34m[32m            state = State::DiffMeta;[0m
+[34m[38;5;88m    [34m[38;5;28m 46 [34m[32m            let extension = get_file_extension_from_diff_line(&line);[0m
+[34m[38;5;88m    [34m[38;5;28m 47 [34m[32m            highlighter = match ps.find_syntax_by_extension(extension) {[0m
+[34m[38;5;88m    [34m[38;5;28m 48 [34m[32m                Some(syntax) => Some(HighlightLines::new(syntax, theme)),[0m
+[34m[38;5;88m    [34m[38;5;28m 49 [34m[32m                None => None,[0m
+[34m[38;5;88m    [34m[38;5;28m 50 [34m[32m            }[0m
+[34m[38;5;88m    [34m[38;5;28m 51 [34m[32m        } else if line.starts_with("commit") {[0m
+[34m[38;5;88m    [34m[38;5;28m 52 [34m[32m            state = State::Commit;[0m
+[34m[38;5;88m    [34m[38;5;28m 53 [34m[32m        } else if line.starts_with("@@") {[0m
+[34m[38;5;88m    [34m[38;5;28m 54 [34m[32m            state = State::DiffHunk;[0m
+[34m[38;5;88m    [34m[38;5;28m 55 [34m[32m        } else if state == State::DiffHunk {[0m
+[34m[38;5;88m    [34m[38;5;28m 56 [34m[32m            match highlighter {[0m
+[34m[38;5;88m    [34m[38;5;28m 57 [34m[32m                Some(mut highlighter) => {[0m
+[34m[38;5;88m    [34m[38;5;28m 58 [34m[32m                    let background_color = match line.chars().next() {[0m
+[34m[38;5;88m    [34m[38;5;28m 59 [34m[32m                        Some('+') => Some(GREEN),[0m
+[34m[38;5;88m    [34m[38;5;28m 60 [34m[32m                        Some('-') => Some(RED),[0m
+[34m[38;5;88m    [34m[38;5;28m 61 [34m[32m                        _ => None,[0m
+[34m[38;5;88m    [34m[38;5;28m 62 [34m[32m                    };[0m
+[34m[38;5;88m    [34m[38;5;28m 63 [34m[32m                    let ranges: Vec<(Style, &str)> = highlighter.highlight(&line, &ps);[0m
+[34m[38;5;88m    [34m[38;5;28m 64 [34m[32m                    my_as_24_bit_terminal_escaped(&ranges[..], background_color, &mut output);[0m
+[34m[38;5;88m    [34m[38;5;28m 65 [34m[32m        [1;7m            [0m[32mprint!([1;7m"{}", output);[0m
+[34m[38;5;88m    [34m[38;5;28m 66 [34m[32m                    output.truncate(0);[0m
+[34m[38;5;88m    [34m[38;5;28m 67 [34m[32m                }[0m
+[34m[38;5;88m    [34m[38;5;28m 68 [34m[32m                None => {[0m
+[34m[38;5;88m    [34m[38;5;28m 69 [34m[32m                    print!("{}", [1;7mline[0m[32m);[0m
+[34m[38;2;68;68;68m 75 [34m[38;2;68;68;68m 70 [34m[0m                }
+[34m[38;2;68;68;68m 76 [34m[38;2;68;68;68m 71 [34m[0m            }
+[34m[38;5;88m 77 [34m[38;5;28m    [34m[31m            None => {[0m
+[34m[38;5;88m 78 [34m[38;5;28m    [34m[31m                for hunk in patched_file {[0m
+[34m[38;5;88m 79 [34m[38;5;28m    [34m[31m                    for line in LinesWithEndings::from(&hunk.to_string()) {[0m
+[34m[38;5;88m 80 [34m[38;5;28m    [34m[31m                        print!("{}", line);[0m
+[34m[38;5;88m 81 [34m[38;5;28m    [34m[31m        [1;7m            [0m[31m}[0m
+[34m[38;5;88m 82 [34m[38;5;28m    [34m[31m                }[0m
+[34m[38;5;88m 83 [34m[38;5;28m    [34m[31m            }[0m
+[34m[38;5;88m 84 [34m[38;5;28m    [34m[31m        }[0m
+[34m[38;5;88m    [34m[38;5;28m 72 [34m[32m        }[1;7m;[0m
+[34m[38;2;68;68;68m 85 [34m[38;2;68;68;68m 73 [34m[0m    }
+[34m[38;5;88m 86 [34m[38;5;28m    [34m[31m    println!("");[0m
+[34m[38;2;68;68;68m 87 [34m[38;2;68;68;68m 74 [34m[0m}
+[34m[38;2;68;68;68m 88 [34m[38;2;68;68;68m 75 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 76 [34m[32m/// Based on as_24_bit_terminal_escaped from syntect[0m
+[34m[38;2;68;68;68m 89 [34m[38;2;68;68;68m 77 [34m[0mfn my_as_24_bit_terminal_escaped(
+[34m[38;2;68;68;68m 90 [34m[38;2;68;68;68m 78 [34m[0m    v: &[(Style, &str)],
+[34m[38;2;68;68;68m 91 [34m[38;2;68;68;68m 79 [34m[0m    background_color: Option<Color>,
+
+[34m─────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  fn my_as_24_bit_terminal_escaped( [34m│[0m
+[34m─────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 115[34m[38;2;68;68;68m 103[34m[0m    }
+[34m[38;2;68;68;68m 116[34m[38;2;68;68;68m 104[34m[0m    buf.push_str("\x1b[0m");
+[34m[38;2;68;68;68m 117[34m[38;2;68;68;68m 105[34m[0m}
+[34m[38;5;88m    [34m[38;5;28m 106[34m[0m
+[34m[38;5;88m    [34m[38;5;28m 107[34m[0m
+[34m[38;5;88m    [34m[38;5;28m 108[34m[0m
+[34m[38;5;88m    [34m[38;5;28m 109[34m[32mfn get_file_extension_from_diff_line(line: &String) -> &str {[0m
+[34m[38;5;88m    [34m[38;5;28m 110[34m[0m
+[34m[38;5;88m    [34m[38;5;28m 111[34m[32m    //let (old, new) = get_file_names_from_diff_line(&line);[0m
+[34m[38;5;88m    [34m[38;5;28m 112[34m[32m    let path = Path::new(line);[0m
+[34m[38;5;88m    [34m[38;5;28m 113[34m[32m    let extension =[0m
+[34m[38;5;88m    [34m[38;5;28m 114[34m[32m        path.extension().expect([0m
+[34m[38;5;88m    [34m[38;5;28m 115[34m[32m            format!("Error determining file type: {}", path.to_str().unwrap()).as_str(),[0m
+[34m[38;5;88m    [34m[38;5;28m 116[34m[32m        );[0m
+[34m[38;5;88m    [34m[38;5;28m 117[34m[32m    extension.to_str().unwrap()[0m
+[34m[38;5;88m    [34m[38;5;28m 118[34m[32m}[0m

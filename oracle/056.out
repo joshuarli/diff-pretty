@@ -1,0 +1,68 @@
+commit 4179f5bc0c1f76000f3c6eb4c75133034ff03e64
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Fri Jun 28 00:23:29 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Fri Jun 28 00:24:52 2019 -0400
+
+    Refactor: function in paint module to assemble config
+    
+    The lifetime specification may be incorrect/inappropriate; its
+    justification is that it compiles.
+
+
+[34mΔ src/main.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m──────────────────────────[0m[34m┐[0m
+[34m•[0m  use std::str::FromStr; [34m│[0m
+[34m──────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 10 [34m[38;2;68;68;68m 10 [34m[0muse console::strip_ansi_codes;
+[34m[38;2;68;68;68m 11 [34m[38;2;68;68;68m 11 [34m[0muse structopt::StructOpt;
+[34m[38;2;68;68;68m 12 [34m[38;2;68;68;68m 12 [34m[0muse syntect::highlighting::{Color, ThemeSet};
+[34m[38;5;88m 13 [34m[38;5;28m    [34m[31muse syntect::parsing::[1;7m{[0m[31mSyntaxReference[1;7m, SyntaxSet}[0m[31m;[0m
+[34m[38;5;88m    [34m[38;5;28m 13 [34m[32muse syntect::parsing::SyntaxReference;[0m
+[34m[38;2;68;68;68m 14 [34m[38;2;68;68;68m 14 [34m[0m
+[34m[38;2;68;68;68m 15 [34m[38;2;68;68;68m 15 [34m[0m#[derive(StructOpt, Debug)]
+[34m[38;2;68;68;68m 16 [34m[38;2;68;68;68m 16 [34m[0m#[structopt(name = "delta",
+
+[34m───────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  fn delta() -> std::io::Result<()> { [34m│[0m
+[34m───────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 110[34m[38;2;68;68;68m 110[34m[0m        |s| Color::from_str(s).ok(),
+[34m[38;2;68;68;68m 111[34m[38;2;68;68;68m 111[34m[0m    );
+[34m[38;2;68;68;68m 112[34m[38;2;68;68;68m 112[34m[0m    let theme_name = opt.theme.unwrap();
+[34m[38;5;88m 113[34m[38;5;28m    [34m[0m
+[34m[38;5;88m 114[34m[38;5;28m    [34m[31m    let paint_config = paint::[1;7mConfig {[0m
+[34m[38;5;88m 115[34m[38;5;28m    [34m[31m        theme: &theme_set.themes[&theme_name],[0m
+[34m[38;5;88m 116[34m[38;5;28m    [34m[31m        width: opt.width,[0m
+[34m[38;5;88m 117[34m[38;5;28m    [34m[31m        syntax_set: SyntaxSet::load_defaults_newlines(),[0m
+[34m[38;5;88m 118[34m[38;5;28m    [34m[31m    };[0m
+[34m[38;5;88m    [34m[38;5;28m 113[34m[32m    let paint_config = paint::[1;7mget_config(&theme_set.themes[&theme_name], &theme_name, opt.width);[0m
+[34m[38;2;68;68;68m 119[34m[38;2;68;68;68m 114[34m[0m
+[34m[38;2;68;68;68m 120[34m[38;2;68;68;68m 115[34m[0m    for _line in stdin.lock().lines() {
+[34m[38;2;68;68;68m 121[34m[38;2;68;68;68m 116[34m[0m        let raw_line = _line?;
+
+[34mΔ src/paint.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m───────────────────────────[0m[34m┐[0m
+[34m•[0m  pub struct Config<'a> { [34m│[0m
+[34m───────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 45 [34m[38;2;68;68;68m 45 [34m[0m    pub width: Option<usize>,
+[34m[38;2;68;68;68m 46 [34m[38;2;68;68;68m 46 [34m[0m}
+[34m[38;2;68;68;68m 47 [34m[38;2;68;68;68m 47 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 48 [34m[32mpub fn get_config<'a>([0m
+[34m[38;5;88m    [34m[38;5;28m 49 [34m[32m    theme: &'a Theme,[0m
+[34m[38;5;88m    [34m[38;5;28m 50 [34m[32m    theme_name: &'a String,[0m
+[34m[38;5;88m    [34m[38;5;28m 51 [34m[32m    width: Option<usize>,[0m
+[34m[38;5;88m    [34m[38;5;28m 52 [34m[32m) -> Config<'a> {[0m
+[34m[38;5;88m    [34m[38;5;28m 53 [34m[32m    Config {[0m
+[34m[38;5;88m    [34m[38;5;28m 54 [34m[32m        theme: theme,[0m
+[34m[38;5;88m    [34m[38;5;28m 55 [34m[32m        width: width,[0m
+[34m[38;5;88m    [34m[38;5;28m 56 [34m[32m        syntax_set: SyntaxSet::load_defaults_newlines(),[0m
+[34m[38;5;88m    [34m[38;5;28m 57 [34m[32m    }[0m
+[34m[38;5;88m    [34m[38;5;28m 58 [34m[32m}[0m
+[34m[38;5;88m    [34m[38;5;28m 59 [34m[0m
+[34m[38;2;68;68;68m 48 [34m[38;2;68;68;68m 60 [34m[0m/// Write line to buffer with color escape codes applied.
+[34m[38;2;68;68;68m 49 [34m[38;2;68;68;68m 61 [34m[0mpub fn paint_line(
+[34m[38;2;68;68;68m 50 [34m[38;2;68;68;68m 62 [34m[0m    mut line: String,

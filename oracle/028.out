@@ -1,0 +1,23 @@
+commit 0f7ef3cdac2fdff0536a37e56a5d4cd05cba7dae
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Wed Jun 26 10:23:41 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Wed Jun 26 10:46:59 2019 -0400
+
+    Propagate unexpected error
+
+
+[34mΔ src/main.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m───────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  fn delta() -> std::io::Result<()> { [34m│[0m
+[34m───────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 56 [34m[38;2;68;68;68m 56 [34m[0m    let mut stdout = io::stdout();
+[34m[38;2;68;68;68m 57 [34m[38;2;68;68;68m 57 [34m[0m
+[34m[38;2;68;68;68m 58 [34m[38;2;68;68;68m 58 [34m[0m    for _line in stdin.lock().lines() {
+[34m[38;5;88m 59 [34m[38;5;28m    [34m[31m        let raw_line = _line[1;7m.unwrap()[0m[31m;[1;7m // TODO: handle None[0m
+[34m[38;5;88m    [34m[38;5;28m 59 [34m[32m        let raw_line = _line[1;7m?[0m[32m;[0m
+[34m[38;2;68;68;68m 60 [34m[38;2;68;68;68m 60 [34m[0m        let mut line = strip_ansi_codes(&raw_line).to_string();
+[34m[38;2;68;68;68m 61 [34m[38;2;68;68;68m 61 [34m[0m        did_emit_line = false;
+[34m[38;2;68;68;68m 62 [34m[38;2;68;68;68m 62 [34m[0m        if line.starts_with("diff --") {

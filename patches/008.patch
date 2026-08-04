@@ -1,0 +1,34 @@
+commit 0c9c948113df0b5fa64bb901a603880822801e7d
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Mon Jun 24 08:07:25 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Mon Jun 24 10:34:24 2019 -0400
+
+    Theme
+
+diff --git a/src/main.rs b/src/main.rs
+index 03a1e03..f9c3058 100644
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -9,9 +9,12 @@ use syntect::parsing::SyntaxSet;
+ use syntect::util::{as_24_bit_terminal_escaped, LinesWithEndings};
+ use unidiff::PatchSet;
+ 
++pub const DELTA_THEME_DEFAULT: &str = "InspiredGitHub";  // base16-mocha.dark
++
+ fn main() {
+     let ps = SyntaxSet::load_defaults_newlines();
+     let ts = ThemeSet::load_defaults();
++    let theme = &ts.themes[DELTA_THEME_DEFAULT];
+ 
+     let mut input = String::new();
+     io::stdin().read_to_string(&mut input).expect("Error reading input");
+@@ -26,7 +29,7 @@ fn main() {
+ 
+         match syntax {
+             Some(syntax) => {
+-                let mut highlighter = HighlightLines::new(syntax, &ts.themes["base16-ocean.dark"]);
++                let mut highlighter = HighlightLines::new(syntax, theme);
+                 for hunk in patched_file {
+                     for line in LinesWithEndings::from(&hunk.to_string()) {
+                         let ranges: Vec<(Style, &str)> = highlighter.highlight(line, &ps);

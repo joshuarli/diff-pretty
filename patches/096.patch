@@ -1,0 +1,107 @@
+commit 19d688b8c124089e08b25c6a56a5da172a825b20
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Mon Jul 1 04:10:51 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Mon Jul 1 04:35:47 2019 -0400
+
+    Support --width=variable
+    
+    This option means that background diff highlighting should extend to
+    the end of each line, without right padding lines to produce equal
+    width.
+
+diff --git a/README.md b/README.md
+index a929959..6feb96a 100644
+--- a/README.md
++++ b/README.md
+@@ -45,9 +45,9 @@ OPTIONS:
+         --minus-color <minus_color>    The background color (RGB hex) to use for removed lines.
+         --plus-color <plus_color>      The background color (RGB hex) to use for added lines.
+         --theme <theme>                The syntax highlighting theme to use.
+-    -w, --width <width>                The width (in characters) of the diff highlighting. By default, the highlighting
+-                                       extends to the last character on each line. By default, the width is equal to the
+-                                       current terminal width.
++    -w, --width <width>                The width (in characters) of the background color highlighting. By default, the
++                                       width is the current terminal width. Use --width=variable to apply background
++                                       colors to the end of each line, without right padding to equal width.
+ ```
+ 
+ ## Installation
+diff --git a/src/main.rs b/src/main.rs
+index 7f43c43..bd5f0a2 100644
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -10,7 +10,7 @@ use std::io::{self, BufRead, ErrorKind, Read, Write};
+ use std::process;
+ 
+ use assets::{HighlightingAssets, list_languages};
+-use console::strip_ansi_codes;
++use console::{Term, strip_ansi_codes};
+ use output::{OutputType, PagingMode};
+ use structopt::StructOpt;
+ use syntect::parsing::SyntaxReference;
+@@ -55,12 +55,12 @@ struct Opt {
+     /// apply syntax highlighting to unchanged and new lines only.
+     highlight_removed: bool,
+ 
+-    /// The width (in characters) of the diff highlighting. By
+-    /// default, the highlighting extends to the last character on
+-    /// each line. By default, the width is equal to the current
+-    /// terminal width.
++    /// The width (in characters) of the background color
++    /// highlighting. By default, the width is the current terminal
++    /// width. Use --width=variable to apply background colors to the
++    /// end of each line, without right padding to equal width.
+     #[structopt(short = "w", long = "width")]
+-    width: Option<usize>,
++    width: Option<String>,
+ 
+     /// List supported languages and associated file extensions.
+     #[structopt(long = "list-languages")]
+@@ -154,6 +154,16 @@ fn process_command_line_arguments<'a>(
+         None => (),
+     };
+ 
++    let width = match opt.width.as_ref().map(String::as_str) {
++        Some("variable") => None,
++        Some(width) => {
++            Some(width.parse::<usize>().unwrap_or_else(
++                |_| panic!("Invalid width: {}", width),
++            ))
++        }
++        None => Some((Term::stdout().size().1 - 1) as usize),
++    };
++
+     paint::get_config(
+         &assets.syntax_set,
+         &opt.theme,
+@@ -162,7 +172,7 @@ fn process_command_line_arguments<'a>(
+         &opt.plus_color,
+         &opt.minus_color,
+         opt.highlight_removed,
+-        opt.width,
++        width,
+     )
+ }
+ 
+diff --git a/src/paint.rs b/src/paint.rs
+index 0b88ed1..42d6261 100644
+--- a/src/paint.rs
++++ b/src/paint.rs
+@@ -1,7 +1,6 @@
+ use std::fmt::Write;
+ use std::str::FromStr;
+ 
+-use console::Term;
+ use syntect::easy::HighlightLines;
+ use syntect::highlighting::{Color, Style, Theme, ThemeSet};
+ use syntect::parsing::{SyntaxReference, SyntaxSet};
+@@ -96,7 +95,7 @@ pub fn get_config<'a>(
+         } else {
+             DARK_THEME_MINUS_COLOR
+         }),
+-        width: width.or_else(|| Some((Term::stdout().size().1 - 1) as usize)),
++        width: width,
+         highlight_removed: highlight_removed,
+         syntax_set: &syntax_set,
+         pager: "less",

@@ -1,0 +1,55 @@
+commit 01ce9b3ab437660807e9b6eeadd3d4b47c1071eb
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Wed Jun 26 12:07:23 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Wed Jun 26 12:30:51 2019 -0400
+
+    README
+
+
+[34madded: README.md[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m[38;5;88m    [34m[38;5;28m  1 [34m[32m## Δ[0m
+[34m[38;5;88m    [34m[38;5;28m  2 [34m[32m  A syntax-highlighting pager for git.[0m
+[34m[38;5;88m    [34m[38;5;28m  3 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m  4 [34m[32m  _(This project is at a very early stage, but please feel free to open issues.)_[0m
+[34m[38;5;88m    [34m[38;5;28m  5 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m  6 [34m[32m## Installation[0m
+[34m[38;5;88m    [34m[38;5;28m  7 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m  8 [34m[32m#### 1. Rust development environment.[0m
+[34m[38;5;88m    [34m[38;5;28m  9 [34m[32m  See https://www.rust-lang.org/tools/install.[0m
+[34m[38;5;88m    [34m[38;5;28m 10 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 11 [34m[32m#### 2. Clone this repo.[0m
+[34m[38;5;88m    [34m[38;5;28m 12 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 13 [34m[32m#### 3. Build the executable:[0m
+[34m[38;5;88m    [34m[38;5;28m 14 [34m[32m  ```sh[0m
+[34m[38;5;88m    [34m[38;5;28m 15 [34m[32m  cd delta[0m
+[34m[38;5;88m    [34m[38;5;28m 16 [34m[32m  cargo build[0m
+[34m[38;5;88m    [34m[38;5;28m 17 [34m[32m  ```[0m
+[34m[38;5;88m    [34m[38;5;28m 18 [34m[32m  This creates an executable inside the repo at `target/debug/delta`. Copy or symlink this executable to somewhere on your shell[0m
+[34m[38;5;88m    [34m[38;5;28m 19 [34m[32m  `$PATH`.[0m
+[34m[38;5;88m    [34m[38;5;28m 20 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 21 [34m[32m  If you're not sure what that means, ignore it, and use[0m
+[34m[38;5;88m    [34m[38;5;28m 22 [34m[32m  `/path/to/delta/target/debug/delta | less -R` in the next step.[0m
+[34m[38;5;88m    [34m[38;5;28m 23 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 24 [34m[32m#### 4. Configure git to use delta:[0m
+[34m[38;5;88m    [34m[38;5;28m 25 [34m[32m  Edit your `~/.gitconfig`:[0m
+[34m[38;5;88m    [34m[38;5;28m 26 [34m[32m  ```[0m
+[34m[38;5;88m    [34m[38;5;28m 27 [34m[32m  [core][0m
+[34m[38;5;88m    [34m[38;5;28m 28 [34m[32m      pager = delta | less -R[0m
+[34m[38;5;88m    [34m[38;5;28m 29 [34m[32m  ```[0m
+[34m[38;5;88m    [34m[38;5;28m 30 [34m[32m  Alternatively, run this command:[0m
+[34m[38;5;88m    [34m[38;5;28m 31 [34m[32m  ```[0m
+[34m[38;5;88m    [34m[38;5;28m 32 [34m[32m  git config --global core.pager 'delta | less -R'[0m
+[34m[38;5;88m    [34m[38;5;28m 33 [34m[32m  ```[0m
+[34m[38;5;88m    [34m[38;5;28m 34 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 35 [34m[32mAll git commands that display diff output should now display syntax-highlighted output. For example:[0m
+[34m[38;5;88m    [34m[38;5;28m 36 [34m[32m  - `git diff`[0m
+[34m[38;5;88m    [34m[38;5;28m 37 [34m[32m  - `git show`[0m
+[34m[38;5;88m    [34m[38;5;28m 38 [34m[32m  - `git log -p`[0m
+[34m[38;5;88m    [34m[38;5;28m 39 [34m[32m  - `git stash show -p`[0m
+[34m[38;5;88m    [34m[38;5;28m 40 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 41 [34m[32m## Credit[0m
+[34m[38;5;88m    [34m[38;5;28m 42 [34m[32m  https://github.com/trishume/syntect<br>[0m
+[34m[38;5;88m    [34m[38;5;28m 43 [34m[32m  https://github.com/sharkdp/bat[0m

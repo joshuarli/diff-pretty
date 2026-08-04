@@ -1,0 +1,70 @@
+commit 76bf59b8a57bd081f74707c2462bdec18d64c800
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Tue Jun 25 08:49:30 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Tue Jun 25 08:49:30 2019 -0400
+
+    Reuse a buffer for output strings
+
+diff --git a/src/main.rs b/src/main.rs
+index b81b752..c767736 100644
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -31,6 +31,8 @@ fn main() {
+     let ts = ThemeSet::load_defaults();
+     let theme = &ts.themes[DELTA_THEME_DEFAULT];
+     let mut input = String::new();
++    let mut output = String::new();
++
+     io::stdin().read_to_string(&mut input).expect(
+         "Error reading input",
+     );
+@@ -60,8 +62,9 @@ fn main() {
+                             _ => None,
+                         };
+                         let ranges: Vec<(Style, &str)> = highlighter.highlight(line, &ps);
+-                        let escaped = my_as_24_bit_terminal_escaped(&ranges[..], background_color);
+-                        print!("{}", escaped);
++                        my_as_24_bit_terminal_escaped(&ranges[..], background_color, &mut output);
++                        print!("{}", output);
++                        output.truncate(0);
+                     }
+                 }
+             }
+@@ -77,13 +80,16 @@ fn main() {
+     println!("");
+ }
+ 
+-fn my_as_24_bit_terminal_escaped(v: &[(Style, &str)], background_color: Option<Color>) -> String {
+-    let mut s: String = String::new();
++fn my_as_24_bit_terminal_escaped(
++    v: &[(Style, &str)],
++    background_color: Option<Color>,
++    buf: &mut String,
++) -> () {
+     for &(ref style, text) in v.iter() {
+         match background_color {
+             Some(background_color) => {
+                 write!(
+-                    s,
++                    buf,
+                     "\x1b[48;2;{};{};{}m",
+                     background_color.r,
+                     background_color.g,
+@@ -93,7 +99,7 @@ fn my_as_24_bit_terminal_escaped(v: &[(Style, &str)], background_color: Option<C
+             None => (),
+         }
+         write!(
+-            s,
++            buf,
+             "\x1b[38;2;{};{};{}m{}",
+             style.foreground.r,
+             style.foreground.g,
+@@ -101,6 +107,5 @@ fn my_as_24_bit_terminal_escaped(v: &[(Style, &str)], background_color: Option<C
+             text
+         ).unwrap();
+     }
+-    s.push_str("\x1b[0m");
+-    s
++    buf.push_str("\x1b[0m");
+ }

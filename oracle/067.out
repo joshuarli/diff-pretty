@@ -1,0 +1,93 @@
+commit a6be51a79ce335978b287bee78453ba30ee8f38f
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Sat Jun 29 18:12:14 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Sat Jun 29 18:13:03 2019 -0400
+
+    Make list_themes work. Fixes #6
+
+
+[34mΔ src/assets.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m────────────────────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  pub fn list_languages() -> std::io::Result<()> { [34m│[0m
+[34m────────────────────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 117[34m[38;2;68;68;68m 117[34m[0m    Ok(())
+[34m[38;2;68;68;68m 118[34m[38;2;68;68;68m 118[34m[0m}
+[34m[38;2;68;68;68m 119[34m[38;2;68;68;68m 119[34m[0m
+[34m[38;5;88m 120[34m[38;5;28m    [34m[31mpub fn list_themes([1;7mcfg: &Config[0m[31m) -> Result<()> {[0m
+[34m[38;5;88m    [34m[38;5;28m 120[34m[32mpub fn list_themes() -> [1;7mstd::io::[0m[32mResult<()> {[0m
+[34m[38;2;68;68;68m 121[34m[38;2;68;68;68m 121[34m[0m    let assets = HighlightingAssets::new();
+[34m[38;2;68;68;68m 122[34m[38;2;68;68;68m 122[34m[0m    let themes = &assets.theme_set.themes;
+[34m[38;5;88m 123[34m[38;5;28m    [34m[31m    let mut config = cfg.clone();[0m
+[34m[38;5;88m 124[34m[38;5;28m    [34m[31m    let mut style = HashSet::new();[0m
+[34m[38;5;88m 125[34m[38;5;28m    [34m[31m    style.insert(OutputComponent::Plain);[0m
+[34m[38;5;88m 126[34m[38;5;28m    [34m[31m    config.files = vec![InputFile::ThemePreviewFile];[0m
+[34m[38;5;88m 127[34m[38;5;28m    [34m[31m    config.output_components = OutputComponents(style);[0m
+[34m[38;5;88m 128[34m[38;5;28m    [34m[0m
+[34m[38;2;68;68;68m 129[34m[38;2;68;68;68m 123[34m[0m    let stdout = io::stdout();
+[34m[38;2;68;68;68m 130[34m[38;2;68;68;68m 124[34m[0m    let mut stdout = stdout.lock();
+[34m[38;2;68;68;68m 131[34m[38;2;68;68;68m 125[34m[0m
+[34m[38;5;88m 132[34m[38;5;28m    [34m[31m    if config.colored_output {[0m
+[34m[38;5;88m 133[34m[38;5;28m    [34m[31m    [1;7m    [0m[31mfor (theme, _) in themes.iter() {[0m
+[34m[38;5;88m 134[34m[38;5;28m    [34m[31m        [1;7m    [0m[31mwriteln!([0m
+[34m[38;5;88m 135[34m[38;5;28m    [34m[31m                stdout,[0m
+[34m[38;5;88m 136[34m[38;5;28m    [34m[31m                "Theme: {}\n",[0m
+[34m[38;5;88m 137[34m[38;5;28m    [34m[31m                Style::new().bold().paint(theme.to_string())[0m
+[34m[38;5;88m 138[34m[38;5;28m    [34m[31m            )?;[0m
+[34m[38;5;88m 139[34m[38;5;28m    [34m[31m            config.theme = theme.to_string();[0m
+[34m[38;5;88m 140[34m[38;5;28m    [34m[31m            let _controller = Controller::new(&config, &assets).run();[0m
+[34m[38;5;88m 141[34m[38;5;28m    [34m[31m            writeln!(stdout)?;[0m
+[34m[38;5;88m 142[34m[38;5;28m    [34m[31m        }[0m
+[34m[38;5;88m 143[34m[38;5;28m    [34m[31m    } else {[0m
+[34m[38;5;88m 144[34m[38;5;28m    [34m[31m        for (theme, _) in themes.iter() {[0m
+[34m[38;5;88m 145[34m[38;5;28m    [34m[31m            writeln!(stdout, "{}", theme)?;[0m
+[34m[38;5;88m 146[34m[38;5;28m    [34m[31m        }[0m
+[34m[38;5;88m    [34m[38;5;28m 126[34m[32m    for (theme, _) in themes.iter() {[0m
+[34m[38;5;88m    [34m[38;5;28m 127[34m[32m        writeln!([1;7mstdout, "{}", theme)?;[0m
+[34m[38;2;68;68;68m 147[34m[38;2;68;68;68m 128[34m[0m    }
+[34m[38;2;68;68;68m 148[34m[38;2;68;68;68m 129[34m[0m
+[34m[38;2;68;68;68m 149[34m[38;2;68;68;68m 130[34m[0m    Ok(())
+
+[34mΔ src/main.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m───────────────────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  use std::io::{self, BufRead, ErrorKind, Write}; [34m│[0m
+[34m───────────────────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m  6 [34m[38;2;68;68;68m  6 [34m[0muse std::process;
+[34m[38;2;68;68;68m  7 [34m[38;2;68;68;68m  7 [34m[0m
+[34m[38;2;68;68;68m  8 [34m[38;2;68;68;68m  8 [34m[0muse console::strip_ansi_codes;
+[34m[38;5;88m  9 [34m[38;5;28m    [34m[31muse assets::{HighlightingAssets, list_languages};[0m
+[34m[38;5;88m    [34m[38;5;28m  9 [34m[32muse assets::{HighlightingAssets, list_languages[1;7m, list_themes[0m[32m};[0m
+[34m[38;2;68;68;68m 10 [34m[38;2;68;68;68m 10 [34m[0muse structopt::StructOpt;
+[34m[38;2;68;68;68m 11 [34m[38;2;68;68;68m 11 [34m[0muse syntect::highlighting::ThemeSet;
+[34m[38;2;68;68;68m 12 [34m[38;2;68;68;68m 12 [34m[0muse syntect::parsing::{SyntaxReference, SyntaxSet};
+
+[34m────────────────[0m[34m┐[0m
+[34m•[0m  struct Opt { [34m│[0m
+[34m────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 54 [34m[38;2;68;68;68m 54 [34m[0m    /// List supported languages and associated file extensions.
+[34m[38;2;68;68;68m 55 [34m[38;2;68;68;68m 55 [34m[0m    #[structopt(long = "list-languages")]
+[34m[38;2;68;68;68m 56 [34m[38;2;68;68;68m 56 [34m[0m    list_languages: bool,
+[34m[38;5;88m    [34m[38;5;28m 57 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 58 [34m[32m    /// List available syntax highlighting themes.[0m
+[34m[38;5;88m    [34m[38;5;28m 59 [34m[32m    #[structopt(long = "list-themes")][0m
+[34m[38;5;88m    [34m[38;5;28m 60 [34m[32m    list_themes: bool,[0m
+[34m[38;2;68;68;68m 57 [34m[38;2;68;68;68m 61 [34m[0m}
+[34m[38;2;68;68;68m 58 [34m[38;2;68;68;68m 62 [34m[0m
+[34m[38;2;68;68;68m 59 [34m[38;2;68;68;68m 63 [34m[0m#[derive(PartialEq)]
+
+[34m───────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  fn delta() -> std::io::Result<()> { [34m│[0m
+[34m───────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 82 [34m[38;2;68;68;68m 86 [34m[0m    if opt.list_languages {
+[34m[38;2;68;68;68m 83 [34m[38;2;68;68;68m 87 [34m[0m        list_languages()?;
+[34m[38;2;68;68;68m 84 [34m[38;2;68;68;68m 88 [34m[0m        process::exit(0);
+[34m[38;5;88m    [34m[38;5;28m 89 [34m[32m    } else if opt.list_themes {[0m
+[34m[38;5;88m    [34m[38;5;28m 90 [34m[32m        list_themes()?;[0m
+[34m[38;5;88m    [34m[38;5;28m 91 [34m[32m        process::exit(0);[0m
+[34m[38;2;68;68;68m 85 [34m[38;2;68;68;68m 92 [34m[0m    }
+[34m[38;2;68;68;68m 86 [34m[38;2;68;68;68m 93 [34m[0m
+[34m[38;2;68;68;68m 87 [34m[38;2;68;68;68m 94 [34m[0m    let assets = HighlightingAssets::new();

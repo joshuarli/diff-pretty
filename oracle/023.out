@@ -1,0 +1,28 @@
+commit 044913f0bcd319b51733c9f6f91788d72314d40a
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Wed Jun 26 00:37:38 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Wed Jun 26 09:59:01 2019 -0400
+
+    Don't output +/- at beginning of diff lines
+
+
+[34mΔ src/main.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m───────────────[0m[34m┐[0m
+[34m•[0m  fn main() { [34m│[0m
+[34m───────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 63 [34m[38;2;68;68;68m 63 [34m[0m                        Some('-') => Some(RED),
+[34m[38;2;68;68;68m 64 [34m[38;2;68;68;68m 64 [34m[0m                        _ => None,
+[34m[38;2;68;68;68m 65 [34m[38;2;68;68;68m 65 [34m[0m                    };
+[34m[38;5;88m 66 [34m[38;5;28m    [34m[31m                    let ranges: Vec<(Style, &str)> =[1;7m highlighter.highlight(&line, &ps);[0m
+[34m[38;5;88m    [34m[38;5;28m 66 [34m[32m                    let line_without_plus_minus = if line.len() > 0 { &line[1..] } else { &line };[0m
+[34m[38;5;88m    [34m[38;5;28m 67 [34m[32m                    let ranges: Vec<(Style, &str)> =[0m
+[34m[38;5;88m    [34m[38;5;28m 68 [34m[32m                        highlighter.highlight(line_without_plus_minus, &ps);[0m
+[34m[38;2;68;68;68m 67 [34m[38;2;68;68;68m 69 [34m[0m                    my_as_24_bit_terminal_escaped(&ranges[..], background_color, &mut output);
+[34m[38;5;88m 68 [34m[38;5;28m    [34m[31m                    println!("{}", output);[0m
+[34m[38;5;88m    [34m[38;5;28m 70 [34m[32m                    println!("[1;7m [0m[32m{}", output);[0m
+[34m[38;2;68;68;68m 69 [34m[38;2;68;68;68m 71 [34m[0m                    output.truncate(0);
+[34m[38;2;68;68;68m 70 [34m[38;2;68;68;68m 72 [34m[0m                    have_printed_line = true;
+[34m[38;2;68;68;68m 71 [34m[38;2;68;68;68m 73 [34m[0m                }

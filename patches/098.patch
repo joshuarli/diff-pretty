@@ -1,0 +1,19 @@
+commit a1becedfd72dce2d0bc21fd4ec6e617df19b00cd
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Tue Jul 2 10:40:16 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Tue Jul 2 23:19:47 2019 -0400
+
+    Makefile
+
+diff --git a/Makefile b/Makefile
+new file mode 100644
+index 0000000..dc4ef84
+--- /dev/null
++++ b/Makefile
+@@ -0,0 +1,5 @@
++build:
++	cargo build
++
++test:
++	bash -c "diff -u <(git show | cut -c 2-) <(git show | delta --width variable | ansifilter | cut -c 2-)"

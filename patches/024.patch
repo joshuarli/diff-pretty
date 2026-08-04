@@ -1,0 +1,39 @@
+commit fab69669814b3d88868b5a4f6f0dc03b5165a3aa
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Wed Jun 26 01:06:44 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Wed Jun 26 10:46:59 2019 -0400
+
+    Dark theme
+
+diff --git a/src/main.rs b/src/main.rs
+index 3907eeb..00d54fe 100644
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -7,19 +7,19 @@ use syntect::easy::HighlightLines;
+ use syntect::highlighting::{Color, Style, ThemeSet};
+ use syntect::parsing::{SyntaxReference, SyntaxSet};
+ 
+-pub const DELTA_THEME_DEFAULT: &str = "InspiredGitHub"; // base16-mocha.dark
++pub const DELTA_THEME_DEFAULT: &str = "base16-mocha.dark";
+ 
+ const GREEN: Color = Color {
+-    r: 0xd0,
+-    g: 0xff,
+-    b: 0xd0,
++    r: 0x01,
++    g: 0x18,
++    b: 0x00,
+     a: 0x00,
+ };
+ 
+ const RED: Color = Color {
+-    r: 0xff,
+-    g: 0xd0,
+-    b: 0xd0,
++    r: 0x24,
++    g: 0x00,
++    b: 0x01,
+     a: 0x00,
+ };
+ 

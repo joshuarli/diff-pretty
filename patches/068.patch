@@ -1,0 +1,39 @@
+commit 042f293a202e2f88970cf4615cd352dc01d54776
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Sat Jun 29 18:18:30 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Sat Jun 29 18:18:30 2019 -0400
+
+    Update README
+
+diff --git a/README.md b/README.md
+index 14cd50b..8b4d2e9 100644
+--- a/README.md
++++ b/README.md
+@@ -16,10 +16,13 @@ USAGE:
+     delta [FLAGS] [OPTIONS]
+ 
+ FLAGS:
+-        --dark       Use diff highlighting colors appropriate for a dark terminal background.
+-    -h, --help       Prints help information
+-        --light      Use diff highlighting colors appropriate for a light terminal background. This is the default.
+-    -V, --version    Prints version information
++        --dark              Use diff highlighting colors appropriate for a dark terminal background.
++    -h, --help              Prints help information
++        --light             Use diff highlighting colors appropriate for a light terminal background. This is the
++                            default.
++        --list-languages    List supported languages and associated file extensions.
++        --list-themes       List available syntax highlighting themes.
++    -V, --version           Prints version information
+ 
+ OPTIONS:
+         --minus-color <minus_color>    The background color (RGB hex) to use for removed lines. The default is "#ffd0d0"
+@@ -30,7 +33,7 @@ OPTIONS:
+                                        "Solarized (light)", "base16-ocean.light"), Dark: ("Solarized, (dark)", "base16-
+                                        eighties.dark", "base16-mocha.dark", "base16-ocean.dark").
+     -w, --width <width>                The width (in characters) of the diff highlighting. By default, the highlighting
+-                                       extends to the last character on each line
++                                       extends to the last character on each line.
+ ```
+ 
+ ## Installation

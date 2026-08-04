@@ -1,0 +1,144 @@
+commit 9165acded94edd4ab8e40e6e323369f541e747b1
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Sun Jun 30 17:25:25 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Sun Jun 30 18:28:20 2019 -0400
+
+    Add output.rs from bat
+
+
+[34madded: src/output.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m[38;5;88m    [34m[38;5;28m  1 [34m[32m// https://github.com/sharkdp/bat a1b9334a44a2c652f52dddaa83dbacba57372468[0m
+[34m[38;5;88m    [34m[38;5;28m  2 [34m[32m// src/output.rs[0m
+[34m[38;5;88m    [34m[38;5;28m  3 [34m[32m//[0m
+[34m[38;5;88m    [34m[38;5;28m  4 [34m[32m// Copyright (c) 2018 bat-developers (https://github.com/sharkdp/bat).[0m
+[34m[38;5;88m    [34m[38;5;28m  5 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m  6 [34m[32m// Permission is hereby granted, free of charge, to any person obtaining a copy[0m
+[34m[38;5;88m    [34m[38;5;28m  7 [34m[32m// of this software and associated documentation files (the "Software"), to deal[0m
+[34m[38;5;88m    [34m[38;5;28m  8 [34m[32m// in the Software without restriction, including without limitation the rights[0m
+[34m[38;5;88m    [34m[38;5;28m  9 [34m[32m// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell[0m
+[34m[38;5;88m    [34m[38;5;28m 10 [34m[32m// copies of the Software, and to permit persons to whom the Software is[0m
+[34m[38;5;88m    [34m[38;5;28m 11 [34m[32m// furnished to do so, subject to the following conditions:[0m
+[34m[38;5;88m    [34m[38;5;28m 12 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 13 [34m[32m// The above copyright notice and this permission notice shall be included in all[0m
+[34m[38;5;88m    [34m[38;5;28m 14 [34m[32m// copies or substantial portions of the Software.[0m
+[34m[38;5;88m    [34m[38;5;28m 15 [34m[32muse std::env;[0m
+[34m[38;5;88m    [34m[38;5;28m 16 [34m[32muse std::ffi::OsString;[0m
+[34m[38;5;88m    [34m[38;5;28m 17 [34m[32muse std::io::{self, Write};[0m
+[34m[38;5;88m    [34m[38;5;28m 18 [34m[32muse std::path::PathBuf;[0m
+[34m[38;5;88m    [34m[38;5;28m 19 [34m[32muse std::process::{Child, Command, Stdio};[0m
+[34m[38;5;88m    [34m[38;5;28m 20 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 21 [34m[32muse shell_words;[0m
+[34m[38;5;88m    [34m[38;5;28m 22 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 23 [34m[32muse crate::app::PagingMode;[0m
+[34m[38;5;88m    [34m[38;5;28m 24 [34m[32muse crate::errors::*;[0m
+[34m[38;5;88m    [34m[38;5;28m 25 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 26 [34m[32mpub enum OutputType {[0m
+[34m[38;5;88m    [34m[38;5;28m 27 [34m[32m    Pager(Child),[0m
+[34m[38;5;88m    [34m[38;5;28m 28 [34m[32m    Stdout(io::Stdout),[0m
+[34m[38;5;88m    [34m[38;5;28m 29 [34m[32m}[0m
+[34m[38;5;88m    [34m[38;5;28m 30 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 31 [34m[32mimpl OutputType {[0m
+[34m[38;5;88m    [34m[38;5;28m 32 [34m[32m    pub fn from_mode(mode: PagingMode, pager: Option<&str>) -> Result<Self> {[0m
+[34m[38;5;88m    [34m[38;5;28m 33 [34m[32m        use self::PagingMode::*;[0m
+[34m[38;5;88m    [34m[38;5;28m 34 [34m[32m        Ok(match mode {[0m
+[34m[38;5;88m    [34m[38;5;28m 35 [34m[32m            Always => OutputType::try_pager(false, pager)?,[0m
+[34m[38;5;88m    [34m[38;5;28m 36 [34m[32m            QuitIfOneScreen => OutputType::try_pager(true, pager)?,[0m
+[34m[38;5;88m    [34m[38;5;28m 37 [34m[32m            _ => OutputType::stdout(),[0m
+[34m[38;5;88m    [34m[38;5;28m 38 [34m[32m        })[0m
+[34m[38;5;88m    [34m[38;5;28m 39 [34m[32m    }[0m
+[34m[38;5;88m    [34m[38;5;28m 40 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 41 [34m[32m    /// Try to launch the pager. Fall back to stdout in case of errors.[0m
+[34m[38;5;88m    [34m[38;5;28m 42 [34m[32m    fn try_pager(quit_if_one_screen: bool, pager_from_config: Option<&str>) -> Result<Self> {[0m
+[34m[38;5;88m    [34m[38;5;28m 43 [34m[32m        let mut replace_arguments_to_less = false;[0m
+[34m[38;5;88m    [34m[38;5;28m 44 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 45 [34m[32m        let pager_from_env = match (env::var("BAT_PAGER"), env::var("PAGER")) {[0m
+[34m[38;5;88m    [34m[38;5;28m 46 [34m[32m            (Ok(bat_pager), _) => Some(bat_pager),[0m
+[34m[38;5;88m    [34m[38;5;28m 47 [34m[32m            (_, Ok(pager)) => {[0m
+[34m[38;5;88m    [34m[38;5;28m 48 [34m[32m                // less needs to be called with the '-R' option in order to properly interpret the[0m
+[34m[38;5;88m    [34m[38;5;28m 49 [34m[32m                // ANSI color sequences printed by bat. If someone has set PAGER="less -F", we[0m
+[34m[38;5;88m    [34m[38;5;28m 50 [34m[32m                // therefore need to overwrite the arguments and add '-R'.[0m
+[34m[38;5;88m    [34m[38;5;28m 51 [34m[32m                //[0m
+[34m[38;5;88m    [34m[38;5;28m 52 [34m[32m                // We only do this for PAGER (as it is not specific to 'bat'), not for BAT_PAGER[0m
+[34m[38;5;88m    [34m[38;5;28m 53 [34m[32m                // or bats '--pager' command line option.[0m
+[34m[38;5;88m    [34m[38;5;28m 54 [34m[32m                replace_arguments_to_less = true;[0m
+[34m[38;5;88m    [34m[38;5;28m 55 [34m[32m                Some(pager)[0m
+[34m[38;5;88m    [34m[38;5;28m 56 [34m[32m            }[0m
+[34m[38;5;88m    [34m[38;5;28m 57 [34m[32m            _ => None,[0m
+[34m[38;5;88m    [34m[38;5;28m 58 [34m[32m        };[0m
+[34m[38;5;88m    [34m[38;5;28m 59 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 60 [34m[32m        let pager_from_config = pager_from_config.map(|p| p.to_string());[0m
+[34m[38;5;88m    [34m[38;5;28m 61 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 62 [34m[32m        if pager_from_config.is_some() {[0m
+[34m[38;5;88m    [34m[38;5;28m 63 [34m[32m            replace_arguments_to_less = false;[0m
+[34m[38;5;88m    [34m[38;5;28m 64 [34m[32m        }[0m
+[34m[38;5;88m    [34m[38;5;28m 65 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 66 [34m[32m        let pager = pager_from_config[0m
+[34m[38;5;88m    [34m[38;5;28m 67 [34m[32m            .or(pager_from_env)[0m
+[34m[38;5;88m    [34m[38;5;28m 68 [34m[32m            .unwrap_or_else(|| String::from("less"));[0m
+[34m[38;5;88m    [34m[38;5;28m 69 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 70 [34m[32m        let pagerflags =[0m
+[34m[38;5;88m    [34m[38;5;28m 71 [34m[32m            shell_words::split(&pager).chain_err(|| "Could not parse pager command.")?;[0m
+[34m[38;5;88m    [34m[38;5;28m 72 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 73 [34m[32m        match pagerflags.split_first() {[0m
+[34m[38;5;88m    [34m[38;5;28m 74 [34m[32m            Some((pager_name, args)) => {[0m
+[34m[38;5;88m    [34m[38;5;28m 75 [34m[32m                let mut pager_path = PathBuf::from(pager_name);[0m
+[34m[38;5;88m    [34m[38;5;28m 76 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 77 [34m[32m                if pager_path.file_stem() == Some(&OsString::from("bat")) {[0m
+[34m[38;5;88m    [34m[38;5;28m 78 [34m[32m                    pager_path = PathBuf::from("less");[0m
+[34m[38;5;88m    [34m[38;5;28m 79 [34m[32m                }[0m
+[34m[38;5;88m    [34m[38;5;28m 80 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 81 [34m[32m                let is_less = pager_path.file_stem() == Some(&OsString::from("less"));[0m
+[34m[38;5;88m    [34m[38;5;28m 82 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 83 [34m[32m                let mut process = if is_less {[0m
+[34m[38;5;88m    [34m[38;5;28m 84 [34m[32m                    let mut p = Command::new(&pager_path);[0m
+[34m[38;5;88m    [34m[38;5;28m 85 [34m[32m                    if args.is_empty() || replace_arguments_to_less {[0m
+[34m[38;5;88m    [34m[38;5;28m 86 [34m[32m                        p.args(vec!["--RAW-CONTROL-CHARS", "--no-init"]);[0m
+[34m[38;5;88m    [34m[38;5;28m 87 [34m[32m                        if quit_if_one_screen {[0m
+[34m[38;5;88m    [34m[38;5;28m 88 [34m[32m                            p.arg("--quit-if-one-screen");[0m
+[34m[38;5;88m    [34m[38;5;28m 89 [34m[32m                        }[0m
+[34m[38;5;88m    [34m[38;5;28m 90 [34m[32m                    } else {[0m
+[34m[38;5;88m    [34m[38;5;28m 91 [34m[32m                        p.args(args);[0m
+[34m[38;5;88m    [34m[38;5;28m 92 [34m[32m                    }[0m
+[34m[38;5;88m    [34m[38;5;28m 93 [34m[32m                    p.env("LESSCHARSET", "UTF-8");[0m
+[34m[38;5;88m    [34m[38;5;28m 94 [34m[32m                    p[0m
+[34m[38;5;88m    [34m[38;5;28m 95 [34m[32m                } else {[0m
+[34m[38;5;88m    [34m[38;5;28m 96 [34m[32m                    let mut p = Command::new(&pager_path);[0m
+[34m[38;5;88m    [34m[38;5;28m 97 [34m[32m                    p.args(args);[0m
+[34m[38;5;88m    [34m[38;5;28m 98 [34m[32m                    p[0m
+[34m[38;5;88m    [34m[38;5;28m 99 [34m[32m                };[0m
+[34m[38;5;88m    [34m[38;5;28m 100[34m[0m
+[34m[38;5;88m    [34m[38;5;28m 101[34m[32m                Ok(process[0m
+[34m[38;5;88m    [34m[38;5;28m 102[34m[32m                    .stdin(Stdio::piped())[0m
+[34m[38;5;88m    [34m[38;5;28m 103[34m[32m                    .spawn()[0m
+[34m[38;5;88m    [34m[38;5;28m 104[34m[32m                    .map(OutputType::Pager)[0m
+[34m[38;5;88m    [34m[38;5;28m 105[34m[32m                    .unwrap_or_else(|_| OutputType::stdout()))[0m
+[34m[38;5;88m    [34m[38;5;28m 106[34m[32m            }[0m
+[34m[38;5;88m    [34m[38;5;28m 107[34m[32m            None => Ok(OutputType::stdout()),[0m
+[34m[38;5;88m    [34m[38;5;28m 108[34m[32m        }[0m
+[34m[38;5;88m    [34m[38;5;28m 109[34m[32m    }[0m
+[34m[38;5;88m    [34m[38;5;28m 110[34m[0m
+[34m[38;5;88m    [34m[38;5;28m 111[34m[32m    fn stdout() -> Self {[0m
+[34m[38;5;88m    [34m[38;5;28m 112[34m[32m        OutputType::Stdout(io::stdout())[0m
+[34m[38;5;88m    [34m[38;5;28m 113[34m[32m    }[0m
+[34m[38;5;88m    [34m[38;5;28m 114[34m[0m
+[34m[38;5;88m    [34m[38;5;28m 115[34m[32m    pub fn handle(&mut self) -> Result<&mut Write> {[0m
+[34m[38;5;88m    [34m[38;5;28m 116[34m[32m        Ok(match *self {[0m
+[34m[38;5;88m    [34m[38;5;28m 117[34m[32m            OutputType::Pager(ref mut command) => command[0m
+[34m[38;5;88m    [34m[38;5;28m 118[34m[32m                .stdin[0m
+[34m[38;5;88m    [34m[38;5;28m 119[34m[32m                .as_mut()[0m
+[34m[38;5;88m    [34m[38;5;28m 120[34m[32m                .chain_err(|| "Could not open stdin for pager")?,[0m
+[34m[38;5;88m    [34m[38;5;28m 121[34m[32m            OutputType::Stdout(ref mut handle) => handle,[0m
+[34m[38;5;88m    [34m[38;5;28m 122[34m[32m        })[0m
+[34m[38;5;88m    [34m[38;5;28m 123[34m[32m    }[0m
+[34m[38;5;88m    [34m[38;5;28m 124[34m[32m}[0m
+[34m[38;5;88m    [34m[38;5;28m 125[34m[0m
+[34m[38;5;88m    [34m[38;5;28m 126[34m[32mimpl Drop for OutputType {[0m
+[34m[38;5;88m    [34m[38;5;28m 127[34m[32m    fn drop(&mut self) {[0m
+[34m[38;5;88m    [34m[38;5;28m 128[34m[32m        if let OutputType::Pager(ref mut command) = *self {[0m
+[34m[38;5;88m    [34m[38;5;28m 129[34m[32m            let _ = command.wait();[0m
+[34m[38;5;88m    [34m[38;5;28m 130[34m[32m        }[0m
+[34m[38;5;88m    [34m[38;5;28m 131[34m[32m    }[0m
+[34m[38;5;88m    [34m[38;5;28m 132[34m[32m}[0m

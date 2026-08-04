@@ -1,0 +1,81 @@
+commit 36d1de25e92a5e07bc18f4ec052bf5ca62894ccb
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Wed Jun 26 10:37:53 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Wed Jun 26 10:46:59 2019 -0400
+
+    Change names
+
+
+[34mΔ src/main.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m───────────────[0m[34m┐[0m
+[34m•[0m  fn main() { [34m│[0m
+[34m───────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 45 [34m[38;2;68;68;68m 45 [34m[0m
+[34m[38;2;68;68;68m 46 [34m[38;2;68;68;68m 46 [34m[0mfn delta() -> std::io::Result<()> {
+[34m[38;2;68;68;68m 47 [34m[38;2;68;68;68m 47 [34m[0m    use std::io::Write;
+[34m[38;5;88m 48 [34m[38;5;28m    [34m[31m    let [1;7mps[0m[31m = SyntaxSet::load_defaults_newlines();[0m
+[34m[38;5;88m 49 [34m[38;5;28m    [34m[31m    let [1;7mts[0m[31m = ThemeSet::load_defaults();[0m
+[34m[38;5;88m 50 [34m[38;5;28m    [34m[31m    let theme = &[1;7mts[0m[31m.themes[DELTA_THEME_DEFAULT];[0m
+[34m[38;5;88m    [34m[38;5;28m 48 [34m[32m    let [1;7msyntax_set[0m[32m = SyntaxSet::load_defaults_newlines();[0m
+[34m[38;5;88m    [34m[38;5;28m 49 [34m[32m    let [1;7mtheme_set[0m[32m = ThemeSet::load_defaults();[0m
+[34m[38;5;88m    [34m[38;5;28m 50 [34m[32m    let theme = &[1;7mtheme_set[0m[32m.themes[DELTA_THEME_DEFAULT];[0m
+[34m[38;2;68;68;68m 51 [34m[38;2;68;68;68m 51 [34m[0m    let mut output = String::new();
+[34m[38;2;68;68;68m 52 [34m[38;2;68;68;68m 52 [34m[0m    let mut state = State::Unknown;
+[34m[38;2;68;68;68m 53 [34m[38;2;68;68;68m 53 [34m[0m    let mut syntax: Option<&SyntaxReference> = None;
+
+[34m───────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  fn delta() -> std::io::Result<()> { [34m│[0m
+[34m───────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 62 [34m[38;2;68;68;68m 62 [34m[0m        if line.starts_with("diff --") {
+[34m[38;2;68;68;68m 63 [34m[38;2;68;68;68m 63 [34m[0m            state = State::DiffMeta;
+[34m[38;2;68;68;68m 64 [34m[38;2;68;68;68m 64 [34m[0m            syntax = match get_file_extension_from_diff_line(&line) {
+[34m[38;5;88m 65 [34m[38;5;28m    [34m[31m                Some(extension) => [1;7mps[0m[31m.find_syntax_by_extension(extension),[0m
+[34m[38;5;88m    [34m[38;5;28m 65 [34m[32m                Some(extension) => [1;7msyntax_set[0m[32m.find_syntax_by_extension(extension),[0m
+[34m[38;2;68;68;68m 66 [34m[38;2;68;68;68m 66 [34m[0m                None => None,
+[34m[38;2;68;68;68m 67 [34m[38;2;68;68;68m 67 [34m[0m            };
+[34m[38;2;68;68;68m 68 [34m[38;2;68;68;68m 68 [34m[0m        } else if line.starts_with("commit") {
+
+[34m───────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  fn delta() -> std::io::Result<()> { [34m│[0m
+[34m───────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 86 [34m[38;2;68;68;68m 86 [34m[0m                    if line.len() < 100 {
+[34m[38;2;68;68;68m 87 [34m[38;2;68;68;68m 87 [34m[0m                        line = format!("{}{}", line, " ".repeat(100 - line.len()));
+[34m[38;2;68;68;68m 88 [34m[38;2;68;68;68m 88 [34m[0m                    }
+[34m[38;5;88m 89 [34m[38;5;28m    [34m[31m                    let ranges: Vec<(Style, &str)> = highlighter.highlight(&line, &[1;7mps[0m[31m);[0m
+[34m[38;5;88m 90 [34m[38;5;28m    [34m[31m                    [1;7mmy_as_24_bit_terminal_escaped[0m[31m(&ranges[..], background_color, &mut output);[0m
+[34m[38;5;88m    [34m[38;5;28m 89 [34m[32m                    let ranges: Vec<(Style, &str)> = highlighter.highlight(&line, &[1;7msyntax_set[0m[32m);[0m
+[34m[38;5;88m    [34m[38;5;28m 90 [34m[32m                    [1;7mpaint_ranges[0m[32m(&ranges[..], background_color, &mut output);[0m
+[34m[38;2;68;68;68m 91 [34m[38;2;68;68;68m 91 [34m[0m                    writeln!(stdout, "{}", output)?;
+[34m[38;2;68;68;68m 92 [34m[38;2;68;68;68m 92 [34m[0m                    output.truncate(0);
+[34m[38;2;68;68;68m 93 [34m[38;2;68;68;68m 93 [34m[0m                    did_emit_line = true;
+
+[34m───────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  fn delta() -> std::io::Result<()> { [34m│[0m
+[34m───────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 103[34m[38;2;68;68;68m 103[34m[0m}
+[34m[38;2;68;68;68m 104[34m[38;2;68;68;68m 104[34m[0m
+[34m[38;2;68;68;68m 105[34m[38;2;68;68;68m 105[34m[0m/// Based on as_24_bit_terminal_escaped from syntect
+[34m[38;5;88m 106[34m[38;5;28m    [34m[31mfn my_as_24_bit_terminal_escaped([0m
+[34m[38;5;88m 107[34m[38;5;28m    [34m[31m    [1;7mv[0m[31m: &[(Style, &str)],[0m
+[34m[38;5;88m    [34m[38;5;28m 106[34m[32mfn paint_ranges([0m
+[34m[38;5;88m    [34m[38;5;28m 107[34m[32m    [1;7mforeground_style_ranges[0m[32m: &[(Style, &str)],[0m
+[34m[38;2;68;68;68m 108[34m[38;2;68;68;68m 108[34m[0m    background_color: Option<Color>,
+[34m[38;2;68;68;68m 109[34m[38;2;68;68;68m 109[34m[0m    buf: &mut String,
+[34m[38;2;68;68;68m 110[34m[38;2;68;68;68m 110[34m[0m) -> () {
+[34m[38;5;88m 111[34m[38;5;28m    [34m[31m    for &(ref style, text) in [1;7mv[0m[31m.iter() {[0m
+[34m[38;5;88m 112[34m[38;5;28m    [34m[31m        [1;7mcolorize[0m[31m(text, Some(style.foreground), background_color, false, buf);[0m
+[34m[38;5;88m    [34m[38;5;28m 111[34m[32m    for &(ref style, text) in [1;7mforeground_style_ranges[0m[32m.iter() {[0m
+[34m[38;5;88m    [34m[38;5;28m 112[34m[32m        [1;7mpaint[0m[32m(text, Some(style.foreground), background_color, false, buf);[0m
+[34m[38;2;68;68;68m 113[34m[38;2;68;68;68m 113[34m[0m    }
+[34m[38;2;68;68;68m 114[34m[38;2;68;68;68m 114[34m[0m    buf.push_str("\x1b[0m");
+[34m[38;2;68;68;68m 115[34m[38;2;68;68;68m 115[34m[0m}
+[34m[38;2;68;68;68m 116[34m[38;2;68;68;68m 116[34m[0m
+[34m[38;2;68;68;68m 117[34m[38;2;68;68;68m 117[34m[0m/// Write text to buffer with color escape codes applied.
+[34m[38;5;88m 118[34m[38;5;28m    [34m[31mfn colorize([0m
+[34m[38;5;88m    [34m[38;5;28m 118[34m[32mfn paint([0m
+[34m[38;2;68;68;68m 119[34m[38;2;68;68;68m 119[34m[0m    text: &str,
+[34m[38;2;68;68;68m 120[34m[38;2;68;68;68m 120[34m[0m    foreground_color: Option<Color>,
+[34m[38;2;68;68;68m 121[34m[38;2;68;68;68m 121[34m[0m    background_color: Option<Color>,

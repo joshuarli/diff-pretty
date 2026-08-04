@@ -1,0 +1,24 @@
+commit 183eba159f7e79a7addb599e2b52b39442cf9ee0
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Wed Jun 26 10:28:02 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Wed Jun 26 10:46:59 2019 -0400
+
+    Right pad to 100 char width
+
+
+[34mΔ src/main.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m───────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  fn delta() -> std::io::Result<()> { [34m│[0m
+[34m───────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 83 [34m[38;2;68;68;68m 83 [34m[0m                        line = line[1..].to_string();
+[34m[38;2;68;68;68m 84 [34m[38;2;68;68;68m 84 [34m[0m                        output.push_str(" ");
+[34m[38;2;68;68;68m 85 [34m[38;2;68;68;68m 85 [34m[0m                    }
+[34m[38;5;88m    [34m[38;5;28m 86 [34m[32m                    if line.len() < 100 {[0m
+[34m[38;5;88m    [34m[38;5;28m 87 [34m[32m                        line = format!("{}{}", line, " ".repeat(100 - line.len()));[0m
+[34m[38;5;88m    [34m[38;5;28m 88 [34m[32m                    }[0m
+[34m[38;2;68;68;68m 86 [34m[38;2;68;68;68m 89 [34m[0m                    let ranges: Vec<(Style, &str)> = highlighter.highlight(&line, &ps);
+[34m[38;2;68;68;68m 87 [34m[38;2;68;68;68m 90 [34m[0m                    my_as_24_bit_terminal_escaped(&ranges[..], background_color, &mut output);
+[34m[38;2;68;68;68m 88 [34m[38;2;68;68;68m 91 [34m[0m                    writeln!(stdout, "{}", output)?;

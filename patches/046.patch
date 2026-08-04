@@ -1,0 +1,57 @@
+commit 6a20a593f2fc07049afc3dcc1115431f77f3cd62
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Thu Jun 27 11:08:40 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Thu Jun 27 11:11:46 2019 -0400
+
+    Homor --width argument
+
+diff --git a/src/main.rs b/src/main.rs
+index bdf9507..ffd768f 100644
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -48,7 +48,7 @@ struct Opt {
+     /// default, the highlighting extends to the last character on
+     /// each line
+     #[structopt(short = "w", long = "width")]
+-    width: Option<u16>,
++    width: Option<usize>,
+ }
+ 
+ #[derive(PartialEq)]
+@@ -149,6 +149,7 @@ fn delta() -> std::io::Result<()> {
+                         &theme_name,
+                         plus_color,
+                         minus_color,
++                        opt.width,
+                         &mut output,
+                     );
+                     writeln!(stdout, "{}", output)?;
+diff --git a/src/paint.rs b/src/paint.rs
+index 24ee43a..c5ed9af 100644
+--- a/src/paint.rs
++++ b/src/paint.rs
+@@ -48,6 +48,7 @@ pub fn paint_line(
+     theme_name: &String,
+     plus_color: Option<Color>,
+     minus_color: Option<Color>,
++    width: Option<usize>,
+     buf: &mut String,
+ ) {
+     let mut highlighter = HighlightLines::new(syntax, theme);
+@@ -64,8 +65,13 @@ pub fn paint_line(
+         line = line[1..].to_string();
+         buf.push_str(" ");
+     }
+-    if line.len() < 100 {
+-        line = format!("{}{}", line, " ".repeat(100 - line.len()));
++    match width {
++        Some(width) => {
++            if line.len() < width {
++                line = format!("{}{}", line, " ".repeat(width - line.len()));
++            }
++        }
++        _ => (),
+     }
+     let ranges: Vec<(Style, &str)> = highlighter.highlight(&line, &syntax_set);
+     paint_ranges(&ranges[..], background_color, buf);

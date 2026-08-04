@@ -1,0 +1,127 @@
+commit 87aeb6048af3148521c5d478fcf2ebae09a6f9d3
+Author:     Dan Davison <dandavison7@gmail.com>
+AuthorDate: Thu Jun 27 23:55:10 2019 -0400
+Commit:     Dan Davison <dandavison7@gmail.com>
+CommitDate: Fri Jun 28 00:04:59 2019 -0400
+
+    Refactor: store paint config in a struct
+
+
+[34mΔ src/main.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m───────────────[0m[34m┐[0m
+[34m•[0m  fn main() { [34m│[0m
+[34m───────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 73 [34m[38;2;68;68;68m 73 [34m[0m}
+[34m[38;2;68;68;68m 74 [34m[38;2;68;68;68m 74 [34m[0m
+[34m[38;2;68;68;68m 75 [34m[38;2;68;68;68m 75 [34m[0mfn delta() -> std::io::Result<()> {
+[34m[38;5;88m 76 [34m[38;5;28m    [34m[31m    let syntax_set = SyntaxSet::load_defaults_newlines();[0m
+[34m[38;2;68;68;68m 77 [34m[38;2;68;68;68m 76 [34m[0m    let theme_set = ThemeSet::load_defaults();
+[34m[38;2;68;68;68m 78 [34m[38;2;68;68;68m 77 [34m[0m    let mut output = String::new();
+[34m[38;2;68;68;68m 79 [34m[38;2;68;68;68m 78 [34m[0m    let mut state = State::Unknown;
+
+[34m───────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  fn delta() -> std::io::Result<()> { [34m│[0m
+[34m───────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 111[34m[38;2;68;68;68m 110[34m[0m        |s| Color::from_str(s).ok(),
+[34m[38;2;68;68;68m 112[34m[38;2;68;68;68m 111[34m[0m    );
+[34m[38;2;68;68;68m 113[34m[38;2;68;68;68m 112[34m[0m    let theme_name = opt.theme.unwrap();
+[34m[38;5;88m 114[34m[38;5;28m    [34m[31m    let theme = &theme_set.themes[&theme_name];[0m
+[34m[38;2;68;68;68m 115[34m[38;2;68;68;68m 113[34m[0m
+[34m[38;5;88m    [34m[38;5;28m 114[34m[32m    let paint_config = paint::Config {[0m
+[34m[38;5;88m    [34m[38;5;28m 115[34m[32m        theme: &theme_set.themes[&theme_name],[0m
+[34m[38;5;88m    [34m[38;5;28m 116[34m[32m        width: opt.width,[0m
+[34m[38;5;88m    [34m[38;5;28m 117[34m[32m        syntax_set: SyntaxSet::load_defaults_newlines(),[0m
+[34m[38;5;88m    [34m[38;5;28m 118[34m[32m    };[0m
+[34m[38;2;68;68;68m 116[34m[38;2;68;68;68m 119[34m[0m
+[34m[38;2;68;68;68m 117[34m[38;2;68;68;68m 120[34m[0m    for _line in stdin.lock().lines() {
+[34m[38;2;68;68;68m 118[34m[38;2;68;68;68m 121[34m[0m        let raw_line = _line?;
+
+[34m───────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  fn delta() -> std::io::Result<()> { [34m│[0m
+[34m───────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 121[34m[38;2;68;68;68m 124[34m[0m        if line.starts_with("diff --") {
+[34m[38;2;68;68;68m 122[34m[38;2;68;68;68m 125[34m[0m            state = State::DiffMeta;
+[34m[38;2;68;68;68m 123[34m[38;2;68;68;68m 126[34m[0m            syntax = match parse_diff::get_file_extension_from_diff_line(&line) {
+[34m[38;5;88m 124[34m[38;5;28m    [34m[31m                Some(extension) => syntax_set.find_syntax_by_extension(extension),[0m
+[34m[38;5;88m    [34m[38;5;28m 127[34m[32m                Some(extension) => [1;7mpaint_config.[0m[32msyntax_set.find_syntax_by_extension(extension),[0m
+[34m[38;2;68;68;68m 125[34m[38;2;68;68;68m 128[34m[0m                None => None,
+[34m[38;2;68;68;68m 126[34m[38;2;68;68;68m 129[34m[0m            };
+[34m[38;2;68;68;68m 127[34m[38;2;68;68;68m 130[34m[0m        } else if line.starts_with("commit") {
+
+[34m───────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  fn delta() -> std::io::Result<()> { [34m│[0m
+[34m───────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 134[34m[38;2;68;68;68m 137[34m[0m                    paint::paint_line(
+[34m[38;2;68;68;68m 135[34m[38;2;68;68;68m 138[34m[0m                        line,
+[34m[38;2;68;68;68m 136[34m[38;2;68;68;68m 139[34m[0m                        syntax,
+[34m[38;5;88m 137[34m[38;5;28m    [34m[31m                        &syntax_set,[0m
+[34m[38;5;88m 138[34m[38;5;28m    [34m[31m                        theme,[0m
+[34m[38;2;68;68;68m 139[34m[38;2;68;68;68m 140[34m[0m                        &theme_name,
+[34m[38;2;68;68;68m 140[34m[38;2;68;68;68m 141[34m[0m                        plus_color,
+[34m[38;2;68;68;68m 141[34m[38;2;68;68;68m 142[34m[0m                        minus_color,
+[34m[38;5;88m 142[34m[38;5;28m    [34m[31m                        opt.width,[0m
+[34m[38;5;88m    [34m[38;5;28m 143[34m[32m                        &paint_config,[0m
+[34m[38;2;68;68;68m 143[34m[38;2;68;68;68m 144[34m[0m                        &mut output,
+[34m[38;2;68;68;68m 144[34m[38;2;68;68;68m 145[34m[0m                    );
+[34m[38;2;68;68;68m 145[34m[38;2;68;68;68m 146[34m[0m                    writeln!(stdout, "{}", output)?;
+
+[34mΔ src/paint.rs[0m
+[34m────────────────────────────────────────────────────────────────────────────────[0m
+
+[34m─────────────────────────────────────────────────[0m[34m┐[0m
+[34m•[0m  const DARK_THEME_MINUS_COLOR: Color = Color { [34m│[0m
+[34m─────────────────────────────────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 39 [34m[38;2;68;68;68m 39 [34m[0m    a: 0xff,
+[34m[38;2;68;68;68m 40 [34m[38;2;68;68;68m 40 [34m[0m};
+[34m[38;2;68;68;68m 41 [34m[38;2;68;68;68m 41 [34m[0m
+[34m[38;5;88m    [34m[38;5;28m 42 [34m[32mpub struct Config<'a> {[0m
+[34m[38;5;88m    [34m[38;5;28m 43 [34m[32m    pub theme: &'a Theme,[0m
+[34m[38;5;88m    [34m[38;5;28m 44 [34m[32m    pub syntax_set: SyntaxSet,[0m
+[34m[38;5;88m    [34m[38;5;28m 45 [34m[32m    pub width: Option<usize>,[0m
+[34m[38;5;88m    [34m[38;5;28m 46 [34m[32m}[0m
+[34m[38;5;88m    [34m[38;5;28m 47 [34m[0m
+[34m[38;2;68;68;68m 42 [34m[38;2;68;68;68m 48 [34m[0m/// Write line to buffer with color escape codes applied.
+[34m[38;2;68;68;68m 43 [34m[38;2;68;68;68m 49 [34m[0mpub fn paint_line(
+[34m[38;5;88m 44 [34m[38;5;28m    [34m[31m    mut line: String,[1;7m // TODO: pass reference[0m
+[34m[38;5;88m    [34m[38;5;28m 50 [34m[32m    mut line: String,[0m
+[34m[38;2;68;68;68m 45 [34m[38;2;68;68;68m 51 [34m[0m    syntax: &SyntaxReference,
+[34m[38;5;88m 46 [34m[38;5;28m    [34m[31m    syntax_set: &SyntaxSet,[0m
+[34m[38;5;88m 47 [34m[38;5;28m    [34m[31m    theme: &Theme,[0m
+[34m[38;2;68;68;68m 48 [34m[38;2;68;68;68m 52 [34m[0m    theme_name: &String,
+[34m[38;2;68;68;68m 49 [34m[38;2;68;68;68m 53 [34m[0m    plus_color: Option<Color>,
+[34m[38;2;68;68;68m 50 [34m[38;2;68;68;68m 54 [34m[0m    minus_color: Option<Color>,
+[34m[38;5;88m 51 [34m[38;5;28m    [34m[31m    width: Option<usize>,[0m
+[34m[38;5;88m    [34m[38;5;28m 55 [34m[32m    config: &Config,[0m
+[34m[38;2;68;68;68m 52 [34m[38;2;68;68;68m 56 [34m[0m    buf: &mut String,
+[34m[38;2;68;68;68m 53 [34m[38;2;68;68;68m 57 [34m[0m) {
+[34m[38;5;88m 54 [34m[38;5;28m    [34m[31m    let mut highlighter = HighlightLines::new(syntax, theme);[0m
+[34m[38;5;88m    [34m[38;5;28m 58 [34m[32m    let mut highlighter = HighlightLines::new(syntax, [1;7mconfig.[0m[32mtheme);[0m
+[34m[38;2;68;68;68m 55 [34m[38;2;68;68;68m 59 [34m[0m    let first_char = line.chars().next();
+[34m[38;2;68;68;68m 56 [34m[38;2;68;68;68m 60 [34m[0m    let is_dark = DARK_THEMES.contains(&theme_name.as_str());
+[34m[38;2;68;68;68m 57 [34m[38;2;68;68;68m 61 [34m[0m    let background_color = match (first_char, is_dark) {
+
+[34m──────────────────────[0m[34m┐[0m
+[34m•[0m  pub fn paint_line( [34m│[0m
+[34m──────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 65 [34m[38;2;68;68;68m 69 [34m[0m        line = line[1..].to_string();
+[34m[38;2;68;68;68m 66 [34m[38;2;68;68;68m 70 [34m[0m        buf.push_str(" ");
+[34m[38;2;68;68;68m 67 [34m[38;2;68;68;68m 71 [34m[0m    }
+[34m[38;5;88m 68 [34m[38;5;28m    [34m[31m    match width {[0m
+[34m[38;5;88m    [34m[38;5;28m 72 [34m[32m    match [1;7mconfig.[0m[32mwidth {[0m
+[34m[38;2;68;68;68m 69 [34m[38;2;68;68;68m 73 [34m[0m        Some(width) => {
+[34m[38;2;68;68;68m 70 [34m[38;2;68;68;68m 74 [34m[0m            if line.len() < width {
+[34m[38;2;68;68;68m 71 [34m[38;2;68;68;68m 75 [34m[0m                line = format!("{}{}", line, " ".repeat(width - line.len()));
+
+[34m──────────────────────[0m[34m┐[0m
+[34m•[0m  pub fn paint_line( [34m│[0m
+[34m──────────────────────[0m[34m┘[0m
+[34m[38;2;68;68;68m 73 [34m[38;2;68;68;68m 77 [34m[0m        }
+[34m[38;2;68;68;68m 74 [34m[38;2;68;68;68m 78 [34m[0m        _ => (),
+[34m[38;2;68;68;68m 75 [34m[38;2;68;68;68m 79 [34m[0m    }
+[34m[38;5;88m 76 [34m[38;5;28m    [34m[31m    let ranges: Vec<(Style, &str)> = highlighter.highlight(&line, &syntax_set);[0m
+[34m[38;5;88m    [34m[38;5;28m 80 [34m[32m    let ranges: Vec<(Style, &str)> = highlighter.highlight(&line, &[1;7mconfig.[0m[32msyntax_set);[0m
+[34m[38;2;68;68;68m 77 [34m[38;2;68;68;68m 81 [34m[0m    paint_ranges(&ranges[..], background_color, buf);
+[34m[38;2;68;68;68m 78 [34m[38;2;68;68;68m 82 [34m[0m}
+[34m[38;2;68;68;68m 79 [34m[38;2;68;68;68m 83 [34m[0m
