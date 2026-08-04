@@ -31,7 +31,7 @@ pub mod edits;
 pub mod pager;
 pub mod render;
 
-pub use render::render;
+pub use render::{RenderedDocument, render, render_document, render_to};
 
 /// Fixed terminal width delta uses when stdout is not a tty (verified: COLUMNS
 /// is ignored and the default equals `--width 80`).

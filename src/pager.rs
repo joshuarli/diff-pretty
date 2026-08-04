@@ -1,13 +1,15 @@
 //! Minimal native pager handling.
 //!
-//! The renderer (`render()`) is pure and never pages; the decision to page and
-//! the terminal session live here so the benchmark and byte-for-byte oracle
-//! tests remain pager-free. The native pager intentionally keeps a narrow
-//! feature set: fixed terminal dimensions, vertical navigation, and an
+//! The renderer is pure and never pages; the decision to page and the terminal
+//! session live here so the benchmark and byte-for-byte oracle tests remain
+//! pager-free. The native pager consumes `RenderedDocument` directly. It keeps
+//! a narrow feature set: fixed terminal dimensions, vertical navigation, and an
 //! alternate screen. It does not handle resize signals, search, or horizontal
 //! scrolling.
 
 use std::io::{self, IsTerminal, Read, Write};
+
+use crate::render::RenderedDocument;
 
 #[cfg(unix)]
 use std::fs::{File, OpenOptions};
@@ -34,48 +36,44 @@ pub fn should_use_pager(mode: PagingMode) -> bool {
     }
 }
 
-/// Emit `output`, optionally through the native pager. If the terminal cannot
-/// be opened or configured, fall back to writing the rendered output to stdout.
-pub fn emit(output: &str, mode: PagingMode) -> io::Result<()> {
+/// Emit a retained document, optionally through the native pager. If the
+/// terminal cannot be opened or configured, write it directly to stdout.
+pub fn emit(document: &RenderedDocument, mode: PagingMode) -> io::Result<()> {
     if !should_use_pager(mode) {
-        return write_stdout(output);
+        return write_stdout(document);
     }
 
     // In `auto` mode, a diff that fits on one screen is written straight to
     // stdout so it stays in terminal scrollback. Only multi-screen output gets
     // the alternate-screen pager.
-    if mode == PagingMode::Auto && fits_on_one_screen(output) {
-        return write_stdout(output);
+    if mode == PagingMode::Auto && fits_on_one_screen(document) {
+        return write_stdout(document);
     }
 
-    match run_native_pager(output) {
+    match run_native_pager(document) {
         Ok(()) => Ok(()),
-        Err(_) => write_stdout(output),
+        Err(_) => write_stdout(document),
     }
 }
 
-fn write_stdout(output: &str) -> io::Result<()> {
+fn write_stdout(document: &RenderedDocument) -> io::Result<()> {
     let stdout = std::io::stdout();
     let mut handle = stdout.lock();
-    handle.write_all(output.as_bytes())?;
+    document.write_to(&mut handle)?;
     handle.flush()
 }
 
 /// Whether the rendered output is short enough to display without paging. We
 /// estimate the display height as the number of logical lines and compare it
 /// with the terminal's row count.
-fn fits_on_one_screen(output: &str) -> bool {
+fn fits_on_one_screen(document: &RenderedDocument) -> bool {
     let Some((rows, _)) = terminal_size() else {
         return false;
     };
     if rows == 0 {
         return false;
     }
-    line_count(output) <= rows
-}
-
-fn line_count(output: &str) -> usize {
-    output.bytes().filter(|&byte| byte == b'\n').count() + 1
+    document.line_count() <= rows
 }
 
 /// Number of rows and columns in stdout's terminal.
@@ -108,7 +106,7 @@ const ANSI_WRAP_ENABLE: &[u8] = b"\x1b[?7h";
 const ANSI_STATUS: &[u8] = b"\x1b[7m";
 
 #[cfg(unix)]
-fn run_native_pager(output: &str) -> io::Result<()> {
+fn run_native_pager(document: &RenderedDocument) -> io::Result<()> {
     let tty = OpenOptions::new().read(true).open("/dev/tty")?;
     let (rows, columns) = terminal_size_for(&tty)?;
     if rows == 0 || columns == 0 {
@@ -122,7 +120,7 @@ fn run_native_pager(output: &str) -> io::Result<()> {
     let stdout = std::io::stdout();
     let mut handle = stdout.lock();
     let mut screen = Screen::enter(&mut handle)?;
-    let mut viewer = Viewer::new(output, rows);
+    let mut viewer = Viewer::new(document, rows);
     let mut input = &tty;
     let result = viewer.run(&mut screen, &mut input);
     let leave_result = screen.leave();
@@ -130,7 +128,7 @@ fn run_native_pager(output: &str) -> io::Result<()> {
 }
 
 #[cfg(not(unix))]
-fn run_native_pager(_output: &str) -> io::Result<()> {
+fn run_native_pager(_document: &RenderedDocument) -> io::Result<()> {
     Err(io::Error::new(
         io::ErrorKind::Unsupported,
         "native pager is only implemented on Unix",
@@ -214,15 +212,15 @@ impl Drop for Screen<'_> {
 }
 
 struct Viewer<'a> {
-    document: PagerDocument<'a>,
+    document: &'a RenderedDocument,
     rows: usize,
     top: usize,
 }
 
 impl<'a> Viewer<'a> {
-    fn new(output: &'a str, rows: usize) -> Self {
+    fn new(document: &'a RenderedDocument, rows: usize) -> Self {
         Self {
-            document: PagerDocument::new(output),
+            document,
             rows,
             top: 0,
         }
@@ -274,44 +272,7 @@ impl<'a> Viewer<'a> {
     }
 }
 
-/// Borrowed rendered output plus a zero-copy line index for the native pager.
-///
-/// The document owns only the line-start offsets; the rendered bytes remain in
-/// the caller's `String`. This is the pager's setup allocation boundary.
-pub struct PagerDocument<'a> {
-    output: &'a str,
-    line_starts: Vec<usize>,
-}
-
-impl<'a> PagerDocument<'a> {
-    /// Index a rendered output buffer without copying its contents.
-    pub fn new(output: &'a str) -> Self {
-        let mut line_starts = Vec::with_capacity(line_count(output));
-        line_starts.push(0);
-        for (index, byte) in output.bytes().enumerate() {
-            if byte == b'\n' {
-                line_starts.push(index + 1);
-            }
-        }
-        Self {
-            output,
-            line_starts,
-        }
-    }
-
-    /// Number of logical lines in the rendered output.
-    pub fn line_count(&self) -> usize {
-        self.line_starts.len()
-    }
-
-    fn line(&self, index: usize) -> Option<&str> {
-        let start = *self.line_starts.get(index)?;
-        let end = self.output[start..]
-            .find('\n')
-            .map_or(self.output.len(), |offset| start + offset);
-        Some(&self.output[start..end])
-    }
-
+impl RenderedDocument {
     /// Draw one fixed-height viewport to `output`.
     ///
     /// The native pager disables terminal wrapping before calling this method,
@@ -326,8 +287,7 @@ impl<'a> PagerDocument<'a> {
         let content_rows = if rows > 1 { rows - 1 } else { 1 };
         for row in 0..content_rows {
             output.write_all(ANSI_CLEAR_LINE)?;
-            if let Some(line) = self.line(top + row) {
-                output.write_all(line.as_bytes())?;
+            if self.write_line(output, top + row)? {
                 output.write_all(ANSI_RESET)?;
             }
             if row + 1 < content_rows {
@@ -430,21 +390,12 @@ mod tests {
 
     #[test]
     fn document_indexes_trailing_empty_line() {
-        let document = PagerDocument::new("one\ntwo\n");
+        let document = crate::render::render_document("one\ntwo\n");
 
         assert_eq!(document.line_count(), 3);
-        assert_eq!(document.line(0), Some("one"));
-        assert_eq!(document.line(1), Some("two"));
-        assert_eq!(document.line(2), Some(""));
-    }
-
-    #[test]
-    fn document_keeps_rendered_output_borrowed() {
-        let output = String::from("first\nsecond");
-        let document = PagerDocument::new(&output);
-
-        assert_eq!(document.line(0), Some("first"));
-        assert_eq!(document.line(1), Some("second"));
+        let mut output = Vec::new();
+        document.write_to(&mut output).unwrap();
+        assert_eq!(output, b"one\ntwo\n");
     }
 
     #[test]

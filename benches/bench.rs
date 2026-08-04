@@ -7,6 +7,8 @@
 //!   corpus, multi-commit log, colorized log, plain unified diff) plus
 //!   synthetic diffs scaled to 100KB / 1MB / 10MB. These are the LTO-relevant
 //!   numbers: the whole pipeline fuses only under `lto = "fat"`.
+//! - **Non-interactive `render_to()`** over the representative 1MB input,
+//!   measuring the sink architecture without retaining a complete ANSI buffer.
 //! - **Synthetic variants that isolate hot sub-paths** inside `render`: a
 //!   colorized diff (SGR stripping) and a tab-heavy diff (`expand_tabs`).
 //! - **Word-diff inference** (`edits::infer_edits` / Needleman-Wunsch), the
@@ -15,9 +17,9 @@
 //!   long line (wide alignment table).
 //! - **The per-line number primitive** (`config::pad_number`): every hunk line
 //!   allocates through this, so it is a direct "alloc minimally" target.
-//! - **Native pager overhead**: line-index construction over a rendered 1MB
-//!   document and one 24-row viewport draw, isolating the interactive path
-//!   from the renderer and terminal syscalls.
+//! - **Native pager path**: retained-document rendering of a 1MB input and one
+//!   24-row viewport draw, isolating the interactive representation and draw
+//!   cost from terminal syscalls.
 //!
 //! Setup (fixture loads, synthetic generation) happens once outside the
 //! measured closure, so the medians and alloc counts are the steady-state cost
@@ -28,7 +30,7 @@ use std::sync::OnceLock;
 
 use divan::{AllocProfiler, Bencher, black_box};
 
-use diff_pretty::{config, edits, pager, render};
+use diff_pretty::{config, edits, render, render_document, render_to};
 
 #[global_allocator]
 static ALLOC: AllocProfiler = AllocProfiler::system();
@@ -208,11 +210,6 @@ fn synthetic_tabs_1mb() -> &'static str {
     once_leaked(&CACHE, || make_diff(1024 * 1024, false, true))
 }
 
-fn rendered_synthetic_1mb() -> &'static str {
-    static CACHE: OnceLock<&'static str> = OnceLock::new();
-    once_leaked(&CACHE, || render(synthetic_1mb()))
-}
-
 // ---------------------------------------------------------------------------
 // Word-diff / line-number fixtures
 // ---------------------------------------------------------------------------
@@ -300,6 +297,16 @@ fn render_synthetic_1mb(b: Bencher) {
 }
 
 #[divan::bench]
+fn render_to_synthetic_1mb(b: Bencher) {
+    let input = synthetic_1mb();
+    b.bench_local(|| {
+        let mut output = std::io::sink();
+        render_to(input, &mut output).expect("sink writes cannot fail");
+        black_box(output)
+    });
+}
+
+#[divan::bench]
 fn render_synthetic_10mb(b: Bencher) {
     let input = synthetic_10mb();
     b.bench_local(|| black_box(render(input).len()));
@@ -322,15 +329,14 @@ fn render_synthetic_tabs_1mb(b: Bencher) {
 // ---------------------------------------------------------------------------
 
 #[divan::bench]
-fn pager_index_synthetic_1mb(b: Bencher) {
-    let output = rendered_synthetic_1mb();
-    b.bench_local(|| black_box(pager::PagerDocument::new(output)));
+fn render_document_synthetic_1mb(b: Bencher) {
+    let input = synthetic_1mb();
+    b.bench_local(|| black_box(render_document(input)));
 }
 
 #[divan::bench]
 fn pager_viewport_synthetic_1mb(b: Bencher) {
-    let output = rendered_synthetic_1mb();
-    let document = pager::PagerDocument::new(output);
+    let document = render_document(synthetic_1mb());
     let mut terminal = Vec::with_capacity(16 * 1024);
     b.bench_local(|| {
         terminal.clear();

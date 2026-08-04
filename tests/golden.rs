@@ -34,7 +34,13 @@ fn golden_snapshot() {
         let base = file.file_stem().unwrap().to_str().unwrap();
         let input = std::fs::read_to_string(&file).unwrap();
         let golden = std::fs::read_to_string(goldens.join(format!("{base}.out"))).unwrap();
-        if diff_pretty::render(&input) != golden {
+        let rendered = diff_pretty::render(&input);
+        let document = diff_pretty::render_document(&input);
+        let mut retained = Vec::with_capacity(document.len());
+        document.write_to(&mut retained).unwrap();
+        let mut streamed = Vec::with_capacity(golden.len());
+        diff_pretty::render_to(&input, &mut streamed).unwrap();
+        if rendered != golden || retained != golden.as_bytes() || streamed != golden.as_bytes() {
             failures.push(base.to_string());
         }
     }

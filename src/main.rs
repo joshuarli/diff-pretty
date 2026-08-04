@@ -1,4 +1,4 @@
-use std::io::Read;
+use std::io::{Read, Write};
 
 use diff_pretty::pager::{self, PagingMode};
 
@@ -26,8 +26,16 @@ fn main() {
         eprintln!("failed to read stdin");
         std::process::exit(1);
     }
-    let out = diff_pretty::render(&input);
-    // Paging only happens through `emit` (and only when a terminal is attached
-    // for `auto`); the render itself is pure and never enters terminal mode.
-    let _ = pager::emit(&out, mode);
+    let result = if pager::should_use_pager(mode) {
+        let document = diff_pretty::render_document(&input);
+        pager::emit(&document, mode)
+    } else {
+        let stdout = std::io::stdout();
+        let mut output = stdout.lock();
+        diff_pretty::render_to(&input, &mut output).and_then(|()| output.flush())
+    };
+    if let Err(error) = result {
+        eprintln!("failed to write output: {error}");
+        std::process::exit(1);
+    }
 }

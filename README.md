@@ -49,7 +49,9 @@ Behavioral facts pinned by the harness:
 
 ## Layout
 
-- `src/lib.rs`, `src/render.rs` — the renderer (entry point `render(&str) -> String`).
+- `src/lib.rs`, `src/render.rs` — the shared renderer core, streaming
+  `render_to` sink, retained `RenderedDocument`, and compatibility
+  `render(&str) -> String` entry point.
 - `src/config.rs` — hardcoded style SGR constants and line-number padding.
 - `src/align.rs`, `src/edits.rs` — Needleman–Wunsch alignment and word-diff edit
   inference, replicated from delta.
@@ -102,9 +104,9 @@ outside so results reflect the `lto = "fat"` build:
   76/4 greedy-pairing case, and a single long line.
 - **`config::pad_number`** — the per-hunk-line string primitive every render
   allocates through; a direct "alloc minimally" target.
-- **Native pager overhead** — line-index construction over a rendered 1 MB
-  document and one fixed 24-row viewport draw. The viewport benchmark uses a
-  preallocated sink, so it measures pager formatting rather than terminal I/O.
+- **Native pager path** — retained-document rendering of a 1 MB input and one
+  fixed 24-row viewport draw. The viewport benchmark uses a preallocated sink,
+  so it measures pager formatting rather than terminal I/O.
 
 > **Diverging?** The goldens are frozen. Any intentional change to output will
 > (correctly) fail `cargo test` / `scripts/check.sh` until you update the
@@ -136,8 +138,10 @@ at the terminal edge rather than horizontally scrolled. Piping/redirection
 End, `g`, `G`, `b`, and Space provide vertical navigation. The input terminal
 is opened separately from stdin because stdin contains the diff pipe.
 
-Paging lives in `src/pager.rs` (`pager::emit`); `render()` itself is pure and
-never enters terminal mode, so the benchmark and golden tests are pager-free.
+Paging lives in `src/pager.rs` (`pager::emit`) and consumes `RenderedDocument`
+directly. Non-interactive output renders to stdout through `render_to` without
+materializing the complete ANSI output; rendering itself remains pure and never
+enters terminal mode.
 
 ## History: where the goldens came from
 
@@ -172,8 +176,3 @@ Known residual differences from delta (tracked in `TODO.md`):
   19K-line log) differ in emphasis.
 - **Other delta modes** — `git blame`, `git grep`/ripgrep, merge/combined
   diffs — are not implemented (inputs without `diff --git` are passed through).
-- **Retained-document renderer** — deferred performance work. The native pager
-  currently indexes the rendered ANSI string; replacing that with retained
-  styled lines or spans would require preserving byte-identical non-pager
-  output and random-access paging, so it is tracked in `TODO.md` rather than
-  folded into the current pager implementation.
