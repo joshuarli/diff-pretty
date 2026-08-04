@@ -13,7 +13,7 @@ regex-lite = "0.1.9"
 divan = "0.1"
 
 [target.'cfg(unix)'.dependencies]
-rustix = { version = "1.1", features = ["event", "termios"] }
+rustix = { version = "1.1", features = ["event", "pipe", "termios"] }
 
 [[bench]]
 name = "bench"

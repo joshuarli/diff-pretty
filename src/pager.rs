@@ -26,7 +26,11 @@ use std::fs::{File, OpenOptions};
 #[cfg(unix)]
 use rustix::termios::{self, OptionalActions, Termios};
 #[cfg(unix)]
-use rustix::{event, event::Timespec, fd::AsRawFd};
+use rustix::{
+    event,
+    event::Timespec,
+    fd::{AsRawFd, OwnedFd},
+};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum PagingMode {
@@ -292,12 +296,18 @@ fn run_native_pager(document: &RenderedDocument) -> io::Result<()> {
     let mut handle = stdout.lock();
     let mut screen = Screen::enter(&mut handle)?;
     let cancelled = Arc::new(AtomicBool::new(false));
-    let keys = spawn_key_reader(tty.try_clone()?, Arc::clone(&cancelled));
+    let KeyReader {
+        receiver,
+        thread,
+        wake,
+    } = spawn_key_reader(tty.try_clone()?, Arc::clone(&cancelled))?;
     let mut viewer = Viewer::new(document, rows, columns);
-    let result = viewer.run(&mut screen, &keys.receiver);
+    let result = viewer.run(&mut screen, &receiver);
     cancelled.store(true, Ordering::Relaxed);
-    let _ = keys.thread.join();
+    let _ = rustix::io::write(&wake, &[0]);
     let leave_result = screen.leave();
+    drop(_raw_mode);
+    let _ = thread.join();
     result.and(leave_result)
 }
 
@@ -349,19 +359,25 @@ fn run_native_pager_reader<R: BufRead + Send + 'static>(
     let stdout = std::io::stdout();
     let mut handle = stdout.lock();
     let mut screen = Screen::enter(&mut handle)?;
-    let keys = spawn_key_reader(key_input, Arc::clone(&cancelled));
+    let KeyReader {
+        receiver,
+        thread,
+        wake,
+    } = spawn_key_reader(key_input, Arc::clone(&cancelled))?;
     let result = run_live_viewer(
         &mut screen,
         rows,
         columns,
         renderer,
         load,
-        keys.receiver,
+        receiver,
         &cancelled,
     );
     cancelled.store(true, Ordering::Relaxed);
-    let _ = keys.thread.join();
+    let _ = rustix::io::write(&wake, &[0]);
     let leave_result = screen.leave();
+    drop(_raw_mode);
+    let _ = thread.join();
     result.and(leave_result)
 }
 
@@ -369,10 +385,12 @@ fn run_native_pager_reader<R: BufRead + Send + 'static>(
 struct KeyReader {
     receiver: Receiver<KeyEvent>,
     thread: thread::JoinHandle<()>,
+    wake: OwnedFd,
 }
 
 #[cfg(unix)]
-fn spawn_key_reader(tty: File, cancelled: Arc<AtomicBool>) -> KeyReader {
+fn spawn_key_reader(tty: File, cancelled: Arc<AtomicBool>) -> io::Result<KeyReader> {
+    let (wake_read, wake) = rustix::pipe::pipe()?;
     let (sender, receiver) = mpsc::sync_channel(64);
     let thread = thread::spawn(move || {
         let mut input = tty;
@@ -381,7 +399,7 @@ fn spawn_key_reader(tty: File, cancelled: Arc<AtomicBool>) -> KeyReader {
             if cancelled.load(Ordering::Relaxed) {
                 break;
             }
-            match read_terminal_bytes(&mut input, !decoder.is_empty()) {
+            match read_terminal_bytes(&mut input, wake_read.as_raw_fd(), !decoder.is_empty()) {
                 Ok(Some(bytes)) if bytes.is_empty() => {
                     let _ = send_key_event(&sender, KeyEvent::Eof, &cancelled);
                     break;
@@ -406,7 +424,11 @@ fn spawn_key_reader(tty: File, cancelled: Arc<AtomicBool>) -> KeyReader {
             }
         }
     });
-    KeyReader { receiver, thread }
+    Ok(KeyReader {
+        receiver,
+        thread,
+        wake,
+    })
 }
 
 #[cfg(unix)]
@@ -428,25 +450,27 @@ fn send_key_event(
 }
 
 #[cfg(unix)]
-fn read_terminal_bytes(input: &mut File, partial: bool) -> io::Result<Option<Vec<u8>>> {
+fn read_terminal_bytes(
+    input: &mut File,
+    wake_fd: std::os::unix::io::RawFd,
+    partial: bool,
+) -> io::Result<Option<Vec<u8>>> {
     let fd = input.as_raw_fd();
-    let mut read_fds = vec![event::FdSetElement::default(); event::fd_set_num_elements(1, fd + 1)];
+    let nfds = fd.max(wake_fd) + 1;
+    let mut read_fds = vec![event::FdSetElement::default(); event::fd_set_num_elements(1, nfds)];
     event::fd_set_insert(&mut read_fds, fd);
-    let timeout = if partial {
-        Timespec {
-            tv_sec: 0,
-            tv_nsec: 25_000_000,
-        }
-    } else {
-        Timespec {
-            tv_sec: 0,
-            tv_nsec: 100_000_000,
-        }
+    event::fd_set_insert(&mut read_fds, wake_fd);
+    let timeout = Timespec {
+        tv_sec: 0,
+        tv_nsec: if partial { 500_000 } else { 1_000_000 },
     };
-    let ready = unsafe { event::select(fd + 1, Some(&mut read_fds), None, None, Some(&timeout)) }
+    let ready = unsafe { event::select(nfds, Some(&mut read_fds), None, None, Some(&timeout)) }
         .map_err(io::Error::from)?;
     if ready == 0 {
         return Ok(None);
+    }
+    if event::FdSetIter::new(&read_fds).any(|ready_fd| ready_fd == wake_fd) {
+        return Ok(Some(Vec::new()));
     }
     let mut bytes = vec![0; 64];
     let count = input.read(&mut bytes)?;
