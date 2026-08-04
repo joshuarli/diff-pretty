@@ -115,7 +115,9 @@ impl SearchInput {
 
     pub(crate) fn backspace(&mut self) {
         self.compile_error = None;
-        self.query.pop();
+        if self.query.pop().is_none() {
+            self.display_prefix = None;
+        }
     }
 
     pub(crate) fn clear(&mut self) {

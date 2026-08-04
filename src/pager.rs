@@ -1471,6 +1471,25 @@ mod tests {
     }
 
     #[test]
+    fn search_input_backspace_removes_the_visible_discarded_character() {
+        let document = crate::render::render_document("text\n");
+        let mut state = PagerState::new(5, 80);
+        state.apply_key(Key::Text('/'), &document, true);
+        state.apply_key(Key::Text('x'), &document, true);
+        state.apply_key(Key::Text('a'), &document, true);
+
+        state.apply_key(Key::Backspace, &document, true);
+        let input = state.search.input().unwrap();
+        assert_eq!(input.query(), "");
+        assert_eq!(input.display_prefix(), Some('x'));
+
+        state.apply_key(Key::Backspace, &document, true);
+        let input = state.search.input().unwrap();
+        assert_eq!(input.query(), "");
+        assert_eq!(input.display_prefix(), None);
+    }
+
+    #[test]
     fn search_input_edits_unicode_by_scalar_value() {
         let document = crate::render::render_document("λ\n");
         let mut state = PagerState::new(5, 80);
