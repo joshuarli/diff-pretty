@@ -3,6 +3,13 @@ name = "diff-pretty"
 version = "0.0.1"
 edition = "2024"
 
+[dev-dependencies]
+divan = "0.1"
+
+[[bench]]
+name = "bench"
+harness = false
+
 [profile.dev]
 debug = 0
 strip = "debuginfo"

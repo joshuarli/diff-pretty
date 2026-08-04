@@ -54,7 +54,7 @@ Behavioral facts pinned by the harness:
 - `src/align.rs`, `src/edits.rs` — Needleman–Wunsch alignment and word-diff edit
   inference, replicated from delta.
 - `src/main.rs` — stdin → stdout binary.
-- `src/bin/bench.rs` — in-process wall-time benchmark.
+- `benches/bench.rs` — the curated divan benchmark suite (see "Benchmarks").
 - `fixtures/*.patch` — vendored inputs: `show_NNN.patch` = `git show` of the
   100 oldest commits of `~/d/delta` (text-only; not the 100 most recent, which
   are ~92% merges); `log_000*.patch` = multi-commit `git log -p` (plain +
@@ -66,16 +66,42 @@ Behavioral facts pinned by the harness:
 - `tests/golden.rs` — golden snapshot test: our render vs the baseline, byte
   for byte.
 - `scripts/` — `vendor-patches.sh` (re-vendor the show_* fixtures, needs the
-  `~/d/delta` source checkout), `check.sh`, `diff.sh`.
+  `~/d/delta` source checkout), `check.sh`, `diff.sh`, `bench-baseline.py`,
+  `diff-baselines.py`.
 
 ## Commands
 
 ```sh
-cargo test --release          # golden snapshot test (must pass)
-scripts/check.sh              # byte-for-byte check over every fixture
-scripts/diff.sh show_003      # ANSI-stripped diff of one fixture vs its golden
+make test                     # golden snapshot test (must pass)
+make check                    # byte-for-byte check over every fixture
+make diff FIXTURE=show_003    # ANSI-stripped diff of one fixture vs its golden
+make bench                    # curated benchmark suite, persists a host baseline
+make bench-diff AFTER=...     # compare a candidate baseline vs the persisted one
 scripts/vendor-patches.sh     # (re)vendor the show_* fixtures from ~/d/delta
 ```
+
+## Benchmarks
+
+`make bench` (or `scripts/bench-baseline.py`) runs the curated divan suite in
+`benches/bench.rs` and, on macOS, persists a per-host baseline under
+`benches/{host}-baseline.txt`, printing time / alloc bytes / alloc count per
+operation with the delta vs the previous run. Adapted from `~/d/e`'s `make
+bench`; `scripts/diff-baselines.py` compares two persisted baselines (e.g.
+before/after an optimization).
+
+The suite is curated to what matters, and every bench calls into the crate from
+outside so results reflect the `lto = "fat"` build:
+
+- **End-to-end `render()`** of every input class — the 100-commit `git show`
+  corpus, `git log -p` (plain + colorized), plain `diff -u` — plus synthetic
+  diffs scaled to 100 KB / 1 MB / 10 MB. This is the primary throughput number.
+- **Synthetic variants that isolate hot sub-paths**: a colorized diff
+  (SGR-stripping) and a tab-heavy diff (`expand_tabs`).
+- **Word-diff inference** (`edits::infer_edits`, the quadratic
+  Needleman–Wunsch hot spot): balanced, byte-identical (floor), the imbalanced
+  76/4 greedy-pairing case, and a single long line.
+- **`config::pad_number`** — the per-hunk-line string primitive every render
+  allocates through; a direct "alloc minimally" target.
 
 > **Diverging?** The goldens are frozen. Any intentional change to output will
 > (correctly) fail `cargo test` / `scripts/check.sh` until you update the
