@@ -36,6 +36,18 @@ pub fn emit(output: &str, mode: PagingMode) -> std::io::Result<()> {
         h.flush()?;
         return Ok(());
     }
+    // In `auto` mode, a diff that fits on one screen is written straight to
+    // stdout (so it stays in the terminal like delta; we don't page it or wrap
+    // it in the alternate screen, which would make it vanish on `less -F`
+    // quit-if-one-screen). Only multi-screen output gets the alternate-screen
+    // pager.
+    if mode == PagingMode::Auto && fits_on_one_screen(output) {
+        let stdout = std::io::stdout();
+        let mut h = stdout.lock();
+        h.write_all(output.as_bytes())?;
+        h.flush()?;
+        return Ok(());
+    }
     match run_pager(output) {
         Ok(()) => Ok(()),
         Err(_) => {
@@ -46,6 +58,63 @@ pub fn emit(output: &str, mode: PagingMode) -> std::io::Result<()> {
             h.flush()
         }
     }
+}
+
+/// Whether the rendered output is short enough to display without paging. We
+/// estimate the display height as the number of lines and compare it with the
+/// terminal's row count.
+fn fits_on_one_screen(output: &str) -> bool {
+    let Some(rows) = terminal_rows() else {
+        // Can't determine terminal size: conservatively page.
+        return false;
+    };
+    if rows == 0 {
+        return false;
+    }
+    let lines = output.bytes().filter(|&b| b == b'\n').count() + 1;
+    lines <= rows as usize
+}
+
+/// Number of rows in the terminal (from the `TIOCGWINSZ` ioctl on stdout).
+#[cfg(unix)]
+fn terminal_rows() -> Option<u16> {
+    use std::os::fd::AsRawFd;
+
+    #[repr(C)]
+    struct WinSize {
+        ws_row: u16,
+        ws_col: u16,
+        ws_xpixel: u16,
+        ws_ypixel: u16,
+    }
+    #[cfg(target_os = "macos")]
+    const TIOCGWINSZ: u64 = 0x40087468; // _IOR('t', 104, struct winsize)
+    #[cfg(target_os = "linux")]
+    const TIOCGWINSZ: u64 = 0x5413;
+
+    unsafe extern "C" {
+        #[link_name = "ioctl"]
+        fn ioctl(fd: i32, request: u64, ...) -> i32;
+    }
+
+    let mut ws = WinSize {
+        ws_row: 0,
+        ws_col: 0,
+        ws_xpixel: 0,
+        ws_ypixel: 0,
+    };
+    let fd = std::io::stdout().as_raw_fd();
+    let rc = unsafe { ioctl(fd, TIOCGWINSZ, &mut ws as *mut WinSize) };
+    if rc == 0 && ws.ws_row > 0 {
+        Some(ws.ws_row)
+    } else {
+        None
+    }
+}
+
+#[cfg(not(unix))]
+fn terminal_rows() -> Option<u16> {
+    std::env::var("LINES").ok().and_then(|s| s.parse().ok())
 }
 
 /// Enter / leave the alternate screen buffer, so the pager's content never
@@ -84,15 +153,25 @@ fn run_pager(output: &str) -> std::io::Result<()> {
     }
 
     let result = (|| -> std::io::Result<()> {
-        let mut child = Command::new(&prog)
+        let mut child = match Command::new(&prog)
             .args(&args)
             .stdin(Stdio::piped())
-            .spawn()?;
+            .spawn()
+        {
+            Ok(c) => c,
+            // Only a failure to *spawn* the pager (e.g. binary not found) is a
+            // real error that should fall back to writing to stdout.
+            Err(e) => return Err(e),
+        };
+        // The user may quit the pager partway through the write: `less` exits,
+        // its stdin pipe breaks, and `write_all` returns a broken-pipe error.
+        // delta treats that as a clean stop (`BrokenPipe => return Ok(0)`),
+        // NOT as a reason to dump the remaining output to stdout.
         if let Some(mut stdin) = child.stdin.take() {
-            stdin.write_all(output.as_bytes())?;
+            let _ = stdin.write_all(output.as_bytes());
             // Dropping stdin closes the pipe so less sees end of input.
         }
-        child.wait()?;
+        let _ = child.wait();
         Ok(())
     })();
 

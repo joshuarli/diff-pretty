@@ -87,11 +87,17 @@ The binary pages like delta when attached to a terminal:
 - `--paging=never` / `--no-pager` — always write to stdout.
 
 The pager is `$PAGER` (default `less -R`; `-R` is added for `less` when missing).
-When stdout is a terminal, the whole pager session is wrapped in the alternate
-screen buffer (`\x1b[?1049h` / `\x1b[?1049l`, with `less -X` so it doesn't manage
-the screen itself), so the paged output is discarded on quit and never pollutes
-the terminal scrollback. Piping/redirection (`--paging=always` on a non-tty)
-emits no such sequences.
+
+In `--paging=auto` (the default), output that fits on one screen is written
+straight to stdout, so it stays in the terminal scrollback like delta. Only
+**multi-screen** output pages, and it is wrapped in the alternate screen buffer
+(`\x1b[?1049h` / `\x1b[?1049l`, with `less -X` so the pager doesn't manage the
+screen itself), so the paged output is discarded on quit and never pollutes the
+scrollback. This avoids the "content blinks out and reverts" problem that the
+alternate screen alone causes for small diffs (with `less -F` facing-terminal
+behavior). Terminal height comes from the `TIOCGWINSZ` ioctl; paging only
+happens when a height is available. Piping/redirection (`--paging=always` on a
+non-tty) emits no alternate-screen sequences.
 
 **Quitting the pager.** When the user quits the pager, the write to its stdin
 gets a broken pipe; we treat that as a clean stop (matching delta's
