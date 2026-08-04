@@ -1,6 +1,8 @@
 //! The delta-subset renderer: parse `git show` output and emit bytes matching
 //! the oracle byte-for-byte under the hardcoded config.
 
+use std::borrow::Cow;
+
 use crate::config::*;
 /// An ANSI color, mirroring the (subset of) `nu_ansi_term` colors in play.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -14,14 +16,21 @@ pub enum Color {
 }
 
 impl Color {
-    fn fg_code(self) -> String {
+    /// Append this color's SGR code (after the `38;5;` / `38;2;` prefix for
+    /// fixed/rgb) directly to `out` — the no-allocation form of `fg_code`.
+    fn push_code(self, out: &mut String) {
+        use std::fmt::Write as _;
         match self {
-            Color::Red => "31".into(),
-            Color::Green => "32".into(),
-            Color::Blue => "34".into(),
-            Color::Magenta => "35".into(),
-            Color::Fixed(n) => format!("38;5;{n}"),
-            Color::Rgb(r, g, b) => format!("38;2;{r};{g};{b}"),
+            Color::Red => out.push_str("31"),
+            Color::Green => out.push_str("32"),
+            Color::Blue => out.push_str("34"),
+            Color::Magenta => out.push_str("35"),
+            Color::Fixed(n) => {
+                let _ = write!(out, "38;5;{n}");
+            }
+            Color::Rgb(r, g, b) => {
+                let _ = write!(out, "38;2;{r};{g};{b}");
+            }
         }
     }
 }
@@ -61,22 +70,40 @@ impl Style {
         self.fg.is_none() && !self.bold && !self.reverse
     }
 
-    /// The full SGR prefix for this style (empty when plain).
-    pub fn prefix(&self) -> String {
+    /// Append the full SGR prefix for this style (nothing when plain) directly
+    /// to `out`. The hot path's transition writer uses this so per-segment
+    /// prefixes never build a temporary `String`.
+    pub fn push_prefix(&self, out: &mut String) {
         if self.is_plain() {
-            return String::new();
+            return;
         }
-        let mut codes: Vec<String> = Vec::new();
+        out.push_str("\x1b[");
+        let mut first = true;
         if self.bold {
-            codes.push("1".into());
+            out.push('1');
+            first = false;
         }
         if self.reverse {
-            codes.push("7".into());
+            if !first {
+                out.push(';');
+            }
+            out.push('7');
+            first = false;
         }
         if let Some(fg) = self.fg {
-            codes.push(fg.fg_code());
+            if !first {
+                out.push(';');
+            }
+            fg.push_code(out);
         }
-        format!("\x1b[{}m", codes.join(";"))
+        out.push('m');
+    }
+
+    /// The full SGR prefix for this style (empty when plain).
+    pub fn prefix(&self) -> String {
+        let mut out = String::new();
+        self.push_prefix(&mut out);
+        out
     }
 }
 
@@ -163,29 +190,51 @@ pub struct Writer {
 
 impl Writer {
     pub fn new() -> Self {
+        Self::with_capacity(0)
+    }
+
+    /// A writer with `out` pre-sized for roughly `cap` bytes, avoiding the
+    /// per-line growth reallocations on the hunk-line hot path.
+    pub fn with_capacity(cap: usize) -> Self {
         Writer {
-            out: String::new(),
+            out: String::with_capacity(cap),
             cur: Style::plain(),
             started: false,
         }
     }
-    pub fn push(&mut self, style: Style, text: &str) {
+
+    /// Emit the minimal transition to `style` (first full prefix, else the
+    /// add-only difference or a reset + new prefix), writing SGR codes directly
+    /// into the buffer without temporary `String`s.
+    fn transition(&mut self, style: Style) {
         if !self.started {
-            self.out.push_str(&style.prefix());
+            style.push_prefix(&mut self.out);
             self.started = true;
         } else {
             match difference(&self.cur, &style) {
-                Difference::Extra(s) => self.out.push_str(&s.prefix()),
+                Difference::Extra(s) => s.push_prefix(&mut self.out),
                 Difference::Reset => {
                     self.out.push_str(sgr::RESET);
-                    self.out.push_str(&style.prefix());
+                    style.push_prefix(&mut self.out);
                 }
                 Difference::Empty => {}
             }
         }
         self.cur = style;
+    }
+
+    pub fn push(&mut self, style: Style, text: &str) {
+        self.transition(style);
         self.out.push_str(text);
     }
+
+    /// Push a line-number cell in `style`, formatted directly into the buffer
+    /// (no intermediate String per cell).
+    pub fn push_num(&mut self, style: Style, number: Option<usize>, width: usize) {
+        self.transition(style);
+        crate::config::push_pad_number(&mut self.out, number, width);
+    }
+
     /// Flush the buffered line into `out`, applying the final reset rule.
     pub fn flush(&mut self, out: &mut String) {
         out.push_str(&self.out);
@@ -197,19 +246,57 @@ impl Writer {
         self.started = false;
     }
 }
-/// A "cell" = a `{nm:^4}` / `{np:^4}` field. width is
-/// `max(4, hunk_max_line_number_width)`.
-pub struct LineCell {
-    pub width: usize,
-}
-
-impl LineCell {
-    pub fn blank(&self) -> String {
-        pad_number(None, self.width)
+/// Write one hunk body line: the two blue-bordered line-number cells (minus /
+/// plus) and the content sections, styled and emitted directly into `out`.
+///
+/// `sections` are the word-diff `(is_emph, text)` runs; `base_emph` /
+/// `base_plain` pick the minus or plus palette. When `ws_error` is set, the
+/// trailing whitespace-only run of sections gets the whitespace-error style
+/// (delta does this for plus lines only). Empty sections are skipped, matching
+/// delta's `paint_line`.
+fn write_hunk_line(
+    out: &mut String,
+    width: usize,
+    minus_style: Style,
+    plus_style: Style,
+    minus_n: Option<usize>,
+    plus_n: Option<usize>,
+    sections: &[(bool, &str)],
+    base_emph: Style,
+    base_plain: Style,
+    ws_error: bool,
+) {
+    let trailing_ws_start = if ws_error {
+        sections
+            .iter()
+            .rposition(|(_, t)| !t.trim().is_empty())
+            .map(|i| i + 1)
+            .unwrap_or(0)
+    } else {
+        sections.len()
+    };
+    let cap = 2 * width + 16 + sections.iter().map(|(_, t)| t.len()).sum::<usize>();
+    let mut w = Writer::with_capacity(cap);
+    w.push(STYLE_BLUE, "");
+    w.push_num(minus_style, minus_n, width);
+    w.push(STYLE_BLUE, "");
+    w.push_num(plus_style, plus_n, width);
+    w.push(STYLE_BLUE, "");
+    for (i, &(emph, text)) in sections.iter().enumerate() {
+        if text.is_empty() {
+            continue;
+        }
+        let style = if i >= trailing_ws_start {
+            STYLE_WS_ERROR
+        } else if emph {
+            base_emph
+        } else {
+            base_plain
+        };
+        w.push(style, text);
     }
-    pub fn num(&self, n: usize) -> String {
-        pad_number(Some(n), self.width)
-    }
+    w.flush(out);
+    out.push('\n');
 }
 
 /// Renders a `git show` buffer to a String.
@@ -220,7 +307,10 @@ pub fn render(input: &str) -> String {
     // regions that delta reproduces verbatim (commit meta), and a stripped copy
     // for parsing; hunk lines are re-styled by us regardless of input color.
     let raw_lines: Vec<&str> = input.lines().collect();
-    let lines: Vec<String> = raw_lines.iter().map(|l| strip_sgr(l)).collect();
+    // The stripped copy is a `Cow`: lines without SGR codes are borrowed
+    // straight from `input` (the common case), so plain inputs allocate
+    // nothing per line.
+    let lines: Vec<Cow<str>> = raw_lines.iter().map(|l| strip_sgr(l)).collect();
     let mut i = 0;
 
     // ---- file / hunk sections ----
@@ -310,83 +400,50 @@ pub fn render(input: &str) -> String {
                 .saturating_add(minus_len)
                 .max(plus_start.saturating_add(plus_len));
             let cell_width = (4).max(num_digits(hunk_max));
-            let cell = LineCell { width: cell_width };
 
             let mut minus_n = minus_start;
             let mut plus_n = plus_start;
-            let mut minus_buf: Vec<String> = Vec::new();
-            let mut plus_buf: Vec<String> = Vec::new();
+            let mut minus_buf: Vec<Cow<str>> = Vec::new();
+            let mut plus_buf: Vec<Cow<str>> = Vec::new();
 
             // Flush a buffered run of minus/plus lines (delta paints all minus
             // then all plus within a run) with word-diff inference.
             macro_rules! flush_run {
                 () => {{
                     if !minus_buf.is_empty() || !plus_buf.is_empty() {
-                        let minus_strs: Vec<&str> = minus_buf.iter().map(|s| s.as_str()).collect();
-                        let plus_strs: Vec<&str> = plus_buf.iter().map(|s| s.as_str()).collect();
+                        let minus_strs: Vec<&str> = minus_buf.iter().map(|s| s.as_ref()).collect();
+                        let plus_strs: Vec<&str> = plus_buf.iter().map(|s| s.as_ref()).collect();
                         let res = crate::edits::infer_edits(&minus_strs, &plus_strs);
                         for sections in &res.minus_sections {
-                            let left = cell.num(minus_n);
-                            let right = cell.blank();
-                            // An entirely empty line paints plain (delta marks
-                            // empty minus/plus lines without a fill color).
-                            let content: Vec<(Style, &str)> = if sections.len() == 1
-                                && sections[0].1.is_empty()
-                            {
-                                vec![(STYLE_PLAIN, "")]
-                            } else {
-                                sections
-                                    .iter()
-                                    .map(|(e, t)| (if *e { STYLE_MINUS_EMPH } else { STYLE_MINUS }, *t))
-                                    .collect()
-                            };
                             write_hunk_line(
                                 &mut out,
-                                &[
-                                    (STYLE_BLUE, ""),
-                                    (STYLE_MINUS_NUM, &left),
-                                    (STYLE_BLUE, ""),
-                                    (STYLE_PLUS_NUM, &right),
-                                    (STYLE_BLUE, ""),
-                                ],
-                                &content,
+                                cell_width,
+                                STYLE_MINUS_NUM,
+                                STYLE_PLUS_NUM,
+                                Some(minus_n),
+                                None,
+                                sections,
+                                STYLE_MINUS_EMPH,
+                                STYLE_MINUS,
+                                false,
                             );
                             minus_n += 1;
                         }
                         for sections in &res.plus_sections {
-                            let left = cell.blank();
-                            let right = cell.num(plus_n);
-                            let mut content: Vec<(Style, &str)> = if sections.len() == 1
-                                && sections[0].1.is_empty()
-                            {
-                                vec![(STYLE_PLAIN, "")]
-                            } else {
-                                sections
-                                    .iter()
-                                    .map(|(e, t)| (if *e { STYLE_PLUS_EMPH } else { STYLE_PLUS }, *t))
-                                    .collect()
-                            };
                             // Trailing whitespace on added lines is a whitespace
                             // error, styled with the ws-error style (delta does
                             // this for plus lines only).
-                            let mut ws = true;
-                            for (style, text) in content.iter_mut().rev() {
-                                if ws && text.trim().is_empty() {
-                                    *style = STYLE_WS_ERROR;
-                                } else {
-                                    ws = false;
-                                }
-                            }
                             write_hunk_line(
                                 &mut out,
-                                &[
-                                    (STYLE_BLUE, ""),
-                                    (STYLE_MINUS_NUM, &left),
-                                    (STYLE_BLUE, ""),
-                                    (STYLE_PLUS_NUM, &right),
-                                    (STYLE_BLUE, ""),
-                                ],
-                                &content,
+                                cell_width,
+                                STYLE_MINUS_NUM,
+                                STYLE_PLUS_NUM,
+                                None,
+                                Some(plus_n),
+                                sections,
+                                STYLE_PLUS_EMPH,
+                                STYLE_PLUS,
+                                true,
                             );
                             plus_n += 1;
                         }
@@ -404,19 +461,18 @@ pub fn render(input: &str) -> String {
                 }
                 if let Some(body) = l.strip_prefix(' ') {
                     flush_run!();
-                    let left = cell.num(minus_n);
-                    let right = cell.num(plus_n);
                     let body = expand_tabs(body);
                     write_hunk_line(
                         &mut out,
-                        &[
-                            (STYLE_BLUE, ""),
-                            (STYLE_ZERO, &left),
-                            (STYLE_BLUE, ""),
-                            (STYLE_ZERO, &right),
-                            (STYLE_BLUE, ""),
-                        ],
-                        &[(STYLE_PLAIN, &body)],
+                        cell_width,
+                        STYLE_ZERO,
+                        STYLE_ZERO,
+                        Some(minus_n),
+                        Some(plus_n),
+                        &[(false, body.as_ref())],
+                        STYLE_PLAIN,
+                        STYLE_PLAIN,
+                        false,
                     );
                     minus_n += 1;
                     plus_n += 1;
@@ -429,7 +485,7 @@ pub fn render(input: &str) -> String {
                     i += 1;
                 } else {
                     flush_run!();
-                    out.push_str(l.as_str());
+                    out.push_str(l);
                     out.push('\n');
                     i += 1;
                 }
@@ -455,21 +511,6 @@ pub fn render(input: &str) -> String {
     }
 
     out
-}
-
-fn write_hunk_line(out: &mut String, numbers: &[(Style, &str)], content: &[(Style, &str)]) {
-    let mut w = Writer::new();
-    for &(s, t) in numbers {
-        w.push(s, t);
-    }
-    for &(s, t) in content {
-        // delta skips empty-text content sections in `paint_line`.
-        if !t.is_empty() {
-            w.push(s, t);
-        }
-    }
-    w.flush(out);
-    out.push('\n');
 }
 
 #[derive(Debug)]
@@ -662,18 +703,23 @@ fn file_decor(fi: &FileInfo) -> String {
 
 /// Replace each tab with a constant number of spaces (`--tabs` default 8),
 /// matching delta's `tabs::expand`: `line.split('\t').join("        ")`. It is
-/// not tab-stop alignment.
-fn expand_tabs(s: &str) -> String {
+/// not tab-stop alignment. Lines without a tab are returned borrowed, so the
+/// common case allocates nothing.
+fn expand_tabs(s: &str) -> Cow<'_, str> {
     const TAB_STOP: &str = "        ";
     if !s.as_bytes().contains(&b'\t') {
-        return s.to_string();
+        return Cow::Borrowed(s);
     }
-    s.split('\t').collect::<Vec<_>>().join(TAB_STOP)
+    Cow::Owned(s.replace('\t', TAB_STOP))
 }
 
 /// Remove CSI SGR escape sequences (`ESC [ ... m`) from a line, so git's
-/// colorized pager input can be parsed the same as plain input.
-fn strip_sgr(s: &str) -> String {
+/// colorized pager input can be parsed the same as plain input. Lines without
+/// any escape sequence are returned borrowed.
+fn strip_sgr(s: &str) -> Cow<'_, str> {
+    if !s.as_bytes().contains(&b'\x1b') {
+        return Cow::Borrowed(s);
+    }
     let mut out = String::with_capacity(s.len());
     let mut chars = s.chars();
     while let Some(c) = chars.next() {
@@ -687,7 +733,7 @@ fn strip_sgr(s: &str) -> String {
             out.push(c);
         }
     }
-    out
+    Cow::Owned(out)
 }
 
 /// Emit the hunk-header box for `hunk-header-style = none` on a `@@` line that

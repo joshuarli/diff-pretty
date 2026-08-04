@@ -2,8 +2,6 @@
 //! `src/align.rs` (costs, parent pointers, tie-breaking, and operation order all
 //! matter for byte-for-byte output).
 
-use std::cmp::max;
-
 const DELETION_COST: usize = 2;
 const INSERTION_COST: usize = 2;
 const INITIAL_MISMATCH_PENALTY: usize = 1;
@@ -33,18 +31,38 @@ pub struct Alignment<'a> {
 
 impl<'a> Alignment<'a> {
     pub fn new(x: Vec<&'a str>, y: Vec<&'a str>) -> Self {
-        let dim = [y.len() + 1, x.len() + 1];
-        let table = vec![
-            Cell {
-                parent: 0,
-                operation: NoOp,
-                cost: 0,
-            };
-            dim[0] * dim[1]
-        ];
-        let mut alignment = Self { x, y, table, dim };
-        alignment.fill();
+        let mut alignment = Self {
+            x: Vec::new(),
+            y: Vec::new(),
+            table: Vec::new(),
+            dim: [0, 0],
+        };
+        alignment.reset(x, y);
         alignment
+    }
+
+    /// Reset the alignment to new sequences, reusing the existing buffers when
+    /// they are large enough. Word-diff infers candidate pairings by running
+    /// this repeatedly, so avoiding a fresh table allocation per candidate is
+    /// the hot-path win.
+    pub fn reset(&mut self, x: Vec<&'a str>, y: Vec<&'a str>) {
+        self.x = x;
+        self.y = y;
+        self.dim = [self.y.len() + 1, self.x.len() + 1];
+        let size = self.dim[0] * self.dim[1];
+        if self.table.len() < size {
+            self.table = vec![
+                Cell {
+                    parent: 0,
+                    operation: NoOp,
+                    cost: 0,
+                };
+                size
+            ];
+        } else {
+            self.table.truncate(size);
+        }
+        self.fill();
     }
 
     fn fill(&mut self) {
@@ -110,48 +128,37 @@ impl<'a> Alignment<'a> {
             }
     }
 
-    pub fn operations(&self) -> Vec<Operation> {
-        let mut ops = Vec::with_capacity(max(self.x.len(), self.y.len()));
+    pub fn coalesced_operations(&self) -> Vec<(Operation, usize)> {
+        // Run-length encode the backtrace in a single pass, without building an
+        // intermediate Vec<Operation>. The backtrace is walked bottom-right to
+        // top-left; runs are pushed in reverse, then flipped at the end.
+        let mut encoded: Vec<(Operation, usize)> = Vec::new();
         let mut p = self.index(self.x.len(), self.y.len());
+        let mut run: usize = 0;
+        let mut curr_op = Operation::NoOp;
         loop {
             let cell = &self.table[p];
-            ops.push(cell.operation);
+            if run == 0 {
+                curr_op = cell.operation;
+                run = 1;
+            } else if cell.operation == curr_op {
+                run += 1;
+            } else {
+                encoded.push((curr_op, run));
+                curr_op = cell.operation;
+                run = 1;
+            }
             if cell.parent == 0 {
                 break;
             }
             p = cell.parent;
         }
-        ops.reverse();
-        ops
-    }
-
-    pub fn coalesced_operations(&self) -> Vec<(Operation, usize)> {
-        run_length_encode(self.operations())
+        encoded.push((curr_op, run));
+        encoded.reverse();
+        encoded
     }
 
     fn index(&self, i: usize, j: usize) -> usize {
         j * self.dim[1] + i
-    }
-}
-
-fn run_length_encode<T: Copy + PartialEq>(sequence: Vec<T>) -> Vec<(T, usize)> {
-    let mut encoded = Vec::with_capacity(sequence.len());
-    if sequence.is_empty() {
-        return encoded;
-    }
-    let end = sequence.len();
-    let (mut i, mut j) = (0, 1);
-    let mut curr = &sequence[i];
-    loop {
-        if j == end || sequence[j] != *curr {
-            encoded.push((*curr, j - i));
-            if j == end {
-                return encoded;
-            } else {
-                curr = &sequence[j];
-                i = j;
-            }
-        }
-        j += 1;
     }
 }

@@ -1,17 +1,17 @@
 # benchmark baseline
 # host: mac-m1-10-32gb
 # columns: benchmark median_ns alloc_count alloc_bytes
-infer_edits_balanced_200	1201000	5403	4461691
-infer_edits_identical_200	1156000	5403	4461691
-infer_edits_imbalanced_76_4	25370	183	89170
-infer_edits_long_line	20940	65	79903
-pad_number_centered_10k	574700	20000	163840
-render_log_000	988400	15209	2107638
-render_log_000_color	1005000	15209	2112881
-render_plain_unified	5855	187	6157
-render_show_corpus	15100000	212988	33271316
-render_synthetic_100kb	3245000	64395	6731858
-render_synthetic_10mb	318400000	6232159	653787136
-render_synthetic_1mb	32600000	639775	66983035
-render_synthetic_colorized_1mb	28280000	559043	58657341
-render_synthetic_tabs_1mb	42170000	646008	108947046
+infer_edits_balanced_200	1099000	5005	438989
+infer_edits_identical_200	10160	404	10183
+infer_edits_imbalanced_76_4	24990	177	29706
+infer_edits_long_line	21280	65	79053
+pad_number_centered_10k	139900	1	32
+render_log_000	625500	2290	1195377
+render_log_000_color	668900	2816	1218445
+render_plain_unified	2457	38	2628
+render_show_corpus	10420000	40857	20038287
+render_synthetic_100kb	1498000	9959	3909091
+render_synthetic_10mb	149000000	963487	380213658
+render_synthetic_1mb	14990000	98911	38912655
+render_synthetic_colorized_1mb	14680000	103935	34959524
+render_synthetic_tabs_1mb	23780000	112916	68880957

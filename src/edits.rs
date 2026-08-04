@@ -96,7 +96,7 @@ fn contents_before_trailing_whitespace(line: &str) -> Option<&str> {
 
 /// Annotate a paired minus/plus line into sections of (is_emph, text).
 fn annotate<'a>(
-    alignment: Alignment<'a>,
+    alignment: &Alignment<'a>,
     minus_line: &'a str,
     plus_line: &'a str,
 ) -> (Vec<(bool, &'a str)>, Vec<(bool, &'a str)>, f64) {
@@ -192,12 +192,30 @@ pub fn infer_edits<'a>(minus_lines: &[&'a str], plus_lines: &[&'a str]) -> EditR
 
     let mut plus_index = 0;
 
+    // Word-diff alignment buffers, reused across every candidate pairing.
+    let mut alignment = Alignment::new(Vec::new(), Vec::new());
+
     'minus_loop: for (minus_index, minus_line) in minus_lines.iter().enumerate() {
         let minus_line: &str = minus_line;
         let mut considered = 0;
         for plus_line in &plus_lines[plus_index..] {
-            let alignment = Alignment::new(tokenize(minus_line), tokenize(plus_line));
-            let (am, ap, distance) = annotate(alignment, minus_line, plus_line);
+            // Identical lines always align with distance 0.0, so they can be
+            // annotated directly without running the NW table (they are the
+            // first candidate, so no backtracking is affected).
+            if *plus_line == minus_line {
+                annotated_minus.push(vec![(false, minus_line)]);
+                if let Some(content) = contents_before_trailing_whitespace(minus_line) {
+                    annotated_plus
+                        .push(vec![(false, content), (false, &minus_line[content.len()..])]);
+                } else {
+                    annotated_plus.push(vec![(false, minus_line)]);
+                }
+                line_alignment.push((Some(minus_index), Some(plus_index)));
+                plus_index += 1;
+                continue 'minus_loop;
+            }
+            alignment.reset(tokenize(minus_line), tokenize(plus_line));
+            let (am, ap, distance) = annotate(&alignment, minus_line, plus_line);
             if (minus_lines.len() == plus_lines.len()
                 && distance <= MAX_LINE_DISTANCE_NAIVE)
                 || distance <= MAX_LINE_DISTANCE

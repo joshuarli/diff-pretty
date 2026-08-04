@@ -3,6 +3,8 @@
 //! All values are literal translations of the delta config that the test
 //! harness pins on the oracle. See the crate docs for the full config.
 
+use std::fmt::Write as _;
+
 /// ANSI SGR sequences used by the renderer. These mirror the exact bytes delta
 /// emits for each style; an `ansi_term`-style writer coalesces adjacent
 /// segments (emit prefix only on style change, reset on transition to plain,
@@ -33,27 +35,45 @@ pub mod sgr {
     pub const RIGHT_ARROW: &str = "\u{27f6}  "; // ⟶  (arrow + two spaces)
 }
 
+/// Append a `{nm:^4}` / `{np:^4}` line-number cell for `line_number` (or
+/// `width` spaces when `None`) directly to `out`, without a temporary String.
+/// Keeps `pad_number`'s "center-right" shift for odd width/digit-count parity.
+///
+/// This is the allocation-free form used by the renderer's hot path (one cell
+/// per hunk line, twice per line).
+pub fn push_pad_number(out: &mut String, line_number: Option<usize>, width: usize) {
+    let Some(n) = line_number else {
+        push_spaces(out, width);
+        return;
+    };
+    let n_width = num_digits(n);
+    let pad = width.saturating_sub(n_width);
+    let left = pad / 2;
+    let right = pad - left;
+    if pad > 0 && width % 2 != n_width % 2 {
+        // " " + centered-with-last-char-dropped (delta's center-right shift).
+        out.push(' ');
+        push_spaces(out, left);
+        let _ = write!(out, "{n}");
+        push_spaces(out, right - 1);
+    } else {
+        push_spaces(out, left);
+        let _ = write!(out, "{n}");
+        push_spaces(out, right);
+    }
+}
+
+fn push_spaces(out: &mut String, count: usize) {
+    out.extend(std::iter::repeat_n(' ', count));
+}
+
 /// The line-numbers format `{nm:^4}` / `{np:^4}`: a centered field of width 4,
 /// with delta's special "center-right" shift for single-digit numbers. A
 /// missing number produces `width` spaces.
 pub fn pad_number(line_number: Option<usize>, width: usize) -> String {
-    match line_number {
-        None => " ".repeat(width),
-        Some(n) => {
-            let n_width = num_digits(n);
-            let space = if width > n_width && (width % 2 != n_width % 2) {
-                " "
-            } else {
-                ""
-            };
-            let centered = format!("{n:^width$}");
-            let mut s = format!("{space}{centered}");
-            if space == " " {
-                s.pop();
-            }
-            s
-        }
-    }
+    let mut out = String::with_capacity(width);
+    push_pad_number(&mut out, line_number, width);
+    out
 }
 
 /// floor(log10(n)) + 1, with 0 treated as 1 digit.

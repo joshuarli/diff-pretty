@@ -371,8 +371,11 @@ fn infer_edits_long_line(b: Bencher) {
 fn pad_number_centered_10k(b: Bencher) {
     b.bench_local(|| {
         let mut bytes = 0usize;
+        let mut buf = String::with_capacity(32);
         for n in 0..10_000 {
-            bytes += config::pad_number(Some(n), 4).len();
+            buf.clear();
+            config::push_pad_number(&mut buf, Some(n), 4);
+            bytes += buf.len();
         }
         black_box(bytes)
     });
