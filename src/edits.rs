@@ -6,7 +6,7 @@
 //! The tokenization regex (hardcoded `\w+`) and all costs/thresholds mirror the
 //! oracle config.
 
-use crate::align::{Alignment, Operation};
+use crate::align::{Alignment, Cell, Operation};
 
 /// is a Unicode `\w` word char (approximation of regex `\w`, exact for ASCII).
 fn is_word_char(c: char) -> bool {
@@ -187,15 +187,203 @@ const MAX_LINE_DISTANCE: f64 = 0.6;
 const MAX_LINE_DISTANCE_NAIVE: f64 = 0.0;
 
 pub struct EditResult<'a> {
-    pub minus_sections: Vec<Vec<(bool, &'a str)>>,
-    pub plus_sections: Vec<Vec<(bool, &'a str)>>,
+    /// All minus-line sections flattened into one run.
+    pub minus_sections: Vec<(bool, &'a str)>,
+    /// All plus-line sections flattened into one run.
+    pub plus_sections: Vec<(bool, &'a str)>,
+    /// Per minus line, the `(start, len)` window into `minus_sections`.
+    pub minus_ranges: Vec<(usize, usize)>,
+    /// Per plus line, the `(start, len)` window into `plus_sections`.
+    pub plus_ranges: Vec<(usize, usize)>,
     pub alignment: Vec<(Option<usize>, Option<usize>)>,
 }
 
-/// Pair and annotate buffered minus/plus lines (order preserved).
-pub fn infer_edits<'a>(minus_lines: &[&'a str], plus_lines: &[&'a str]) -> EditResult<'a> {
-    let mut annotated_minus = Vec::new();
-    let mut annotated_plus = Vec::new();
+/// Result of a `WordDiffScratch::infer_edits` call: the flat section runs are
+/// owned (the caller consumes them), while the per-line ranges borrow the
+/// scratch and stay valid until the scratch is next reused.
+pub struct InferOut<'h, 's> {
+    /// All minus-line sections flattened into one run.
+    pub minus_sections: Vec<(bool, &'h str)>,
+    /// All plus-line sections flattened into one run.
+    pub plus_sections: Vec<(bool, &'h str)>,
+    /// Per minus line, the `(start, len)` window into `minus_sections`.
+    pub minus_ranges: &'s [(usize, usize)],
+    /// Per plus line, the `(start, len)` window into `plus_sections`.
+    pub plus_ranges: &'s [(usize, usize)],
+}
+
+/// Reusable word-diff buffers, hoisted to the caller's scope so per-hunk
+/// `infer_edits` calls allocate only the two flat section runs (consumed by
+/// value). Everything else — per-line ranges, line alignment, operation runs,
+/// and the NW table — is cleared and reused across calls, and the reused
+/// buffers are pre-sized from the hunk's known line counts.
+pub struct WordDiffScratch {
+    minus_ranges: Vec<(usize, usize)>,
+    plus_ranges: Vec<(usize, usize)>,
+    line_alignment: Vec<(Option<usize>, Option<usize>)>,
+    ops: Vec<(Operation, usize)>,
+    cells: Vec<Cell>,
+}
+
+impl Default for WordDiffScratch {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl WordDiffScratch {
+    pub fn new() -> Self {
+        Self {
+            minus_ranges: Vec::new(),
+            plus_ranges: Vec::new(),
+            line_alignment: Vec::new(),
+            ops: Vec::new(),
+            cells: Vec::new(),
+        }
+    }
+
+    /// Pair and annotate buffered minus/plus lines (order preserved), reusing
+    /// the scratch buffers. See [`infer_edits`] for the pairing semantics.
+    ///
+    /// Generic over any `S: AsRef<str>` element so callers pass `&[&str]`,
+    /// `&[String]`, or `&[Cow<str>]` directly — no intermediate `&str` slice is
+    /// collected. The section runs are stored flat with per-line `(start, len)`
+    /// ranges, so no per-line `Vec` is heap-allocated.
+    pub fn infer_edits<'h, 's, S: AsRef<str>>(
+        &'s mut self,
+        minus_lines: &'h [S],
+        plus_lines: &'h [S],
+    ) -> InferOut<'h, 's> {
+        self.minus_ranges.clear();
+        self.plus_ranges.clear();
+        self.line_alignment.clear();
+        self.ops.clear();
+
+        let mut annotated_minus: Vec<(bool, &'h str)> = Vec::new();
+        let mut annotated_plus: Vec<(bool, &'h str)> = Vec::new();
+        annotated_minus.reserve(minus_lines.len() * 2);
+        annotated_plus.reserve(plus_lines.len() * 2);
+        self.minus_ranges.reserve(minus_lines.len());
+        self.plus_ranges.reserve(plus_lines.len());
+        self.line_alignment.reserve(minus_lines.len() + plus_lines.len());
+
+        let mut plus_index = 0;
+
+        // Word-diff alignment and annotation buffers, reused across every
+        // candidate pairing so failed candidates allocate nothing. The NW table
+        // allocation is carried across hunks via the scratch's `cells`.
+        let mut alignment =
+            Alignment::with_cells(Vec::new(), Vec::new(), std::mem::take(&mut self.cells));
+        let mut am: Vec<(bool, &'h str)> = Vec::new();
+        let mut ap: Vec<(bool, &'h str)> = Vec::new();
+        am.reserve(8);
+        ap.reserve(8);
+        self.ops.reserve(8);
+
+        'minus_loop: for (minus_index, minus_line) in minus_lines.iter().enumerate() {
+            let minus_line: &'h str = minus_line.as_ref();
+        let mut considered = 0;
+        for plus_line in &plus_lines[plus_index..] {
+            let plus_line: &'h str = plus_line.as_ref();
+            // Identical lines always align with distance 0.0, so they can be
+            // annotated directly without running the NW table (they are the
+            // first candidate, so no backtracking is affected).
+            if plus_line == minus_line {
+                let start = annotated_minus.len();
+                annotated_minus.push((false, minus_line));
+                self.minus_ranges.push((start, 1));
+                let start = annotated_plus.len();
+                if let Some(content) = contents_before_trailing_whitespace(minus_line) {
+                    annotated_plus.push((false, content));
+                    annotated_plus.push((false, &minus_line[content.len()..]));
+                    self.plus_ranges.push((start, 2));
+                } else {
+                    annotated_plus.push((false, minus_line));
+                    self.plus_ranges.push((start, 1));
+                }
+                self.line_alignment.push((Some(minus_index), Some(plus_index)));
+                plus_index += 1;
+                continue 'minus_loop;
+            }
+            alignment.reset_lines(minus_line, plus_line);
+            let distance =
+                annotate(&alignment, minus_line, plus_line, &mut am, &mut ap, &mut self.ops);
+            if (minus_lines.len() == plus_lines.len()
+                && distance <= MAX_LINE_DISTANCE_NAIVE)
+                || distance <= MAX_LINE_DISTANCE
+            {
+                for pl in &plus_lines[plus_index..(plus_index + considered)] {
+                    let pl: &'h str = pl.as_ref();
+                    let start = annotated_plus.len();
+                    annotated_plus.push((false, pl));
+                    self.plus_ranges.push((start, 1));
+                    self.line_alignment.push((None, Some(plus_index)));
+                    plus_index += 1;
+                }
+                let start = annotated_minus.len();
+                annotated_minus.extend_from_slice(&am);
+                self.minus_ranges.push((start, am.len()));
+                let start = annotated_plus.len();
+                annotated_plus.extend_from_slice(&ap);
+                self.plus_ranges.push((start, ap.len()));
+                self.line_alignment.push((Some(minus_index), Some(plus_index)));
+                plus_index += 1;
+                continue 'minus_loop;
+            } else {
+                considered += 1;
+            }
+        }
+        let start = annotated_minus.len();
+        annotated_minus.push((false, minus_line));
+        self.minus_ranges.push((start, 1));
+        self.line_alignment.push((Some(minus_index), None));
+    }
+    for plus_line in &plus_lines[plus_index..] {
+        let plus_line: &'h str = plus_line.as_ref();
+        let start = annotated_plus.len();
+        if let Some(content) = contents_before_trailing_whitespace(plus_line) {
+            annotated_plus.push((false, content));
+            annotated_plus.push((false, &plus_line[content.len()..]));
+            self.plus_ranges.push((start, 2));
+        } else {
+            annotated_plus.push((false, plus_line));
+            self.plus_ranges.push((start, 1));
+        }
+        self.line_alignment.push((None, Some(plus_index)));
+        plus_index += 1;
+    }
+
+    self.cells = alignment.take_cells();
+
+    InferOut {
+        minus_sections: annotated_minus,
+        plus_sections: annotated_plus,
+        minus_ranges: &self.minus_ranges,
+        plus_ranges: &self.plus_ranges,
+    }
+}
+}
+
+/// Pair and annotate buffered minus/plus lines (order preserved) for callers
+/// that process a single buffer at a time. The renderer reuses a
+/// [`WordDiffScratch`] across hunks instead; this standalone form stays lean
+/// (no scratch is built) so single-shot callers do not allocate a scratch.
+///
+/// This mirrors `WordDiffScratch::infer_edits` byte-for-byte; the
+/// `edits_consistent_with_scratch` test locks the two paths together.
+///
+/// Generic over any `S: AsRef<str>` element so callers pass `&[&str]`,
+/// `&[String]`, or `&[Cow<str>]` directly — no intermediate `&str` slice is
+/// collected. The section runs are stored flat (one `Vec` total) with
+/// per-line `(start, len)` ranges, so no per-line `Vec` is heap-allocated.
+pub fn infer_edits<'a, S: AsRef<str>>(
+    minus_lines: &'a [S],
+    plus_lines: &'a [S],
+) -> EditResult<'a> {
+    let mut annotated_minus: Vec<(bool, &'a str)> = Vec::new();
+    let mut annotated_plus: Vec<(bool, &'a str)> = Vec::new();
+    let mut minus_ranges: Vec<(usize, usize)> = Vec::new();
+    let mut plus_ranges: Vec<(usize, usize)> = Vec::new();
     let mut line_alignment = Vec::new();
 
     let mut plus_index = 0;
@@ -208,19 +396,25 @@ pub fn infer_edits<'a>(minus_lines: &[&'a str], plus_lines: &[&'a str]) -> EditR
     let mut ops: Vec<(Operation, usize)> = Vec::new();
 
     'minus_loop: for (minus_index, minus_line) in minus_lines.iter().enumerate() {
-        let minus_line: &str = minus_line;
+        let minus_line: &'a str = minus_line.as_ref();
         let mut considered = 0;
         for plus_line in &plus_lines[plus_index..] {
+            let plus_line: &'a str = plus_line.as_ref();
             // Identical lines always align with distance 0.0, so they can be
             // annotated directly without running the NW table (they are the
             // first candidate, so no backtracking is affected).
-            if *plus_line == minus_line {
-                annotated_minus.push(vec![(false, minus_line)]);
+            if plus_line == minus_line {
+                let start = annotated_minus.len();
+                annotated_minus.push((false, minus_line));
+                minus_ranges.push((start, 1));
+                let start = annotated_plus.len();
                 if let Some(content) = contents_before_trailing_whitespace(minus_line) {
-                    annotated_plus
-                        .push(vec![(false, content), (false, &minus_line[content.len()..])]);
+                    annotated_plus.push((false, content));
+                    annotated_plus.push((false, &minus_line[content.len()..]));
+                    plus_ranges.push((start, 2));
                 } else {
-                    annotated_plus.push(vec![(false, minus_line)]);
+                    annotated_plus.push((false, minus_line));
+                    plus_ranges.push((start, 1));
                 }
                 line_alignment.push((Some(minus_index), Some(plus_index)));
                 plus_index += 1;
@@ -233,15 +427,19 @@ pub fn infer_edits<'a>(minus_lines: &[&'a str], plus_lines: &[&'a str]) -> EditR
                 || distance <= MAX_LINE_DISTANCE
             {
                 for pl in &plus_lines[plus_index..(plus_index + considered)] {
-                    let pl: &str = *pl;
-                    annotated_plus.push(vec![(false, pl)]);
+                    let pl: &'a str = pl.as_ref();
+                    let start = annotated_plus.len();
+                    annotated_plus.push((false, pl));
+                    plus_ranges.push((start, 1));
                     line_alignment.push((None, Some(plus_index)));
                     plus_index += 1;
                 }
-                annotated_minus.push(am);
-                annotated_plus.push(ap);
-                am = Vec::new();
-                ap = Vec::new();
+                let start = annotated_minus.len();
+                annotated_minus.extend_from_slice(&am);
+                minus_ranges.push((start, am.len()));
+                let start = annotated_plus.len();
+                annotated_plus.extend_from_slice(&ap);
+                plus_ranges.push((start, ap.len()));
                 line_alignment.push((Some(minus_index), Some(plus_index)));
                 plus_index += 1;
                 continue 'minus_loop;
@@ -249,15 +447,21 @@ pub fn infer_edits<'a>(minus_lines: &[&'a str], plus_lines: &[&'a str]) -> EditR
                 considered += 1;
             }
         }
-        annotated_minus.push(vec![(false, minus_line)]);
+        let start = annotated_minus.len();
+        annotated_minus.push((false, minus_line));
+        minus_ranges.push((start, 1));
         line_alignment.push((Some(minus_index), None));
     }
     for plus_line in &plus_lines[plus_index..] {
-        let plus_line: &str = *plus_line;
+        let plus_line: &'a str = plus_line.as_ref();
+        let start = annotated_plus.len();
         if let Some(content) = contents_before_trailing_whitespace(plus_line) {
-            annotated_plus.push(vec![(false, content), (false, &plus_line[content.len()..])]);
+            annotated_plus.push((false, content));
+            annotated_plus.push((false, &plus_line[content.len()..]));
+            plus_ranges.push((start, 2));
         } else {
-            annotated_plus.push(vec![(false, plus_line)]);
+            annotated_plus.push((false, plus_line));
+            plus_ranges.push((start, 1));
         }
         line_alignment.push((None, Some(plus_index)));
         plus_index += 1;
@@ -266,6 +470,62 @@ pub fn infer_edits<'a>(minus_lines: &[&'a str], plus_lines: &[&'a str]) -> EditR
     EditResult {
         minus_sections: annotated_minus,
         plus_sections: annotated_plus,
+        minus_ranges,
+        plus_ranges,
         alignment: line_alignment,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn corpus() -> (Vec<&'static str>, Vec<&'static str>) {
+        (
+            vec![
+                "let x = compute();",
+                "let y = 42;",
+                "  indented line",
+                "fn old(a: i32) -> i32 { a + 1 }",
+                "keep me",
+                "delete me",
+            ],
+            vec![
+                "let x = compute_fast();",
+                "  indented line",
+                "fn new(a: i32) -> i32 { a * 2 }",
+                "keep me",
+                "inserted line",
+            ],
+        )
+    }
+
+    #[test]
+    fn edits_consistent_with_scratch() {
+        // The single-shot `infer_edits` and the renderer's reused scratch must
+        // produce identical pairing results; this locks the two paths together.
+        let (minus, plus) = corpus();
+        let direct = infer_edits(&minus, &plus);
+
+        let mut scratch = WordDiffScratch::new();
+        let InferOut {
+            minus_sections,
+            plus_sections,
+            minus_ranges,
+            plus_ranges,
+        } = scratch.infer_edits(&minus, &plus);
+        let via_scratch = EditResult {
+            minus_sections,
+            plus_sections,
+            minus_ranges: minus_ranges.to_vec(),
+            plus_ranges: plus_ranges.to_vec(),
+            alignment: std::mem::take(&mut scratch.line_alignment),
+        };
+
+        assert_eq!(direct.minus_sections, via_scratch.minus_sections);
+        assert_eq!(direct.plus_sections, via_scratch.plus_sections);
+        assert_eq!(direct.minus_ranges, via_scratch.minus_ranges);
+        assert_eq!(direct.plus_ranges, via_scratch.plus_ranges);
+        assert_eq!(direct.alignment, via_scratch.alignment);
     }
 }

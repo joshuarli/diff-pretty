@@ -352,7 +352,7 @@ fn infer_edits_balanced_200(b: Bencher) {
     let plus: Vec<&str> = plus.iter().map(String::as_str).collect();
     b.bench_local(|| {
         let res = edits::infer_edits(&minus, &plus);
-        black_box((res.minus_sections.len(), res.plus_sections.len()))
+        black_box((res.minus_ranges.len(), res.plus_ranges.len()))
     });
 }
 
@@ -363,7 +363,7 @@ fn infer_edits_identical_200(b: Bencher) {
     let plus: Vec<&str> = plus.iter().map(String::as_str).collect();
     b.bench_local(|| {
         let res = edits::infer_edits(&minus, &plus);
-        black_box((res.minus_sections.len(), res.plus_sections.len()))
+        black_box((res.minus_ranges.len(), res.plus_ranges.len()))
     });
 }
 
@@ -374,7 +374,7 @@ fn infer_edits_imbalanced_76_4(b: Bencher) {
     let plus: Vec<&str> = plus.iter().map(String::as_str).collect();
     b.bench_local(|| {
         let res = edits::infer_edits(&minus, &plus);
-        black_box((res.minus_sections.len(), res.plus_sections.len()))
+        black_box((res.minus_ranges.len(), res.plus_ranges.len()))
     });
 }
 
@@ -391,7 +391,7 @@ fn infer_edits_long_line(b: Bencher) {
     let plus = vec![plus.as_str()];
     b.bench_local(|| {
         let res = edits::infer_edits(&minus, &plus);
-        black_box((res.minus_sections.len(), res.plus_sections.len()))
+        black_box((res.minus_ranges.len(), res.plus_ranges.len()))
     });
 }
 

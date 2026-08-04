@@ -301,25 +301,61 @@ fn write_hunk_line(
     out.push('\n');
 }
 
+/// Write one context ("zero") hunk line: the two line-number cells (both gray)
+/// and the body. Tabs are expanded inline into the line Writer (each tab to 8
+/// spaces, `--tabs` default) instead of building an intermediate `Cow`, so the
+/// context line never heap-allocates.
+fn write_zero_line(
+    out: &mut String,
+    w: &mut Writer,
+    width: usize,
+    minus_n: usize,
+    plus_n: usize,
+    body: &str,
+) {
+    w.push(STYLE_BLUE, "");
+    w.push_num(STYLE_ZERO, Some(minus_n), width);
+    w.push(STYLE_BLUE, "");
+    w.push_num(STYLE_ZERO, Some(plus_n), width);
+    w.push(STYLE_BLUE, "");
+    push_expanded_tabs(w, STYLE_PLAIN, body);
+    w.flush(out);
+    out.push('\n');
+}
+
+/// Push `s` into `w`, expanding each tab to `TAB_STOP` (8 spaces) directly in
+/// the buffer. Tab-free strings are pushed in one piece.
+fn push_expanded_tabs(w: &mut Writer, style: Style, s: &str) {
+    let mut parts = s.split('\t');
+    if let Some(first) = parts.next() {
+        w.push(style, first);
+        for part in parts {
+            w.push(style, TAB_STOP);
+            w.push(style, part);
+        }
+    }
+}
 /// Renders a `git show` buffer to a String.
 pub fn render(input: &str) -> String {
     // Reserve roughly the input size up front: output adds line-number cells
-    // and SGR codes on top of the passthrough content, so this removes most of
-    // the geometric reallocation growth of `out`.
-    let mut out = String::with_capacity(input.len() + input.len() / 2);
+    // and SGR codes on top of the passthrough content. Tab expansion grows the
+    // output by 7 bytes per tab, so those are counted in too; this removes most
+    // of the geometric reallocation growth of `out`.
+    let tab_count = input.as_bytes().iter().filter(|&&b| b == b'\t').count();
+    let mut out = String::with_capacity(input.len() + input.len() / 2 + 7 * tab_count);
     // git colorizes the diff it sends to its pager, so the input carries CSI
     // SGR codes. We keep the raw (possibly colored) lines for passthrough
     // regions that delta reproduces verbatim (commit meta), and a stripped copy
     // for parsing; hunk lines are re-styled by us regardless of input color.
     let raw_lines: Vec<&str> = input.lines().collect();
-    // The stripped copy is borrowed where possible. Plain inputs (no ESC) are
-    // borrowed straight from `input` and allocate nothing; colorized inputs are
-    // stripped into a single scratch buffer, so the N per-line `String`s of the
-    // old approach collapse into one allocation. `scratch` is pre-sized to the
+    // The stripped copy is borrowed where possible. Plain inputs (no ESC) borrow
+    // `raw_lines` directly and allocate nothing; colorized inputs are stripped
+    // into a single scratch buffer, so the N per-line `String`s of the old
+    // approach collapse into one allocation. `scratch` is pre-sized to the
     // input (stripping only removes bytes), so it never reallocates and the
     // recorded byte ranges stay valid.
     let mut scratch = String::new();
-    let lines: Vec<&str> = if input.as_bytes().contains(&b'\x1b') {
+    let lines: Cow<'_, [&str]> = if input.as_bytes().contains(&b'\x1b') {
         scratch.reserve(input.len());
         let mut ranges: Vec<(usize, usize)> = Vec::with_capacity(raw_lines.len());
         for l in &raw_lines {
@@ -327,17 +363,28 @@ pub fn render(input: &str) -> String {
             strip_sgr_append(l, &mut scratch);
             ranges.push((start, scratch.len()));
         }
-        ranges
-            .iter()
-            .map(|&(s, e)| &scratch[s..e])
-            .collect()
+        Cow::Owned(
+            ranges
+                .iter()
+                .map(|&(s, e)| &scratch[s..e])
+                .collect::<Vec<&str>>(),
+        )
     } else {
-        raw_lines.clone()
+        Cow::Borrowed(&raw_lines)
     };
     let mut i = 0;
 
     // Single line buffer reused across every hunk line (flush clears it).
     let mut line_writer = Writer::with_capacity(256);
+
+    // Buffers for a run of minus/plus lines awaiting word-diff inference,
+    // hoisted to render scope so they are allocated once, not once per hunk.
+    let mut minus_buf: Vec<Cow<str>> = Vec::new();
+    let mut plus_buf: Vec<Cow<str>> = Vec::new();
+
+    // Word-diff inference buffers, hoisted to render scope so per-hunk calls
+    // reuse the per-line ranges, alignment table, and operation runs.
+    let mut word_diff = crate::edits::WordDiffScratch::new();
 
     // ---- file / hunk sections ----
     let mut pending_file: Option<FileInfo> = None;
@@ -417,7 +464,7 @@ pub fn render(input: &str) -> String {
             // the `@@` line carries a code fragment, a box (bullet + fragment,
             // no line number). No box otherwise.
             out.push('\n');
-            emit_hunk_box(&mut out, line);
+            emit_hunk_box(&mut out, &mut line_writer, line);
             i += 1;
 
             // Parse hunk header for line counters.
@@ -429,18 +476,16 @@ pub fn render(input: &str) -> String {
 
             let mut minus_n = minus_start;
             let mut plus_n = plus_start;
-            let mut minus_buf: Vec<Cow<str>> = Vec::new();
-            let mut plus_buf: Vec<Cow<str>> = Vec::new();
 
             // Flush a buffered run of minus/plus lines (delta paints all minus
-            // then all plus within a run) with word-diff inference.
+            // then all plus within a run) with word-diff inference. The buffers
+            // are passed straight in (no `&str` collection), and the flat
+            // section runs are walked by per-line range.
             macro_rules! flush_run {
                 () => {{
                     if !minus_buf.is_empty() || !plus_buf.is_empty() {
-                        let minus_strs: Vec<&str> = minus_buf.iter().map(|s| s.as_ref()).collect();
-                        let plus_strs: Vec<&str> = plus_buf.iter().map(|s| s.as_ref()).collect();
-                        let res = crate::edits::infer_edits(&minus_strs, &plus_strs);
-                        for sections in &res.minus_sections {
+                        let res = word_diff.infer_edits(&minus_buf, &plus_buf);
+                        for &(start, len) in res.minus_ranges {
                             write_hunk_line(
                                 &mut out,
                                 &mut line_writer,
@@ -449,14 +494,14 @@ pub fn render(input: &str) -> String {
                                 STYLE_PLUS_NUM,
                                 Some(minus_n),
                                 None,
-                                sections,
+                                &res.minus_sections[start..start + len],
                                 STYLE_MINUS_EMPH,
                                 STYLE_MINUS,
                                 false,
                             );
                             minus_n += 1;
                         }
-                        for sections in &res.plus_sections {
+                        for &(start, len) in res.plus_ranges {
                             // Trailing whitespace on added lines is a whitespace
                             // error, styled with the ws-error style (delta does
                             // this for plus lines only).
@@ -468,7 +513,7 @@ pub fn render(input: &str) -> String {
                                 STYLE_PLUS_NUM,
                                 None,
                                 Some(plus_n),
-                                sections,
+                                &res.plus_sections[start..start + len],
                                 STYLE_PLUS_EMPH,
                                 STYLE_PLUS,
                                 true,
@@ -489,20 +534,7 @@ pub fn render(input: &str) -> String {
                 }
                 if let Some(body) = l.strip_prefix(' ') {
                     flush_run!();
-                    let body = expand_tabs(body);
-                    write_hunk_line(
-                        &mut out,
-                        &mut line_writer,
-                        cell_width,
-                        STYLE_ZERO,
-                        STYLE_ZERO,
-                        Some(minus_n),
-                        Some(plus_n),
-                        &[(false, body.as_ref())],
-                        STYLE_PLAIN,
-                        STYLE_PLAIN,
-                        false,
-                    );
+                    write_zero_line(&mut out, &mut line_writer, cell_width, minus_n, plus_n, body);
                     minus_n += 1;
                     plus_n += 1;
                     i += 1;
@@ -671,71 +703,80 @@ fn parse_hunk_numbers(line: &str) -> (usize, usize, usize, usize) {
     coords
 }
 
+/// The file-decoration underline: a fixed full-width (80) run of `─`.
+const BORDER_80: &str = "────────────────────────────────────────────────────────────────────────────────";
+
 fn emit_file_decoration(out: &mut String, fi: &FileInfo, addendum: Option<&str>) {
-    let mut decor = file_decor(fi);
-    if let Some(a) = addendum {
-        decor.push_str(" (");
-        decor.push_str(a);
-        decor.push(')');
-    }
     out.push('\n'); // delta writes a blank line before every file decoration
     out.push_str(sgr::BLUE);
-    out.push_str(&decor);
+    emit_file_decor(out, fi);
+    if let Some(a) = addendum {
+        out.push_str(" (");
+        out.push_str(a);
+        out.push(')');
+    }
     out.push_str(sgr::RESET);
     out.push('\n');
     // underline full width
     out.push_str(sgr::BLUE);
-    out.push_str(&sgr::HORIZONTAL.repeat(80));
+    out.push_str(BORDER_80);
     out.push_str(sgr::RESET);
     out.push('\n');
 }
 
-fn file_decor(fi: &FileInfo) -> String {
-    let label = |s: &str| {
-        if s.is_empty() {
-            String::new()
-        } else {
-            format!("{s} ")
-        }
-    };
+/// Write the decoration label+paths directly into `out` (no intermediate
+/// `String`). Paths are written verbatim; a leading non-empty label gets a
+/// trailing space, matching delta's `format!("{s} ")`.
+fn emit_file_decor(out: &mut String, fi: &FileInfo) {
     // Plain unified diffs are shown in comparing form regardless of the paths.
     if fi.plain {
-        return format!(
-            "{}{} {} {}",
-            label("Δ"),
-            fi.minus_file,
-            sgr::RIGHT_ARROW,
-            fi.plus_file
-        );
-    }
-    if fi.minus_file == fi.plus_file {
-        format!("{}{}", label("Δ"), fi.minus_file)
+        push_decor_label(out, "Δ");
+        out.push_str(&fi.minus_file);
+        out.push(' ');
+        out.push_str(sgr::RIGHT_ARROW);
+        out.push(' ');
+        out.push_str(&fi.plus_file);
+    } else if fi.minus_file == fi.plus_file {
+        push_decor_label(out, "Δ");
+        out.push_str(&fi.minus_file);
     } else if fi.plus_file == "/dev/null" {
-        format!("{}{}", label("removed:"), fi.minus_file)
+        push_decor_label(out, "removed:");
+        out.push_str(&fi.minus_file);
     } else if fi.minus_file == "/dev/null" {
-        format!("{}{}", label("added:"), fi.plus_file)
+        push_decor_label(out, "added:");
+        out.push_str(&fi.plus_file);
     } else {
-        let al = if fi.event == FileEvent::Rename {
-            "renamed:"
-        } else {
-            "Δ"
-        };
-        format!(
-            "{}{} {} {}",
-            label(al),
-            fi.minus_file,
-            sgr::RIGHT_ARROW,
-            fi.plus_file
-        )
+        push_decor_label(
+            out,
+            if fi.event == FileEvent::Rename {
+                "renamed:"
+            } else {
+                "Δ"
+            },
+        );
+        out.push_str(&fi.minus_file);
+        out.push(' ');
+        out.push_str(sgr::RIGHT_ARROW);
+        out.push(' ');
+        out.push_str(&fi.plus_file);
     }
 }
+
+fn push_decor_label(out: &mut String, s: &str) {
+    if !s.is_empty() {
+        out.push_str(s);
+        out.push(' ');
+    }
+}
+
+/// Tab expansion width (`--tabs` default 8 spaces).
+const TAB_STOP: &str = "        ";
 
 /// Replace each tab with a constant number of spaces (`--tabs` default 8),
 /// matching delta's `tabs::expand`: `line.split('\t').join("        ")`. It is
 /// not tab-stop alignment. Lines without a tab are returned borrowed, so the
 /// common case allocates nothing.
 fn expand_tabs(s: &str) -> Cow<'_, str> {
-    const TAB_STOP: &str = "        ";
     if !s.as_bytes().contains(&b'\t') {
         return Cow::Borrowed(s);
     }
@@ -769,18 +810,21 @@ fn strip_sgr_append(s: &str, scratch: &mut String) {
 /// carries a code fragment: `┌─ ... ┐` / `• <fragment> │` / `└─ ... ┘`, with no
 /// line number. When the `@@` line has no fragment, delta draws no box (the
 /// caller has already emitted the blank line).
-fn emit_hunk_box(out: &mut String, hunk_line: &str) {
+///
+/// `w` is the reused line Writer: the content line is pushed through it (no
+/// per-box Writer) and the borders are pushed from the `─` constant (no
+/// `repeat` String), so a box allocates nothing.
+fn emit_hunk_box(out: &mut String, w: &mut Writer, hunk_line: &str) {
     let fragment = hunk_fragment(hunk_line);
     if fragment.is_empty() {
         return;
     }
     // content = "• " + fragment + " " (trailing space); boxed by ─/┐/│/┘.
-    let content = format!("{} {}{} ", sgr::BULLET, fragment, "");
-    let box_width = content.chars().count();
+    let box_width = fragment.chars().count() + 3;
 
     // top border
     out.push_str(sgr::BLUE);
-    out.push_str(&sgr::HORIZONTAL.repeat(box_width));
+    push_border(out, box_width);
     out.push_str(sgr::RESET);
     out.push_str(sgr::BLUE);
     out.push_str(sgr::DOWN_LEFT);
@@ -788,7 +832,6 @@ fn emit_hunk_box(out: &mut String, hunk_line: &str) {
     out.push('\n');
 
     // content line: bullet (blue) + " " + fragment + " " + border
-    let mut w = Writer::new();
     w.push(STYLE_BLUE, sgr::BULLET);
     w.push(STYLE_PLAIN, " ");
     w.push(STYLE_PLAIN, fragment);
@@ -799,12 +842,20 @@ fn emit_hunk_box(out: &mut String, hunk_line: &str) {
 
     // bottom border
     out.push_str(sgr::BLUE);
-    out.push_str(&sgr::HORIZONTAL.repeat(box_width));
+    push_border(out, box_width);
     out.push_str(sgr::RESET);
     out.push_str(sgr::BLUE);
     out.push_str(sgr::UP_LEFT);
     out.push_str(sgr::RESET);
     out.push('\n');
+}
+
+/// Push `count` `─` characters into `out` (the constant, not a `repeat`
+/// allocation).
+fn push_border(out: &mut String, count: usize) {
+    for _ in 0..count {
+        out.push_str(sgr::HORIZONTAL);
+    }
 }
 
 /// Extract the code fragment (everything after the final `@@`) with leading

@@ -16,7 +16,7 @@ pub enum Operation {
 use Operation::*;
 
 #[derive(Clone, Copy, Debug)]
-struct Cell {
+pub(crate) struct Cell {
     parent: usize,
     operation: Operation,
     cost: usize,
@@ -31,14 +31,26 @@ pub struct Alignment<'a> {
 
 impl<'a> Alignment<'a> {
     pub fn new(x: Vec<&'a str>, y: Vec<&'a str>) -> Self {
+        Self::with_cells(x, y, Vec::new())
+    }
+
+    /// Build an alignment whose table reuses a caller-owned `cells` allocation,
+    /// so the word-diff scratch does not allocate per hunk. `reset_buffers`
+    /// grows or shrinks the table to fit the current line pair.
+    pub(crate) fn with_cells(x: Vec<&'a str>, y: Vec<&'a str>, cells: Vec<Cell>) -> Self {
         let mut alignment = Self {
             x,
             y,
-            table: Vec::new(),
+            table: cells,
             dim: [0, 0],
         };
         alignment.reset_buffers();
         alignment
+    }
+
+    /// Extract the table allocation so the scratch can carry it to the next hunk.
+    pub(crate) fn take_cells(&mut self) -> Vec<Cell> {
+        std::mem::take(&mut self.table)
     }
 
     /// Re-run the alignment on a new minus/plus line pair, tokenizing the lines
