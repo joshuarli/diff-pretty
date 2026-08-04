@@ -55,6 +55,8 @@ in the relevant documentation or test.
 - `src/align.rs` — reusable sequence-alignment implementation.
 - `src/edits.rs` — word tokenization, pairing, and word-diff inference.
 - `src/pager.rs` — the built-in terminal pager and viewport renderer.
+- `src/pager_search.rs` — lazy regex search state, per-line scan cache, and
+  match navigation shared by retained and live pagers.
 - `src/main.rs` — command-line stdin/stdout plumbing and paging flags.
 - `benches/bench.rs` — curated throughput, allocation, alignment, rendering,
   and viewport benchmarks.
@@ -135,6 +137,8 @@ alternate-screen sequences are emitted.
 Navigation keys are `q` and Ctrl-C to quit; arrow keys, `j`/`k`, Page Up/Down,
 Home, End, `g`, `G`, `b`, and Space provide vertical navigation. The pager
 opens the input terminal separately because stdin contains the patch stream.
+`/` enters regex search; after submission, Up/Down select matches while `j`/`k`
+continue to scroll the viewport.
 
 Non-interactive rendering stays pure and writes through `render_reader_to`
 without materializing the complete ANSI output. Terminal invocations use the

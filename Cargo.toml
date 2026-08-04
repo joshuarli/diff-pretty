@@ -3,6 +3,9 @@ name = "diff-pretty"
 version = "0.0.1"
 edition = "2024"
 
+[dependencies]
+regex-lite = "0.1.9"
+
 [dev-dependencies]
 divan = "0.1"
 

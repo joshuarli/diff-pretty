@@ -405,6 +405,26 @@ fn pager_viewport_synthetic_1mb(b: Bencher) {
     });
 }
 
+#[divan::bench]
+fn pager_search_viewport_synthetic_1mb(b: Bencher) {
+    let document = render_document(synthetic_1mb());
+    let mut terminal = Vec::with_capacity(128 * 1024);
+    b.bench_local(|| {
+        terminal.clear();
+        diff_pretty::pager::benchmark_search_viewport(
+            &document,
+            "tokens",
+            500,
+            24,
+            80,
+            32,
+            &mut terminal,
+        )
+        .expect("writing to a Vec cannot fail");
+        black_box(terminal.len())
+    });
+}
+
 // ---------------------------------------------------------------------------
 // Word-diff inference (the quadratic hot spot)
 // ---------------------------------------------------------------------------

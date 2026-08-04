@@ -29,6 +29,7 @@ pub mod align;
 pub mod config;
 pub mod edits;
 pub mod pager;
+mod pager_search;
 pub mod render;
 
 pub use render::{

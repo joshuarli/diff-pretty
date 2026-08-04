@@ -218,6 +218,18 @@ impl RenderedDocument {
         self.lines.len()
     }
 
+    /// Visible, tab-expanded text for one logical line. Pager search uses this
+    /// directly so ANSI transitions never become part of the regex haystack.
+    pub(crate) fn line_text(&self, line: usize) -> Option<&str> {
+        let end = self.lines.get(line)?.text as usize;
+        let start = if line == 0 {
+            0
+        } else {
+            self.lines[line - 1].text as usize
+        };
+        Some(&self.text[start..end])
+    }
+
     /// Exact number of bytes produced when the document is serialized.
     pub fn len(&self) -> usize {
         self.text.len()
@@ -273,12 +285,186 @@ impl RenderedDocument {
         Ok(true)
     }
 
+    /// Write one line with pager-only reverse-video overlays. Match offsets are
+    /// relative to visible line text, not the retained ANSI stream.
+    pub(crate) fn write_line_with_search<W: Write + ?Sized>(
+        &self,
+        output: &mut W,
+        line: usize,
+        ranges: &[TextRange],
+    ) -> io::Result<bool> {
+        if ranges.iter().all(|range| range.start >= range.end) {
+            return self.write_line(output, line);
+        }
+
+        let Some(end) = self.lines.get(line).copied() else {
+            return Ok(false);
+        };
+        let start = if line == 0 {
+            LineEnd { text: 0, spans: 0 }
+        } else {
+            self.lines[line - 1]
+        };
+        let line_start = start.text as usize;
+        let line_end = end.text as usize;
+        let line_len = line_end - line_start;
+        let mut text_offset = line_start;
+        let mut span_cursor = (start.spans & SPAN_COUNT_MASK) as usize;
+        let span_end = (end.spans & SPAN_COUNT_MASK) as usize;
+        let mut next_span = decode_line_span(self, &mut span_cursor, span_end, text_offset);
+        let mut range_index = 0;
+        let mut active_end = None;
+        let mut base_sequences = Vec::new();
+        let mut base_reverse = false;
+
+        while text_offset < line_end || next_span.is_some() || active_end.is_some() {
+            while range_index < ranges.len()
+                && (ranges[range_index].start >= ranges[range_index].end
+                    || ranges[range_index].start > line_len)
+            {
+                range_index += 1;
+            }
+
+            let next_range_start = if active_end.is_some() {
+                line_len
+            } else {
+                ranges
+                    .get(range_index)
+                    .map_or(line_len, |range| range.start.min(line_len))
+            };
+            let next_range_end = active_end.unwrap_or(line_len);
+            let next_span_offset = next_span.map_or(line_end, |(offset, _)| offset);
+            let boundary = line_start
+                + next_range_start
+                    .min(next_range_end)
+                    .min(next_span_offset - line_start);
+            if text_offset < boundary {
+                output.write_all(self.text[text_offset..boundary].as_bytes())?;
+                text_offset = boundary;
+            }
+
+            let relative = text_offset - line_start;
+            if active_end == Some(relative) {
+                restore_base_style(output, &base_sequences)?;
+                active_end = None;
+                range_index += 1;
+                continue;
+            }
+
+            let mut wrote_span = false;
+            while let Some((span_offset, sequence)) = next_span {
+                if span_offset != text_offset {
+                    break;
+                }
+                let sequence = self.ansi_sequence(sequence);
+                output.write_all(sequence.as_bytes())?;
+                base_sequences.push(sequence);
+                update_reverse(sequence, &mut base_reverse);
+                if active_end.is_some() {
+                    write_search_overlay(output, base_reverse)?;
+                }
+                next_span = decode_line_span(self, &mut span_cursor, span_end, span_offset);
+                wrote_span = true;
+            }
+            if wrote_span {
+                continue;
+            }
+
+            if active_end.is_none()
+                && let Some(range) = ranges.get(range_index)
+                && range.start == relative
+                && range.start < range.end
+            {
+                write_search_overlay(output, base_reverse)?;
+                active_end = Some(range.end.min(line_len));
+                continue;
+            }
+
+            if text_offset == line_end {
+                break;
+            }
+        }
+
+        if text_offset < line_end {
+            output.write_all(self.text[text_offset..line_end].as_bytes())?;
+        }
+        if active_end.is_some() {
+            restore_base_style(output, &base_sequences)?;
+        }
+        if end.spans & FINAL_RESET_BIT != 0 {
+            output.write_all(sgr::RESET.as_bytes())?;
+        }
+        Ok(true)
+    }
+
     fn ansi_sequence(&self, sequence: u8) -> &str {
         let sequence = sequence as usize;
         if sequence >= KNOWN_ANSI.len() {
             &self.custom_ansi[sequence - KNOWN_ANSI.len()]
         } else {
             KNOWN_ANSI[sequence]
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct TextRange {
+    pub(crate) start: usize,
+    pub(crate) end: usize,
+}
+
+fn decode_line_span(
+    document: &RenderedDocument,
+    cursor: &mut usize,
+    end: usize,
+    previous_offset: usize,
+) -> Option<(usize, u8)> {
+    if *cursor >= end {
+        return None;
+    }
+    let (delta, next) = decode_varint(&document.spans, *cursor);
+    let sequence = document.spans[next];
+    *cursor = next + 1;
+    Some((previous_offset + delta, sequence))
+}
+
+fn restore_base_style<W: Write + ?Sized>(
+    output: &mut W,
+    base_sequences: &[&str],
+) -> io::Result<()> {
+    output.write_all(sgr::RESET.as_bytes())?;
+    for sequence in base_sequences {
+        output.write_all(sequence.as_bytes())?;
+    }
+    Ok(())
+}
+
+fn write_search_overlay<W: Write + ?Sized>(output: &mut W, base_reverse: bool) -> io::Result<()> {
+    if base_reverse {
+        // Reverse video cannot visually distinguish an already-reversed span.
+        output.write_all(b"\x1b[48;5;240m")
+    } else {
+        output.write_all(b"\x1b[7m")
+    }
+}
+
+fn update_reverse(sequence: &str, reverse: &mut bool) {
+    let Some(parameters) = sequence
+        .strip_prefix("\x1b[")
+        .and_then(|sequence| sequence.strip_suffix('m'))
+    else {
+        return;
+    };
+    if parameters.is_empty() {
+        *reverse = false;
+        return;
+    }
+    for parameter in parameters.split(';') {
+        match parameter.parse::<u16>() {
+            Ok(0) => *reverse = false,
+            Ok(7) => *reverse = true,
+            Ok(27) => *reverse = false,
+            _ => {}
         }
     }
 }
