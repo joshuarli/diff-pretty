@@ -51,6 +51,10 @@ release:
 
 verify-release:
 	@test -f "target/$(TARGET)/release/$(NAME)"
+	@if otool -l "target/$(TARGET)/release/$(NAME)" 2>/dev/null | grep -q '__llvm_prf'; then \
+		echo 'release still contains PGO profile sections; rebuild with make release-pgo' >&2; \
+		exit 1; \
+	fi
 	@if echo "$(TARGET)" | grep -q -- '-linux-musl$$'; then \
 		command -v readelf >/dev/null || { echo 'readelf is required for release verification'; exit 1; }; \
 		file "target/$(TARGET)/release/$(NAME)" | grep -Eq 'static-pie linked|statically linked' || { echo 'release is not statically linked'; exit 1; }; \
@@ -116,6 +120,6 @@ bench-pgo: pgo-profile
 	scripts/diff-baselines.py "$$BASELINE" "$$PGO_BASELINE" \
 	  --fail-on-allocation-regression --require-same-benchmarks
 
-install: release-pgo
+install: release-pgo verify-release
 	cp target/$(TARGET)/release/$(NAME) ~/usr/bin/$(NAME)
 	codesign -fs - ~/usr/bin/$(NAME)
