@@ -86,7 +86,7 @@ make diff FIXTURE=show_003    # ANSI-stripped diff for one fixture
 make bench                    # run benchmarks and persist a host baseline
 make bench-diff AFTER=...     # compare a candidate baseline with the saved one
 make release                  # release build (no PGO): build-std + aggressive flags
-make pgo-profile              # collect equally weighted profiles from the bench suite
+make pgo-profile              # collect profiles from the representative workload
 make release-pgo              # PGO-optimized release for the host target
 make release-pgo-linux        # PGO + dynamically linked musl (Linux only)
 make release-pgo-linux-static # PGO + statically linked musl (Linux only)
@@ -97,10 +97,12 @@ make verify-release-dynamic   # ELF checks for the dynamic musl release
 
 PGO release targets:
 
-- `pgo-profile` runs `cargo bench --bench bench -- --sample-size 1` with
+- `pgo-profile` runs the representative benchmark workload with
   `-Cprofile-generate` and merges the profiles with
   `$(LLVM_BIN)/llvm-profdata`. No `build-std` or `-Cpanic=immediate-abort`
   here: the profiler runtime needs unwinding.
+- Synthetic scaling cases and isolated microbenchmarks remain measurement-only;
+  they must not dominate PGO or hide allocation regressions.
 - `release-pgo` (and the Linux variants) rebuild with `-Cprofile-use` plus
   `-Zlocation-detail=none -Zunstable-options -Cpanic=immediate-abort` and
   `build-std`. Linux builds need the `diff-pretty-crt` stub objects and the
@@ -137,14 +139,10 @@ Do not run pre-commit hooks. Do not push to a remote.
 `make bench` runs the suite through the release-built crate with fat LTO. The
 suite measures the paths that matter to this project:
 
-- End-to-end rendering of all checked-in input classes and synthetic 100 KB,
-  1 MB, and 10 MB diffs.
-- Color-sequence stripping and tab-heavy input.
-- Word-diff inference for balanced, identical, highly imbalanced, and long-line
-  cases.
-- Number padding, including the per-cell allocation-sensitive primitive.
-- Streaming and retained-document rendering at 1 MB and 10 MB.
-- A fixed 24-row pager viewport using a preallocated output sink.
+- End-to-end rendering of the representative Git-show corpus, metadata-heavy
+  cases, multi-commit logs, and plain unified diffs.
+- Real multi-commit, colorized, plain unified, streaming, retained-document,
+  and pager viewport paths over checked-in fixtures.
 
 When optimizing, run the narrowest relevant benchmark first, then compare a
 persisted baseline. Report time, peak simultaneously-live bytes, total bytes,

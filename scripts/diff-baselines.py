@@ -6,6 +6,7 @@ import argparse
 import os
 import re
 import shutil
+import sys
 import textwrap
 from pathlib import Path
 
@@ -139,6 +140,16 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Compare two benchmark baselines")
     parser.add_argument("baseline", type=Path)
     parser.add_argument("candidate", type=Path)
+    parser.add_argument(
+        "--fail-on-allocation-regression",
+        action="store_true",
+        help="fail when a benchmark's allocation count or bytes increase",
+    )
+    parser.add_argument(
+        "--require-same-benchmarks",
+        action="store_true",
+        help="fail when the baseline benchmark sets differ",
+    )
     args = parser.parse_args()
 
     for path in (args.baseline, args.candidate):
@@ -184,6 +195,32 @@ def main() -> int:
 
     print(f"{args.baseline} → {args.candidate}")
     print_table(rows)
+    if args.require_same_benchmarks:
+        missing = sorted(set(baseline) - set(candidate))
+        added = sorted(set(candidate) - set(baseline))
+        if missing or added:
+            if missing:
+                print(f"missing candidate benchmarks: {', '.join(missing)}", file=sys.stderr)
+            if added:
+                print(f"added candidate benchmarks: {', '.join(added)}", file=sys.stderr)
+            return 1
+
+    if args.fail_on_allocation_regression:
+        regressions = []
+        for name in sorted(set(baseline) & set(candidate)):
+            old = baseline[name]
+            new = candidate[name]
+            if new[1] is not None and old[1] is not None and new[1] > old[1]:
+                regressions.append(f"{name}: allocs/op {old[1]:.0f} → {new[1]:.0f}")
+            if new[2] is not None and old[2] is not None and new[2] > old[2]:
+                regressions.append(
+                    f"{name}: allocated bytes/op {old[2]:.0f} → {new[2]:.0f}"
+                )
+        if regressions:
+            print("allocation regressions detected:", file=sys.stderr)
+            for regression in regressions:
+                print(f"  {regression}", file=sys.stderr)
+            return 1
     return 0
 
 

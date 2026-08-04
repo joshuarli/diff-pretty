@@ -73,12 +73,12 @@ verify-release-dynamic:
 		echo "Skipping ELF checks for $(TARGET)"; \
 	fi
 
-# Collect equally weighted profiles from the complete user-facing benchmark suite.
+# Collect profiles from the representative user-facing workload.
 # No build-std or -Cpanic=immediate-abort here: the profiler runtime needs unwinding.
 pgo-profile:
 	rm -rf $(PGO_DIR) && mkdir -p $(PGO_DIR)
 	RUSTFLAGS="-Cprofile-generate=$(PGO_DIR)" \
-	cargo bench --features bench-internals --bench bench -- --sample-size 1
+	cargo bench --features bench-internals --bench bench -- render_pgo_training_workload --sample-size 8 --sample-count 24
 	$(LLVM_BIN)/llvm-profdata merge -o $(PGO_MERGED) $(PGO_DIR)
 
 # PGO-optimized release: uses gathered profiles + all aggressive flags.
@@ -104,14 +104,17 @@ release-pgo-linux-static: pgo-profile
 	  -Z build-std-features= \
 	  --target $(TARGET)
 
-# Benchmark regular release vs PGO and compare persisted baselines.
+# Benchmark regular release vs PGO and compare persisted baselines. Allocation
+# count and volume are hard constraints: a faster PGO build that allocates more
+# is a regression for this renderer.
 bench-pgo: pgo-profile
 	@BASELINE=$$(scripts/bench-baseline.py --print-path); \
 	PGO_BASELINE=$$(scripts/bench-baseline.py --variant pgo --print-path); \
 	scripts/bench-baseline.py --baseline "$$BASELINE" --quiet; \
 	RUSTFLAGS="-Cprofile-use=$(PGO_MERGED)" \
 	scripts/bench-baseline.py --baseline "$$PGO_BASELINE" --quiet --variant pgo; \
-	scripts/diff-baselines.py "$$BASELINE" "$$PGO_BASELINE"
+	scripts/diff-baselines.py "$$BASELINE" "$$PGO_BASELINE" \
+	  --fail-on-allocation-regression --require-same-benchmarks
 
 install: release-pgo
 	cp target/$(TARGET)/release/$(NAME) ~/usr/bin/$(NAME)
