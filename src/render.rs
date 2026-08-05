@@ -248,6 +248,15 @@ impl RenderedDocument {
         output: &mut W,
         line: usize,
     ) -> io::Result<bool> {
+        self.write_line_at(output, line, 0)
+    }
+
+    pub(crate) fn write_line_at<W: Write + ?Sized>(
+        &self,
+        output: &mut W,
+        line: usize,
+        horizontal_offset: usize,
+    ) -> io::Result<bool> {
         let Some(end) = self.lines.get(line).copied() else {
             return Ok(false);
         };
@@ -256,7 +265,14 @@ impl RenderedDocument {
         } else {
             self.lines[line - 1]
         };
-        let mut text_offset = start.text as usize;
+        let line_start = start.text as usize;
+        let line_end = end.text as usize;
+        let (clip_relative, _) = line_view_start(
+            &self.text.as_bytes()[line_start..line_end],
+            horizontal_offset,
+        );
+        let clip_start = line_start + clip_relative;
+        let mut text_offset = line_start;
         let mut span_cursor = (start.spans & SPAN_COUNT_MASK) as usize;
         let span_end = (end.spans & SPAN_COUNT_MASK) as usize;
         while span_cursor < span_end {
@@ -265,11 +281,11 @@ impl RenderedDocument {
             let (sequence, next) = decode_varint(&self.spans, span_cursor);
             span_cursor = next;
             let span_offset = text_offset + delta;
-            output.write_all(&self.text.as_bytes()[text_offset..span_offset])?;
+            write_line_text(output, &self.text, text_offset, span_offset, clip_start)?;
             output.write_all(self.ansi_sequence(sequence).as_bytes())?;
             text_offset = span_offset;
         }
-        output.write_all(&self.text.as_bytes()[text_offset..end.text as usize])?;
+        write_line_text(output, &self.text, text_offset, line_end, clip_start)?;
         if end.spans & FINAL_RESET_BIT != 0 {
             output.write_all(sgr::RESET.as_bytes())?;
         }
@@ -278,14 +294,25 @@ impl RenderedDocument {
 
     /// Write one line with pager-only reverse-video overlays. Match offsets are
     /// relative to visible line text, not the retained ANSI stream.
+    #[cfg(test)]
     pub(crate) fn write_line_with_search<W: Write + ?Sized>(
         &self,
         output: &mut W,
         line: usize,
         ranges: &[TextRange],
     ) -> io::Result<bool> {
+        self.write_line_with_search_at(output, line, ranges, 0)
+    }
+
+    pub(crate) fn write_line_with_search_at<W: Write + ?Sized>(
+        &self,
+        output: &mut W,
+        line: usize,
+        ranges: &[TextRange],
+        horizontal_offset: usize,
+    ) -> io::Result<bool> {
         if ranges.iter().all(|range| range.start >= range.end) {
-            return self.write_line(output, line);
+            return self.write_line_at(output, line, horizontal_offset);
         }
 
         let Some(end) = self.lines.get(line).copied() else {
@@ -299,6 +326,11 @@ impl RenderedDocument {
         let line_start = start.text as usize;
         let line_end = end.text as usize;
         let line_len = line_end - line_start;
+        let (clip_relative, _) = line_view_start(
+            &self.text.as_bytes()[line_start..line_end],
+            horizontal_offset,
+        );
+        let clip_start = line_start + clip_relative;
         let mut text_offset = line_start;
         let mut span_cursor = (start.spans & SPAN_COUNT_MASK) as usize;
         let span_end = (end.spans & SPAN_COUNT_MASK) as usize;
@@ -332,7 +364,7 @@ impl RenderedDocument {
                     .min(next_range_end)
                     .min(next_span_offset - line_start);
             if text_offset < boundary {
-                output.write_all(&self.text.as_bytes()[text_offset..boundary])?;
+                write_line_text(output, &self.text, text_offset, boundary, clip_start)?;
                 text_offset = boundary;
             }
 
@@ -382,7 +414,7 @@ impl RenderedDocument {
         }
 
         if text_offset < line_end {
-            output.write_all(&self.text.as_bytes()[text_offset..line_end])?;
+            write_line_text(output, &self.text, text_offset, line_end, clip_start)?;
         }
         if active_end.is_some() {
             remove_search_overlay(output, overlay)?;
@@ -399,6 +431,66 @@ impl RenderedDocument {
         } else {
             KNOWN_ANSI[sequence]
         }
+    }
+}
+
+fn write_line_text<W: Write + ?Sized>(
+    output: &mut W,
+    text: &str,
+    start: usize,
+    end: usize,
+    clip_start: usize,
+) -> io::Result<()> {
+    if end > clip_start {
+        output.write_all(&text.as_bytes()[start.max(clip_start)..end])?;
+    }
+    Ok(())
+}
+
+fn line_view_start(line: &[u8], horizontal_offset: usize) -> (usize, usize) {
+    if horizontal_offset == 0 {
+        return (0, 0);
+    }
+    let text = std::str::from_utf8(line).expect("rendered line text is valid UTF-8");
+    let mut columns = 0;
+    for (offset, character) in text.char_indices() {
+        if columns >= horizontal_offset {
+            return (offset, columns);
+        }
+        columns = columns.saturating_add(display_cell_width(character));
+    }
+    (line.len(), columns)
+}
+
+fn display_cell_width(character: char) -> usize {
+    let code = character as u32;
+    if matches!(
+        code,
+        0x0300..=0x036f
+            | 0x1ab0..=0x1aff
+            | 0x1dc0..=0x1dff
+            | 0x20d0..=0x20ff
+            | 0xfe00..=0xfe0f
+            | 0xfe20..=0xfe2f
+    ) {
+        0
+    } else if matches!(
+        code,
+        0x1100..=0x115f
+            | 0x2329..=0x232a
+            | 0x2e80..=0xa4cf
+            | 0xac00..=0xd7a3
+            | 0xf900..=0xfaff
+            | 0xfe10..=0xfe19
+            | 0xfe30..=0xfe6f
+            | 0xff00..=0xff60
+            | 0xffe0..=0xffe6
+            | 0x1f000..=0x1faff
+            | 0x20000..=0x3fffd
+    ) {
+        2
+    } else {
+        1
     }
 }
 

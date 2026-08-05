@@ -19,10 +19,11 @@ The pager will support:
 - Regular expressions compiled by `regex-lite`.
 - A literal backslash passed to the regex compiler, so expressions such as
   `\\.` and `\\+` escape regex metacharacters in the normal regex-lite way.
-- A first-character discard after entering `/`.
 - Search matches highlighted in the viewport with reverse video.
 - Up and Down arrow keys as previous/next-match navigation while a valid search
   is active.
+- Left and Right arrow keys shift the horizontal viewport by half the terminal
+  width, matching `less`'s default horizontal shift.
 - Ordinary `j`/`k` scrolling even while a search is active.
 - Wrapping at both ends of the document.
 - Vertical centering of the selected match, clamped at the beginning and end of
@@ -47,7 +48,7 @@ This feature will not add:
 - Case-insensitive search syntax or a `/i` modifier.
 - Search across newline boundaries.
 - Search of raw ANSI escape sequences.
-- Horizontal scrolling or terminal resize support.
+- Terminal resize support.
 - Persistent search history across pager invocations.
 - A document-wide match count. A lazy pager cannot honestly display a total
   count without defeating the search contract.
@@ -161,6 +162,10 @@ When a valid query has a selected match:
   End remain ordinary viewport navigation. These keys do not change the
   selected match anchor, but they do update the current viewport line and
   trigger lazy highlighting for the newly visible search window.
+- Left and Right arrows shift the horizontal viewport by half the terminal
+  width, with a minimum shift of one column. Left at the first column is a
+  no-op. Horizontal movement does not change the selected match anchor or
+  search cache.
 - If an arrow navigation operation has to inspect data that has not arrived in
   the live document yet, it remains pending instead of wrapping prematurely.
   Once loading finishes, it either selects the directional result or performs
@@ -604,8 +609,7 @@ unbounded queue.
 ## Error and edge-case handling
 
 - Empty submitted query: treat it as no active search, with no regex scan and no
-  highlights. This avoids making an empty regex match every line and makes the
-  first-character discard behavior predictable.
+  highlights. This avoids making an empty regex match every line.
 - Query ending in a lone backslash: let regex-lite report its compile error;
   do not silently append or remove the slash.
 - Regex errors are data shown in status, never panics.
@@ -614,7 +618,8 @@ unbounded queue.
 - A match on the first line centers at top zero.
 - A match on the last line centers at `max_top`.
 - A match longer than the terminal width is highlighted across the visible
-  portion; horizontal clipping remains the terminal's responsibility.
+  portion. Horizontal movement clips rendered text at the requested display
+  column while preserving the active ANSI style.
 - Unicode ranges are byte offsets but always come from regex-lite and are
   therefore valid UTF-8 boundaries. Backspace removes characters, not bytes.
 - Tabs are searched after the renderer's eight-column expansion. A query for
@@ -742,11 +747,14 @@ not depend on `/dev/tty`.
    final.
 7. `j`/`k` continue ordinary one-line scrolling while an active query remains
    highlighted.
-8. Page/Home/End update the current line counter and do not reset the selected
+8. Left/Right shift by half the terminal width, clamp at the first column when
+   moving left, and preserve highlights and the selected match.
+9. Page/Home/End update the current line counter and do not reset the selected
    match anchor.
-9. Arrow navigation uses the last selected match position as its lookahead
+10. Arrow navigation uses the last selected match position as its lookahead
    anchor rather than rescanning from line zero.
-10. No-result queries do not move the viewport and arrow presses remain no-ops.
+11. No-result queries do not move the viewport and Up/Down presses remain
+   no-ops.
 
 ### Lazy-window proof tests
 
@@ -907,6 +915,7 @@ The feature is complete only when all of the following are true:
 - The first match is found from the beginning and centered.
 - Search matches are highlighted without searching ANSI bytes.
 - Up/Down arrows navigate previous/next matches and wrap.
+- Left/Right arrows shift the horizontal viewport by half the terminal width.
 - `j`/`k` still scroll normally while highlights remain active.
 - Every viewport movement updates the current line counter and lazily extends
   the search cache.

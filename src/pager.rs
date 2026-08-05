@@ -3,8 +3,8 @@
 //! The renderer is pure and never pages; the decision to page and the terminal
 //! session live here so the benchmark and byte-for-byte oracle tests remain
 //! pager-free. The native pager consumes `RenderedDocument` directly. It keeps
-//! fixed terminal dimensions, vertical navigation, lazy regex search, and an
-//! alternate screen. It does not handle resize signals or horizontal scrolling.
+//! fixed terminal dimensions, vertical and horizontal navigation, lazy regex
+//! search, and an alternate screen. It does not handle resize signals.
 
 use std::collections::VecDeque;
 use std::fmt::Write as _;
@@ -110,6 +110,7 @@ pub mod bench_internals {
                 self.state.top,
                 self.state.rows,
                 self.state.columns,
+                0,
                 false,
                 &self.state.search,
             )
@@ -688,6 +689,7 @@ struct PagerState {
     rows: usize,
     columns: usize,
     top: usize,
+    horizontal_offset: usize,
     search: SearchState,
 }
 
@@ -704,6 +706,7 @@ impl PagerState {
             rows,
             columns,
             top: 0,
+            horizontal_offset: 0,
             search: SearchState::Inactive,
         }
     }
@@ -765,6 +768,21 @@ impl PagerState {
             Key::Text('G') | Key::End => self.top = self.max_top(document),
             Key::PageUp => self.top = self.top.saturating_sub(height),
             Key::PageDown => self.top = self.top.saturating_add(height),
+            Key::Left => {
+                let old_offset = self.horizontal_offset;
+                self.horizontal_offset = old_offset.saturating_sub(self.horizontal_shift());
+                return if self.horizontal_offset == old_offset {
+                    ApplyResult::Unchanged
+                } else {
+                    ApplyResult::Changed
+                };
+            }
+            Key::Right => {
+                self.horizontal_offset = self
+                    .horizontal_offset
+                    .saturating_add(self.horizontal_shift());
+                return ApplyResult::Changed;
+            }
             _ => return ApplyResult::Unchanged,
         }
         self.top = self.top.min(self.max_top(document));
@@ -774,6 +792,10 @@ impl PagerState {
             session.ensure_window(document, self.top, height);
         }
         ApplyResult::Changed
+    }
+
+    fn horizontal_shift(&self) -> usize {
+        (self.columns / 2).max(1)
     }
 
     fn document_changed(&mut self, document: &RenderedDocument, finished: bool) {
@@ -821,6 +843,7 @@ impl PagerState {
             self.top,
             self.rows,
             self.columns,
+            self.horizontal_offset,
             !finished,
             &self.search,
         )?;
@@ -944,7 +967,7 @@ impl RenderedDocument {
             let last = (top + content_rows).min(self.line_count());
             write!(
                 output,
-                " diff-pretty  {first}-{last}/{}{}  ↑/↓ scroll  PgUp/PgDn page  q quit",
+                " diff-pretty  {first}-{last}/{}{}  ↑/↓ scroll  ←/→ shift  PgUp/PgDn page  q quit",
                 self.line_count(),
                 if loading { "  loading" } else { "" }
             )?;
@@ -959,6 +982,7 @@ impl RenderedDocument {
         top: usize,
         rows: usize,
         columns: usize,
+        horizontal_offset: usize,
         loading: bool,
         search: &SearchState,
     ) -> io::Result<()> {
@@ -969,9 +993,14 @@ impl RenderedDocument {
             output.write_all(ANSI_CLEAR_LINE)?;
             let line = top + row;
             let written = if let Some(session) = active {
-                self.write_line_with_search(output, line, session.ranges(line))?
+                self.write_line_with_search_at(
+                    output,
+                    line,
+                    session.ranges(line),
+                    horizontal_offset,
+                )?
             } else {
-                self.write_line(output, line)?
+                self.write_line_at(output, line, horizontal_offset)?
             };
             if written {
                 output.write_all(ANSI_RESET)?;
@@ -1026,14 +1055,14 @@ fn write_pager_status<W: Write + ?Sized>(
         };
         let _ = write!(
             status,
-            " diff-pretty  {first}-{last}/{}{loading}  /{}{result}  ↑/↓ match  j/k scroll  q quit",
+            " diff-pretty  {first}-{last}/{}{loading}  /{}{result}  ↑/↓ match  ←/→ shift  j/k scroll  q quit",
             document.line_count(),
             session.query(),
         );
     } else {
         let _ = write!(
             status,
-            " diff-pretty  {first}-{last}/{}{loading}  ↑/↓ scroll  PgUp/PgDn page  q quit",
+            " diff-pretty  {first}-{last}/{}{loading}  ↑/↓ scroll  ←/→ shift  PgUp/PgDn page  q quit",
             document.line_count(),
         );
     }
@@ -1139,6 +1168,8 @@ enum Key {
     Interrupt,
     Up,
     Down,
+    Left,
+    Right,
     PageUp,
     PageDown,
     Home,
@@ -1252,6 +1283,8 @@ fn decode_escape_sequence(sequence: &[u8]) -> Key {
     match final_byte {
         b'A' => Key::Up,
         b'B' => Key::Down,
+        b'C' => Key::Right,
+        b'D' => Key::Left,
         b'H' => Key::Home,
         b'F' => Key::End,
         b'~' if sequence.get(1) == Some(&b'[') => {
@@ -1325,6 +1358,7 @@ mod tests {
                 0,
                 3,
                 usize::MAX,
+                0,
                 false,
                 &SearchState::Inactive,
             )
@@ -1352,16 +1386,63 @@ mod tests {
     #[test]
     fn reads_arrow_and_page_escape_sequences() {
         assert_eq!(
-            decode_all(b"\x1b[A\x1b[B\x1b[5~\x1b[6~\x1b[H\x1b[F"),
+            decode_all(b"\x1b[A\x1b[B\x1b[C\x1b[D\x1b[5~\x1b[6~\x1b[H\x1b[F"),
             vec![
                 Key::Up,
                 Key::Down,
+                Key::Right,
+                Key::Left,
                 Key::PageUp,
                 Key::PageDown,
                 Key::Home,
                 Key::End
             ]
         );
+    }
+
+    #[test]
+    fn horizontal_arrows_shift_by_half_the_terminal_width() {
+        let document = crate::render::render_document("a long line\n");
+        let mut state = PagerState::new(5, 20);
+
+        assert_eq!(
+            state.apply_key(Key::Left, &document, true),
+            ApplyResult::Unchanged
+        );
+        assert_eq!(state.horizontal_offset, 0);
+        assert_eq!(
+            state.apply_key(Key::Right, &document, true),
+            ApplyResult::Changed
+        );
+        assert_eq!(state.horizontal_offset, 10);
+        state.apply_key(Key::Right, &document, true);
+        assert_eq!(state.horizontal_offset, 20);
+        state.apply_key(Key::Left, &document, true);
+        assert_eq!(state.horizontal_offset, 10);
+        state.apply_key(Key::Left, &document, true);
+        assert_eq!(state.horizontal_offset, 0);
+    }
+
+    #[test]
+    fn horizontal_rendering_clips_before_ansi_and_search_styles() {
+        let document = crate::render::render_document("\x1b[31m0123456789\x1b[0m\n0123456789\n");
+        let mut output = Vec::new();
+        document
+            .write_line_with_search_at(
+                &mut output,
+                0,
+                &[crate::render::TextRange { start: 2, end: 6 }],
+                4,
+            )
+            .unwrap();
+        assert_eq!(
+            output,
+            b"\x1b[31m\x1b[0m\x1b[48;5;226;30m45\x1b[0m\x1b[31m6789\x1b[0m"
+        );
+
+        output.clear();
+        document.write_line_at(&mut output, 1, 4).unwrap();
+        assert_eq!(output, b"456789");
     }
 
     #[test]
@@ -1888,6 +1969,7 @@ mod tests {
                 retained_state.top,
                 4,
                 80,
+                0,
                 false,
                 &retained_state.search,
             )
@@ -1899,6 +1981,7 @@ mod tests {
                 incremental_state.top,
                 4,
                 80,
+                0,
                 false,
                 &incremental_state.search,
             )
@@ -1924,7 +2007,7 @@ mod tests {
         }
         let mut output = Vec::new();
         document
-            .write_pager_viewport(&mut output, 0, 3, 80, false, &state.search)
+            .write_pager_viewport(&mut output, 0, 3, 80, 0, false, &state.search)
             .unwrap();
         let plain = output
             .windows(b"\x1b[2K\rplain\x1b[0m".len())
