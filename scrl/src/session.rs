@@ -63,6 +63,7 @@ pub struct Session {
     horizontal_offset: usize,
     finished: bool,
     frame: Vec<u8>,
+    search_ranges: Vec<Vec<Range>>,
 }
 
 impl Session {
@@ -76,6 +77,7 @@ impl Session {
             horizontal_offset: 0,
             finished: false,
             frame: Vec::with_capacity(size.rows.saturating_mul(size.columns).max(1024)),
+            search_ranges: Vec::new(),
         }
     }
 
@@ -90,6 +92,7 @@ impl Session {
             horizontal_offset: 0,
             finished: true,
             frame: Vec::with_capacity(size.rows.saturating_mul(size.columns).max(1024)),
+            search_ranges: Vec::new(),
         }
     }
 
@@ -180,12 +183,17 @@ impl Session {
         let top = self.top;
         let content_rows = self.content_rows();
         let finished = self.finished;
-        let ranges = self.search.session.as_mut().map(|session| {
+        let ranges = if let Some(session) = self.search.session.as_mut() {
             session.ensure_cache(&self.document, top, content_rows, finished);
-            (0..self.document.line_count())
-                .map(|line| session.ranges(&self.document, line).to_vec())
-                .collect::<Vec<Vec<Range>>>()
-        });
+            self.search_ranges.resize_with(content_rows, Vec::new);
+            for (row, ranges) in self.search_ranges.iter_mut().enumerate() {
+                ranges.clear();
+                ranges.extend_from_slice(session.ranges(&self.document, top + row));
+            }
+            Some((top, self.search_ranges.as_slice()))
+        } else {
+            None
+        };
         self.frame.clear();
         self.document.write_viewport_search(
             &mut self.frame,
@@ -193,7 +201,7 @@ impl Session {
             self.size.rows,
             true,
             self.horizontal_offset,
-            ranges.as_deref(),
+            ranges,
             &self.options.title,
             !self.finished,
         )?;

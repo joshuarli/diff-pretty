@@ -103,7 +103,7 @@ impl Document {
         rows: usize,
         status: bool,
         horizontal_offset: usize,
-        ranges: Option<&[Vec<Range>]>,
+        ranges: Option<(usize, &[Vec<Range>])>,
         title: &str,
         loading: bool,
     ) -> io::Result<()> {
@@ -112,7 +112,9 @@ impl Document {
         for row in 0..content_rows {
             output.write_all(b"\x1b[2K\r")?;
             let line = top + row;
-            if let Some(line_ranges) = ranges.and_then(|all| all.get(line)) {
+            if let Some(line_ranges) = ranges.and_then(|(range_top, all)| {
+                line.checked_sub(range_top).and_then(|row| all.get(row))
+            }) {
                 self.write_line_search(output, line, line_ranges, horizontal_offset)?;
             } else {
                 self.write_line(output, line, horizontal_offset)?;
