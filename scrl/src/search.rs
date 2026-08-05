@@ -11,10 +11,83 @@ pub(crate) struct SearchState {
 
 #[derive(Clone, Debug)]
 pub(crate) struct SearchSession {
-    regex: Regex,
+    matcher: Matcher,
     cache: Vec<Option<Vec<Range>>>,
     pub(crate) selected: Option<(usize, usize)>,
     pub(crate) final_no_match: bool,
+}
+
+#[derive(Clone, Debug)]
+enum Matcher {
+    Literal(LiteralMatcher),
+    Regex(Regex),
+}
+
+#[derive(Clone, Debug)]
+struct LiteralMatcher {
+    needle: Vec<u8>,
+    skip: [usize; 256],
+}
+
+impl LiteralMatcher {
+    fn new(needle: &str) -> Self {
+        let needle = needle.as_bytes().to_vec();
+        let mut skip = [needle.len(); 256];
+        for (index, byte) in needle
+            .iter()
+            .enumerate()
+            .take(needle.len().saturating_sub(1))
+        {
+            skip[usize::from(*byte)] = needle.len() - index - 1;
+        }
+        Self { needle, skip }
+    }
+
+    fn find_ranges(&self, text: &str) -> Vec<Range> {
+        let haystack = text.as_bytes();
+        let needle_len = self.needle.len();
+        if needle_len == 0 || needle_len > haystack.len() {
+            return Vec::new();
+        }
+        let mut ranges = Vec::new();
+        let mut offset = 0;
+        while offset <= haystack.len() - needle_len {
+            let last = offset + needle_len - 1;
+            if haystack[offset..=last]
+                .iter()
+                .zip(&self.needle)
+                .all(|(left, right)| left == right)
+            {
+                ranges.push(Range {
+                    start: offset,
+                    end: offset + needle_len,
+                });
+                offset += needle_len;
+            } else {
+                offset += self.skip[usize::from(haystack[last])].max(1);
+            }
+        }
+        ranges
+    }
+}
+
+impl Matcher {
+    fn ranges(&self, text: &str) -> Vec<Range> {
+        match self {
+            Self::Literal(matcher) => matcher.find_ranges(text),
+            Self::Regex(regex) => regex
+                .find_iter(text)
+                .map(|found| Range {
+                    start: found.start(),
+                    end: found.end(),
+                })
+                .collect(),
+        }
+    }
+}
+
+fn is_literal(query: &str) -> bool {
+    !query.bytes().any(|byte| b"\\.^$*+?()[]{}|".contains(&byte))
 }
 
 impl SearchState {
@@ -44,16 +117,20 @@ impl SearchState {
             self.session = None;
             return;
         }
-        let regex = match Regex::new(&query) {
-            Ok(regex) => regex,
-            Err(error) => {
-                self.error = Some(error.to_string());
-                self.input = Some(query);
-                return;
+        let matcher = if is_literal(&query) {
+            Matcher::Literal(LiteralMatcher::new(&query))
+        } else {
+            match Regex::new(&query) {
+                Ok(regex) => Matcher::Regex(regex),
+                Err(error) => {
+                    self.error = Some(error.to_string());
+                    self.input = Some(query);
+                    return;
+                }
             }
         };
         let mut session = SearchSession {
-            regex,
+            matcher,
             cache: vec![None; document.line_count()],
             selected: None,
             final_no_match: false,
@@ -74,15 +151,7 @@ impl SearchSession {
         if self.cache[line].is_none() {
             let ranges = document
                 .line_text(line)
-                .map(|text| {
-                    self.regex
-                        .find_iter(text)
-                        .map(|found| Range {
-                            start: found.start(),
-                            end: found.end(),
-                        })
-                        .collect()
-                })
+                .map(|text| self.matcher.ranges(text))
                 .unwrap_or_default();
             self.cache[line] = Some(ranges);
         }
@@ -163,5 +232,39 @@ impl SearchSession {
 
     pub(crate) fn selected_line(&self) -> Option<usize> {
         self.selected.map(|(line, _)| line)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{LiteralMatcher, Matcher};
+
+    #[test]
+    fn literal_matcher_returns_non_overlapping_utf8_byte_ranges() {
+        let matcher = LiteralMatcher::new("na");
+        let ranges = matcher.find_ranges("banana");
+        assert_eq!(
+            ranges
+                .iter()
+                .map(|range| (range.start, range.end))
+                .collect::<Vec<_>>(),
+            [(2, 4), (4, 6)]
+        );
+        let ranges = matcher.find_ranges("é na");
+        assert_eq!(
+            ranges
+                .iter()
+                .map(|range| (range.start, range.end))
+                .collect::<Vec<_>>(),
+            [(3, 5)]
+        );
+    }
+
+    #[test]
+    fn literal_and_regex_matchers_agree_for_plain_queries() {
+        let text = "render render_document render";
+        let literal = Matcher::Literal(LiteralMatcher::new("render"));
+        let regex = Matcher::Regex(regex_lite::Regex::new("render").unwrap());
+        assert_eq!(literal.ranges(text), regex.ranges(text));
     }
 }

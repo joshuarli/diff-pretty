@@ -117,6 +117,22 @@ fn initial_search_late_match(bencher: Bencher) {
 }
 
 #[divan::bench]
+fn initial_regex_search_late_match(bencher: Bencher) {
+    let text = corpus(20_000);
+    bencher.bench_local(|| {
+        let mut pager = session(&text);
+        pager.handle(Event::Text('/'));
+        for character in "changed_token_000[2]".chars() {
+            pager.handle(Event::Text(character));
+        }
+        pager.handle(Event::Enter);
+        let mut frame = Vec::with_capacity(16 * 1024);
+        pager.draw(&mut frame).unwrap();
+        black_box(frame.len())
+    });
+}
+
+#[divan::bench]
 fn cached_search_redraw(bencher: Bencher) {
     let text = corpus(20_000);
     let mut pager = session(&text);
