@@ -49,11 +49,23 @@ pub(crate) fn terminated() -> bool {
 }
 
 pub(crate) fn read_event<R: Read>(input: &mut R) -> io::Result<Option<Event>> {
+    read_event_inner(input, false)
+}
+
+#[cfg(unix)]
+pub(crate) fn read_event_tty<R: Read>(input: &mut R) -> io::Result<Option<Event>> {
+    read_event_inner(input, true)
+}
+
+fn read_event_inner<R: Read>(input: &mut R, timeout_is_idle: bool) -> io::Result<Option<Event>> {
     let mut decoder = KeyDecoder::new();
     let mut byte = [0; 1];
     loop {
         let count = input.read(&mut byte)?;
         if count == 0 {
+            if !timeout_is_idle {
+                return Ok(decoder.finish());
+            }
             if let Some(event) = decoder.timed_out(Instant::now()) {
                 return Ok(Some(event));
             }
@@ -235,6 +247,7 @@ mod tests {
             Some(Event::Interrupt)
         );
         assert_eq!(read_event(&mut &b"q"[..]).unwrap(), Some(Event::Text('q')));
+        assert_eq!(read_event(&mut &b""[..]).unwrap(), None);
     }
 
     #[test]

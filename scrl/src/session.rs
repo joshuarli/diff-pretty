@@ -14,10 +14,8 @@ use std::time::Duration;
 use crate::document::{Document, Range};
 use crate::search::SearchState;
 const RESET: &str = "\x1b[0m";
-#[cfg(feature = "terminal")]
-use crate::terminal::read_event;
 #[cfg(all(feature = "terminal", unix))]
-use crate::terminal::{RawMode, SignalGuard, terminated};
+use crate::terminal::{RawMode, SignalGuard, read_event_tty, terminated};
 #[cfg(feature = "terminal")]
 use crate::{ChunkSource, ExitReason, RunOptions};
 
@@ -441,7 +439,7 @@ pub(crate) fn run_terminal<S: ChunkSource>(
             if terminated() {
                 break;
             }
-            match read_event(&mut &tty)? {
+            match read_event_tty(&mut &tty)? {
                 None => break,
                 Some(event) => match session.handle(event) {
                     Action::Quit => break,
@@ -522,7 +520,7 @@ pub(crate) fn run_retained_terminal(
     thread::spawn(move || {
         let input = key_tty;
         loop {
-            match read_event(&mut &input) {
+            match read_event_tty(&mut &input) {
                 Ok(Some(event)) => {
                     if key_sender.send(event).is_err() {
                         break;
@@ -637,7 +635,7 @@ fn run_terminal_live<S: ChunkSource>(
             if key_cancelled.load(Ordering::Relaxed) {
                 break;
             }
-            match read_event(&mut &input) {
+            match read_event_tty(&mut &input) {
                 Ok(Some(event)) => {
                     if key_sender.send(event).is_err() {
                         break;
