@@ -338,7 +338,7 @@ impl RenderedDocument {
 
             let relative = text_offset - line_start;
             if active_end == Some(relative) {
-                remove_search_overlay(output, overlay, base_style)?;
+                remove_search_overlay(output, overlay)?;
                 overlay = None;
                 active_end = None;
                 range_index += 1;
@@ -352,7 +352,7 @@ impl RenderedDocument {
                 }
                 let sequence = self.ansi_sequence(sequence);
                 if active_end.is_some() {
-                    remove_search_overlay(output, overlay, base_style)?;
+                    remove_search_overlay(output, overlay)?;
                 }
                 output.write_all(sequence.as_bytes())?;
                 base_style.apply(sequence);
@@ -385,7 +385,7 @@ impl RenderedDocument {
             output.write_all(&self.text.as_bytes()[text_offset..line_end])?;
         }
         if active_end.is_some() {
-            remove_search_overlay(output, overlay, base_style)?;
+            remove_search_overlay(output, overlay)?;
         }
         if end.spans & FINAL_RESET_BIT != 0 {
             output.write_all(sgr::RESET.as_bytes())?;
@@ -424,40 +424,44 @@ fn decode_line_span(
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum PagerOverlay {
-    Reverse,
-    Background,
+struct SearchOverlay {
+    base: PagerSgrState,
 }
+
+/// The search highlight style. It overrides every preexisting attribute, so
+/// the overlay is a complete replacement style rather than an additive one.
+const SEARCH_YELLOW: &[u8] = b"\x1b[48;5;226;30m";
 
 fn write_search_overlay<W: Write + ?Sized>(
     output: &mut W,
     base: PagerSgrState,
-) -> io::Result<PagerOverlay> {
-    if base.reverse {
-        // Reverse video cannot visually distinguish an already-reversed span.
-        output.write_all(b"\x1b[48;5;240m")?;
-        Ok(PagerOverlay::Background)
-    } else {
-        output.write_all(b"\x1b[7m")?;
-        Ok(PagerOverlay::Reverse)
-    }
+) -> io::Result<SearchOverlay> {
+    // A reset followed by the complete overlay style leaves the terminal in
+    // exactly the highlight state regardless of what was active before.
+    output.write_all(sgr::RESET.as_bytes())?;
+    output.write_all(SEARCH_YELLOW)?;
+    Ok(SearchOverlay { base })
 }
 
 fn remove_search_overlay<W: Write + ?Sized>(
     output: &mut W,
-    overlay: Option<PagerOverlay>,
-    base: PagerSgrState,
+    overlay: Option<SearchOverlay>,
 ) -> io::Result<()> {
-    match overlay {
-        Some(PagerOverlay::Reverse) => output.write_all(b"\x1b[27m"),
-        Some(PagerOverlay::Background) => base.background.write(output),
-        None => Ok(()),
-    }
+    let Some(SearchOverlay { base: original }) = overlay else {
+        return Ok(());
+    };
+    // Replay the complete base style so attributes clobbered by the overlay
+    // (reverse, foreground, background, bold) are all restored exactly.
+    output.write_all(sgr::RESET.as_bytes())?;
+    original.write(output)?;
+    Ok(())
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 struct PagerSgrState {
+    bold: bool,
     reverse: bool,
+    foreground: PagerColor,
     background: PagerColor,
 }
 
@@ -484,19 +488,31 @@ impl PagerSgrState {
             };
             match code {
                 0 => *self = Self::default(),
+                1 => self.bold = true,
+                22 => self.bold = false,
                 7 => self.reverse = true,
                 27 => self.reverse = false,
+                30..=37 | 90..=97 => {
+                    self.foreground = PagerColor::Basic(code);
+                }
+                39 => self.foreground = PagerColor::Default,
                 40..=47 | 100..=107 => {
                     self.background = PagerColor::Basic(code);
                 }
                 49 => self.background = PagerColor::Default,
-                38 | 48 | 58 => {
-                    let target_background = code == 48;
-                    if let Some(color) = parse_extended_color(&mut parameters)
-                        && target_background
-                    {
-                        self.background = color;
+                38 | 48 => {
+                    if let Some(color) = parse_extended_color(&mut parameters) {
+                        if code == 48 {
+                            self.background = color;
+                        } else {
+                            self.foreground = color;
+                        }
                     }
+                }
+                58 => {
+                    // Underline color; consumed but not part of the overlay
+                    // restore state.
+                    let _ = parse_extended_color(&mut parameters);
                 }
                 _ => {}
             }
@@ -509,6 +525,11 @@ impl PagerSgrState {
             Some(0) => *self = Self::default(),
             Some(7) => self.reverse = true,
             Some(27) => self.reverse = false,
+            Some(38) => {
+                if let Some(color) = parse_colon_color(&mut fields) {
+                    self.foreground = color;
+                }
+            }
             Some(48) => {
                 if let Some(color) = parse_colon_color(&mut fields) {
                     self.background = color;
@@ -517,6 +538,30 @@ impl PagerSgrState {
             Some(49) => self.background = PagerColor::Default,
             _ => {}
         }
+    }
+
+    /// Replay this state as a complete SGR style, skipping attributes that
+    /// are currently at their defaults.
+    fn write<W: Write + ?Sized>(self, output: &mut W) -> io::Result<()> {
+        if self.bold {
+            output.write_all(b"\x1b[1m")?;
+        }
+        if self.reverse {
+            output.write_all(b"\x1b[7m")?;
+        }
+        match self.foreground {
+            PagerColor::Default => {}
+            PagerColor::Basic(code) => write!(output, "\x1b[{code}m")?,
+            PagerColor::Indexed(index) => write!(output, "\x1b[38;5;{index}m")?,
+            PagerColor::Rgb(red, green, blue) => write!(output, "\x1b[38;2;{red};{green};{blue}m")?,
+        }
+        match self.background {
+            PagerColor::Default => {}
+            PagerColor::Basic(code) => write!(output, "\x1b[{code}m")?,
+            PagerColor::Indexed(index) => write!(output, "\x1b[48;5;{index}m")?,
+            PagerColor::Rgb(red, green, blue) => write!(output, "\x1b[48;2;{red};{green};{blue}m")?,
+        }
+        Ok(())
     }
 }
 
@@ -527,17 +572,6 @@ enum PagerColor {
     Basic(u16),
     Indexed(u8),
     Rgb(u8, u8, u8),
-}
-
-impl PagerColor {
-    fn write<W: Write + ?Sized>(self, output: &mut W) -> io::Result<()> {
-        match self {
-            Self::Default => output.write_all(b"\x1b[49m"),
-            Self::Basic(code) => write!(output, "\x1b[{code}m"),
-            Self::Indexed(index) => write!(output, "\x1b[48;5;{index}m"),
-            Self::Rgb(red, green, blue) => write!(output, "\x1b[48;2;{red};{green};{blue}m"),
-        }
-    }
 }
 
 fn parse_extended_color<'a>(parameters: &mut impl Iterator<Item = &'a str>) -> Option<PagerColor> {

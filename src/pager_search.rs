@@ -76,8 +76,6 @@ pub(crate) struct ScanEvaluation {
 
 pub(crate) struct SearchInput {
     query: String,
-    display_prefix: Option<char>,
-    discard_first_character: bool,
     compile_error: Option<String>,
 }
 
@@ -85,8 +83,6 @@ impl SearchInput {
     fn new() -> Self {
         Self {
             query: String::new(),
-            display_prefix: None,
-            discard_first_character: true,
             compile_error: None,
         }
     }
@@ -95,29 +91,18 @@ impl SearchInput {
         &self.query
     }
 
-    pub(crate) fn display_prefix(&self) -> Option<char> {
-        self.display_prefix
-    }
-
     pub(crate) fn compile_error(&self) -> Option<&str> {
         self.compile_error.as_deref()
     }
 
     pub(crate) fn push(&mut self, character: char) {
         self.compile_error = None;
-        if self.discard_first_character {
-            self.display_prefix = Some(character);
-            self.discard_first_character = false;
-        } else {
-            self.query.push(character);
-        }
+        self.query.push(character);
     }
 
     pub(crate) fn backspace(&mut self) {
         self.compile_error = None;
-        if self.query.pop().is_none() {
-            self.display_prefix = None;
-        }
+        self.query.pop();
     }
 
     pub(crate) fn clear(&mut self) {

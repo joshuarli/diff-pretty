@@ -76,7 +76,6 @@ pub mod bench_internals {
             let mut state = PagerState::new(rows, columns);
             state.search.begin();
             if let Some(input) = state.search.input_mut() {
-                input.push('\0');
                 for character in query.chars() {
                     input.push(character);
                 }
@@ -144,7 +143,6 @@ pub mod bench_internals {
             let mut state = PagerState::new(rows, columns);
             state.search.begin();
             if let Some(input) = state.search.input_mut() {
-                input.push('\0');
                 for character in query.chars() {
                     input.push(character);
                 }
@@ -1013,9 +1011,6 @@ fn write_pager_status<W: Write + ?Sized>(
     let mut status = StatusWriter::new(output, columns);
     if let Some(input) = search.input() {
         let _ = write!(status, " /");
-        if let Some(prefix) = input.display_prefix() {
-            let _ = status.write_char(prefix);
-        }
         let _ = write!(status, "{}  Enter search  Esc cancel", input.query());
         if let Some(error) = input.compile_error() {
             let _ = write!(status, "  {error}");
@@ -1456,13 +1451,11 @@ mod tests {
         let mut state = PagerState::new(5, 80);
 
         state.apply_key(Key::Text('/'), &document, true);
-        state.apply_key(Key::Text('x'), &document, true);
         for character in "j/q".chars() {
             state.apply_key(Key::Text(character), &document, true);
         }
 
         assert_eq!(state.search.input().unwrap().query(), "j/q");
-        assert_eq!(state.search.input().unwrap().display_prefix(), Some('x'));
         assert_eq!(
             state.apply_key(Key::Text('q'), &document, true),
             ApplyResult::Changed
@@ -1471,31 +1464,31 @@ mod tests {
     }
 
     #[test]
-    fn discarded_character_is_visible_but_not_compiled() {
+    fn first_query_character_is_compiled_without_triggering_search() {
         let document = crate::render::render_document("needle\n");
         let mut state = PagerState::new(5, 80);
         state.apply_key(Key::Text('/'), &document, true);
-        state.apply_key(Key::Text('x'), &document, true);
         for character in "needle".chars() {
             state.apply_key(Key::Text(character), &document, true);
         }
 
         let input = state.search.input().unwrap();
-        assert_eq!(input.display_prefix(), Some('x'));
         assert_eq!(input.query(), "needle");
-        let mut status = Vec::new();
-        write_pager_status(&mut status, &document, 0, 4, 80, false, &state.search).unwrap();
-        assert!(String::from_utf8(status).unwrap().starts_with(" /xneedle"));
+        assert!(state.search.active().is_none());
 
         state.apply_key(Key::Enter, &document, true);
         while state.search.active().unwrap().is_pending() {
             state.advance_search(&document, true);
         }
         assert!(state.search.active().unwrap().selected().is_some());
+        assert_eq!(
+            state.search.active().unwrap().ranges(0),
+            &[crate::render::TextRange { start: 0, end: 6 }]
+        );
     }
 
     #[test]
-    fn search_input_backspace_removes_the_visible_discarded_character() {
+    fn search_input_backspace_removes_the_first_query_character() {
         let document = crate::render::render_document("text\n");
         let mut state = PagerState::new(5, 80);
         state.apply_key(Key::Text('/'), &document, true);
@@ -1504,13 +1497,11 @@ mod tests {
 
         state.apply_key(Key::Backspace, &document, true);
         let input = state.search.input().unwrap();
-        assert_eq!(input.query(), "");
-        assert_eq!(input.display_prefix(), Some('x'));
+        assert_eq!(input.query(), "x");
 
         state.apply_key(Key::Backspace, &document, true);
         let input = state.search.input().unwrap();
         assert_eq!(input.query(), "");
-        assert_eq!(input.display_prefix(), None);
     }
 
     #[test]
@@ -1518,16 +1509,14 @@ mod tests {
         let document = crate::render::render_document("λ\n");
         let mut state = PagerState::new(5, 80);
         state.apply_key(Key::Text('/'), &document, true);
-        state.apply_key(Key::Text('x'), &document, true);
         state.apply_key(Key::Text('λ'), &document, true);
         state.apply_key(Key::Backspace, &document, true);
 
         assert_eq!(state.search.input().unwrap().query(), "");
-        assert_eq!(state.search.input().unwrap().display_prefix(), Some('x'));
     }
 
     #[test]
-    fn ctrl_u_clears_query_but_keeps_the_visible_discarded_character() {
+    fn ctrl_u_clears_query() {
         let document = crate::render::render_document("text\n");
         let mut state = PagerState::new(5, 80);
         state.apply_key(Key::Text('/'), &document, true);
@@ -1536,7 +1525,6 @@ mod tests {
         state.apply_key(Key::CtrlU, &document, true);
 
         let input = state.search.input().unwrap();
-        assert_eq!(input.display_prefix(), Some('λ'));
         assert_eq!(input.query(), "");
     }
 
@@ -1546,7 +1534,6 @@ mod tests {
         for query in [r"\.", r"\+"] {
             let mut state = PagerState::new(5, 80);
             state.apply_key(Key::Text('/'), &document, true);
-            state.apply_key(Key::Text('x'), &document, true);
             for character in query.chars() {
                 state.apply_key(Key::Text(character), &document, true);
             }
@@ -1560,7 +1547,6 @@ mod tests {
         let document = crate::render::render_document("text\n");
         let mut state = PagerState::new(5, 80);
         state.apply_key(Key::Text('/'), &document, true);
-        state.apply_key(Key::Text('x'), &document, true);
         state.apply_key(Key::Text('['), &document, true);
         state.apply_key(Key::Enter, &document, true);
 
@@ -1578,7 +1564,6 @@ mod tests {
         assert!(matches!(state.search, SearchState::Inactive));
 
         state.apply_key(Key::Text('/'), &document, true);
-        state.apply_key(Key::Text('x'), &document, true);
         state.apply_key(Key::Text('['), &document, true);
         state.apply_key(Key::Enter, &document, true);
         assert!(state.search.input().unwrap().compile_error().is_some());
@@ -1590,7 +1575,6 @@ mod tests {
         let document = crate::render::render_document("needle\none\ntwo\nneedle\nfour\n");
         let mut state = PagerState::new(3, 80);
         state.apply_key(Key::Text('/'), &document, true);
-        state.apply_key(Key::Text('x'), &document, true);
         for character in "needle".chars() {
             state.apply_key(Key::Text(character), &document, true);
         }
@@ -1615,7 +1599,7 @@ mod tests {
             .unwrap();
         assert_eq!(
             output,
-            b"\x1b[31mred \x1b[7mtext\x1b[27m\x1b[0m\x1b[7m pla\x1b[27min"
+            b"\x1b[31mred \x1b[0m\x1b[48;5;226;30mtext\x1b[0m\x1b[31m\x1b[0m\x1b[0m\x1b[48;5;226;30m pla\x1b[0min"
         );
         assert!(!document.line_text(0).unwrap().contains('\u{1b}'));
     }
@@ -1637,34 +1621,26 @@ mod tests {
     }
 
     #[test]
-    fn search_inside_reverse_video_uses_a_visible_background_overlay() {
-        let document = crate::render::render_document("\x1b[1;7;31mchanged\x1b[0m\n");
-        let mut output = Vec::new();
-        document
-            .write_line_with_search(
-                &mut output,
-                0,
-                &[crate::render::TextRange { start: 0, end: 7 }],
-            )
-            .unwrap();
-
-        assert_eq!(output, b"\x1b[1;7;31m\x1b[48;5;240mchanged\x1b[49m\x1b[0m");
-    }
-
-    #[test]
-    fn extended_color_payloads_do_not_change_reverse_state() {
+    fn search_overrides_all_preexisting_styles_with_a_yellow_background() {
         let cases = [
             (
+                "\x1b[1;7;31mchanged\x1b[0m\n",
+                b"\x1b[1;7;31m\x1b[0m\x1b[48;5;226;30mchanged\x1b[0m\x1b[1m\x1b[7m\x1b[31m\x1b[0m"
+                    .as_slice(),
+            ),
+            (
                 "\x1b[38;5;7mindexed\x1b[0m",
-                b"\x1b[38;5;7m\x1b[7mindexed\x1b[27m\x1b[0m".as_slice(),
+                b"\x1b[38;5;7m\x1b[0m\x1b[48;5;226;30mindexed\x1b[0m\x1b[38;5;7m\x1b[0m".as_slice(),
             ),
             (
                 "\x1b[7;38;5;0mreversed\x1b[0m",
-                b"\x1b[7;38;5;0m\x1b[48;5;240mreversed\x1b[49m\x1b[0m".as_slice(),
+                b"\x1b[7;38;5;0m\x1b[0m\x1b[48;5;226;30mreversed\x1b[0m\x1b[7m\x1b[38;5;0m\x1b[0m"
+                    .as_slice(),
             ),
             (
                 "\x1b[38;2;0;7;27mrgb\x1b[0m",
-                b"\x1b[38;2;0;7;27m\x1b[7mrgb\x1b[27m\x1b[0m".as_slice(),
+                b"\x1b[38;2;0;7;27m\x1b[0m\x1b[48;5;226;30mrgb\x1b[0m\x1b[38;2;0;7;27m\x1b[0m"
+                    .as_slice(),
             ),
         ];
         for (input, expected) in cases {
@@ -1689,15 +1665,17 @@ mod tests {
         let cases = [
             (
                 "\x1b[7;48:2::1:2:3mvalid\x1b[0m",
-                b"\x1b[7;48:2::1:2:3m\x1b[48;5;240mvalid\x1b[48;2;1;2;3m\x1b[0m".as_slice(),
+                b"\x1b[7;48:2::1:2:3m\x1b[0m\x1b[48;5;226;30mvalid\x1b[0m\x1b[7m\x1b[48;2;1;2;3m\x1b[0m"
+                    .as_slice(),
             ),
             (
                 "\x1b[7;48:2:x:1:2:3mmalformed\x1b[0m",
-                b"\x1b[7;48:2:x:1:2:3m\x1b[48;5;240mmalformed\x1b[49m\x1b[0m".as_slice(),
+                b"\x1b[7;48:2:x:1:2:3m\x1b[0m\x1b[48;5;226;30mmalformed\x1b[0m\x1b[7m\x1b[0m"
+                    .as_slice(),
             ),
             (
                 "\x1b[7;48:2:1:1:2:3mspace\x1b[0m",
-                b"\x1b[7;48:2:1:1:2:3m\x1b[48;5;240mspace\x1b[49m\x1b[0m".as_slice(),
+                b"\x1b[7;48:2:1:1:2:3m\x1b[0m\x1b[48;5;226;30mspace\x1b[0m\x1b[7m\x1b[0m".as_slice(),
             ),
         ];
         for (input, expected) in cases {
@@ -1728,7 +1706,10 @@ mod tests {
                 &[crate::render::TextRange { start: 0, end: 4 }],
             )
             .unwrap();
-        assert_eq!(output, b"\x1b[48;2;1;2;3m\x1b[7mtext\x1b[27m\x1b[0m");
+        assert_eq!(
+            output,
+            b"\x1b[48;2;1;2;3m\x1b[0m\x1b[48;5;226;30mtext\x1b[0m\x1b[48;2;1;2;3m\x1b[0m"
+        );
     }
 
     #[test]
@@ -1748,7 +1729,7 @@ mod tests {
             .unwrap();
         assert_eq!(
             output,
-            b"\x1b[7mab\x1b[27m\x1b[31m\x1b[7mcd\x1b[27m\x1b[0mef"
+            b"\x1b[0m\x1b[48;5;226;30mab\x1b[0m\x1b[31m\x1b[0m\x1b[48;5;226;30mcd\x1b[0m\x1b[31m\x1b[0mef"
         );
     }
 
@@ -1767,7 +1748,10 @@ mod tests {
                 ],
             )
             .unwrap();
-        assert_eq!(output, b"a\x1b[7mbcd\x1b[27m\x1b[7mef\x1b[27m");
+        assert_eq!(
+            output,
+            b"a\x1b[0m\x1b[48;5;226;30mbcd\x1b[0m\x1b[0m\x1b[48;5;226;30mef\x1b[0m"
+        );
     }
 
     #[test]
@@ -1775,7 +1759,6 @@ mod tests {
         let document = crate::render::render_document("needle\n");
         let mut state = PagerState::new(5, 80);
         state.apply_key(Key::Text('/'), &document, true);
-        state.apply_key(Key::Text('x'), &document, true);
         for character in "needle".chars() {
             state.apply_key(Key::Text(character), &document, true);
         }
@@ -1791,7 +1774,6 @@ mod tests {
         let mut search = SearchState::Inactive;
         search.begin();
         let input = search.input_mut().unwrap();
-        input.push('x');
         input.push('\u{1b}');
         input.push('a');
         let document = crate::render::render_document("one\n");
@@ -1879,7 +1861,6 @@ mod tests {
         let mut incremental_state = PagerState::new(4, 80);
         for key in [
             Key::Text('/'),
-            Key::Text('x'),
             Key::Text('n'),
             Key::Text('e'),
             Key::Text('e'),
@@ -1934,7 +1915,6 @@ mod tests {
         let document = crate::render::render_document("needle\nplain\n");
         let mut state = PagerState::new(3, 80);
         state.apply_key(Key::Text('/'), &document, true);
-        state.apply_key(Key::Text('x'), &document, true);
         for character in "needle".chars() {
             state.apply_key(Key::Text(character), &document, true);
         }
@@ -1959,7 +1939,6 @@ mod tests {
         let mut state = PagerState::new(3, 80);
         state.top = 2;
         state.apply_key(Key::Text('/'), &document, true);
-        state.apply_key(Key::Text('x'), &document, true);
         for character in "absent".chars() {
             state.apply_key(Key::Text(character), &document, true);
         }
@@ -1989,7 +1968,6 @@ mod tests {
         incremental.push_chunk("one\ntwo\n");
         let mut live = PagerState::new(4, 80);
         live.apply_key(Key::Text('/'), incremental.document(), false);
-        live.apply_key(Key::Text('x'), incremental.document(), false);
         for character in "needle".chars() {
             live.apply_key(Key::Text(character), incremental.document(), false);
         }
@@ -2006,7 +1984,6 @@ mod tests {
 
         let mut retained = PagerState::new(4, 80);
         retained.apply_key(Key::Text('/'), &complete, true);
-        retained.apply_key(Key::Text('x'), &complete, true);
         for character in "needle".chars() {
             retained.apply_key(Key::Text(character), &complete, true);
         }

@@ -85,16 +85,12 @@ remain behind the existing Unix gates.
 - In normal pager mode, `/` enters search input mode.
 - Entering search mode immediately clears the previous query, compiled regex,
   match cache, pending search state, and visible search highlights.
-- The first typed **character** after `/` is consumed and discarded. It is not
-  placed in the compiled query and does not cause a search, but it remains
-  visible in the search input prompt. Control keys do not count as the first
-  character. The first Unicode scalar value counts as one character, even if
-  its UTF-8 representation contains multiple bytes.
-- Subsequent printable input is appended to the query exactly as typed.
+- Printable input after `/` is appended to the query exactly as typed. No
+  search runs while the query is being edited; Enter is the search trigger.
+- The first Unicode scalar value counts as one character, even if its UTF-8
+  representation contains multiple bytes.
 - Backspace/Delete removes the last Unicode scalar value from the query.
-- Ctrl-U clears the current input query and resets the first-character discard
-  latch only if the implementation is still before the first character. It
-  does not restore the discarded character.
+- Ctrl-U clears the current input query.
 - Esc cancels search input, restores normal navigation, and leaves the pager in
   the state it had before this search command began. Since entering `/` clears
   the old query immediately, this means Esc leaves the pager with no active
@@ -433,7 +429,6 @@ SearchState {
 
 SearchInput {
     query: String,
-    discard_first_character: bool,
     compile_error: Option<String>,
 }
 
@@ -454,12 +449,12 @@ restarting.
 Recommended transitions:
 
 ```text
-Inactive + Slash       -> Input(empty, discard_first_character = true)
-Input + Character      -> discard or append
+Inactive + Slash       -> Input(empty)
+Input + Character      -> append to query
 Input + Backspace      -> edit query
 Input + Enter          -> compile, then Active or remain Input on error
 Input + Escape         -> Inactive
-Active + Slash         -> Input(empty, discard_first_character = true)
+Active + Slash         -> Input(empty)
 Active + ordinary key -> existing pager behavior
 Active + Up/Down       -> directional search
 Active + scroll key    -> viewport move + ensure_window
@@ -710,9 +705,9 @@ not depend on `/dev/tty`.
 ### Query input tests
 
 1. `/` enters input mode and clears an active previous query/cache.
-2. The first ordinary character is ignored; the second and later characters
-   form the query.
-3. Control keys do not consume the first-character latch.
+2. The first ordinary character is retained in the query, and Enter—not text
+   input—triggers the search.
+3. Control keys edit or cancel input without triggering a search.
 4. Backspace removes one Unicode scalar value.
 5. Enter submits; Esc cancels; Ctrl-U clears.
 6. `q`, `j`, `k`, `/`, backslash, brackets, parentheses, plus, star, and other
@@ -905,7 +900,8 @@ intentional changes to pager behavior separately from renderer golden results.
 The feature is complete only when all of the following are true:
 
 - `/` starts a fresh search command and Enter submits it.
-- The first typed character is intentionally discarded and tested.
+- The first typed character is retained and matched, while Enter remains the
+  only search trigger.
 - Backslash escaping reaches regex-lite unchanged and is tested.
 - Invalid regexes remain editable with a visible error.
 - The first match is found from the beginning and centered.
