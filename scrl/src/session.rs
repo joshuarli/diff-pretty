@@ -44,6 +44,7 @@ pub enum Event {
     Enter,
     Escape,
     Backspace,
+    Delete,
     CtrlU,
     Text(char),
 }
