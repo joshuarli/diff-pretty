@@ -95,7 +95,18 @@ impl Document {
         top: usize,
         rows: usize,
     ) -> io::Result<()> {
-        self.write_viewport_search(output, top, rows, rows > 1, 0, None, "scrl", false)
+        self.write_viewport_search(
+            output,
+            top,
+            rows,
+            rows > 1,
+            0,
+            None,
+            "scrl",
+            false,
+            false,
+            usize::MAX,
+        )
     }
 
     pub(crate) fn write_viewport_search<W: Write + ?Sized>(
@@ -108,18 +119,30 @@ impl Document {
         ranges: Option<(usize, &[Vec<Range>])>,
         title: &str,
         loading: bool,
+        wrap: bool,
+        columns: usize,
     ) -> io::Result<()> {
         output.write_all(b"\x1b[H")?;
         let content_rows = rows.saturating_sub(usize::from(status)).max(1);
         for row in 0..content_rows {
             output.write_all(b"\x1b[2K\r")?;
-            let line = top + row;
+            let (line, offset) = if wrap {
+                self.visual_position(top + row, columns)
+            } else {
+                (top + row, horizontal_offset)
+            };
             if let Some(line_ranges) = ranges.and_then(|(range_top, all)| {
                 line.checked_sub(range_top).and_then(|row| all.get(row))
             }) {
-                self.write_line_search(output, line, line_ranges, horizontal_offset)?;
+                self.write_line_search(
+                    output,
+                    line,
+                    line_ranges,
+                    offset,
+                    wrap.then_some(columns.max(1)),
+                )?;
             } else {
-                self.write_line(output, line, horizontal_offset)?;
+                self.write_line(output, line, offset, wrap.then_some(columns.max(1)))?;
             }
             output.write_all(RESET.as_bytes())?;
             if row + 1 < content_rows {
@@ -128,8 +151,22 @@ impl Document {
         }
         if status {
             output.write_all(b"\n\x1b[2K\r\x1b[7m")?;
-            let first = if self.line_count() == 0 { 0 } else { top + 1 };
-            let last = top.saturating_add(content_rows).min(self.line_count());
+            let (first_line, _) = if wrap {
+                self.visual_position(top, columns)
+            } else {
+                (top, 0)
+            };
+            let (last_line, _) = if wrap {
+                self.visual_position(top.saturating_add(content_rows.saturating_sub(1)), columns)
+            } else {
+                (top.saturating_add(content_rows.saturating_sub(1)), 0)
+            };
+            let first = if self.line_count() == 0 {
+                0
+            } else {
+                first_line + 1
+            };
+            let last = last_line.saturating_add(1).min(self.line_count());
             let loading = if loading { "  loading" } else { "" };
             let text = format!(
                 " {title}  {first}-{last}/{}{loading}  ↑/↓ scroll  ←/→ shift  PgUp/PgDn page  q quit",
@@ -146,12 +183,14 @@ impl Document {
         output: &mut W,
         line: usize,
         offset: usize,
+        limit: Option<usize>,
     ) -> io::Result<()> {
         let Some(&(start, end)) = self.raw_lines.get(line) else {
             return Ok(());
         };
         let clip = self.clip_byte(line, offset);
         let mut index = start;
+        let mut cells = 0;
         while index < end {
             if let Some((end, is_sgr)) = control_end(self.raw.as_bytes(), index) {
                 if is_sgr {
@@ -160,9 +199,17 @@ impl Document {
                 index = end;
             } else {
                 let character = self.raw[index..].chars().next().unwrap();
+                if limit.is_some_and(|limit| cells >= offset.saturating_add(limit)) {
+                    break;
+                }
                 if index >= clip {
                     write!(output, "{character}")?;
                 }
+                cells += if character == '\t' {
+                    8 - (cells % 8)
+                } else {
+                    cell_width(character)
+                };
                 index += character.len_utf8();
             }
         }
@@ -175,6 +222,7 @@ impl Document {
         line: usize,
         ranges: &[Range],
         offset: usize,
+        limit: Option<usize>,
     ) -> io::Result<()> {
         let Some(&(start, end)) = self.raw_lines.get(line) else {
             return Ok(());
@@ -182,6 +230,7 @@ impl Document {
         let clip = self.clip_byte(line, offset);
         let mut index = start;
         let mut visible = 0;
+        let mut cells = 0;
         let mut style = SgrState::default();
         let mut overlay = false;
         while index < end {
@@ -208,6 +257,9 @@ impl Document {
                 continue;
             }
             let character = self.raw[index..].chars().next().unwrap();
+            if limit.is_some_and(|limit| cells >= offset.saturating_add(limit)) {
+                break;
+            }
             let next = visible + character.len_utf8();
             let highlighted = ranges
                 .iter()
@@ -225,6 +277,11 @@ impl Document {
                 output.write_all(&self.raw.as_bytes()[index..index + character.len_utf8()])?;
             }
             visible = next;
+            cells += if character == '\t' {
+                8 - (cells % 8)
+            } else {
+                cell_width(character)
+            };
             index += character.len_utf8();
         }
         if overlay {
@@ -260,6 +317,70 @@ impl Document {
             index += character.len_utf8();
         }
         index
+    }
+
+    pub(crate) fn visual_line_count(&self, wrap: bool, columns: usize) -> usize {
+        if !wrap {
+            return self.line_count();
+        }
+        self.visible_lines
+            .iter()
+            .map(|&(start, end)| self.wrapped_rows(&self.visible[start..end], columns))
+            .sum()
+    }
+
+    fn visual_position(&self, row: usize, columns: usize) -> (usize, usize) {
+        if self.line_count() == 0 {
+            return (0, 0);
+        }
+        if row == 0 {
+            return (0, 0);
+        }
+        let columns = columns.max(1);
+        let mut remaining = row;
+        for (line, &(start, end)) in self.visible_lines.iter().enumerate() {
+            let rows = self.wrapped_rows(&self.visible[start..end], columns);
+            if remaining < rows {
+                return (line, remaining * columns);
+            }
+            remaining -= rows;
+        }
+        let last = self.line_count() - 1;
+        (
+            last,
+            self.wrapped_rows(self.line_text(last).unwrap_or_default(), columns)
+                .saturating_sub(1)
+                * columns,
+        )
+    }
+
+    fn wrapped_rows(&self, text: &str, columns: usize) -> usize {
+        let columns = columns.max(1);
+        if text.is_empty() {
+            return 1;
+        }
+        let mut rows = 1;
+        let mut cells = 0;
+        for character in text.chars() {
+            let width = if character == '\t' {
+                8 - (cells % 8)
+            } else {
+                cell_width(character)
+            };
+            if cells > 0 && cells + width > columns {
+                rows += 1;
+                cells = 0;
+            }
+            cells += width;
+            if cells == columns {
+                rows += 1;
+                cells = 0;
+            }
+        }
+        if cells == 0 && rows > 1 {
+            rows -= 1;
+        }
+        rows
     }
 }
 

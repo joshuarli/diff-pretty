@@ -29,6 +29,7 @@ pub struct Size {
 pub struct SessionOptions {
     pub title: String,
     pub search_history: Vec<String>,
+    pub wrap: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -63,6 +64,7 @@ pub struct Session {
     search: SearchState,
     top: usize,
     horizontal_offset: usize,
+    wrap: bool,
     finished: bool,
     frame: Vec<u8>,
     search_ranges: Vec<Vec<Range>>,
@@ -71,6 +73,7 @@ pub struct Session {
 impl Session {
     pub fn new(size: Size, options: SessionOptions) -> Self {
         let history = options.search_history.clone();
+        let wrap = options.wrap;
         Self {
             size,
             options,
@@ -78,6 +81,7 @@ impl Session {
             search: SearchState::with_history(history),
             top: 0,
             horizontal_offset: 0,
+            wrap,
             finished: false,
             frame: Vec::with_capacity(size.rows.saturating_mul(size.columns).max(1024)),
             search_ranges: Vec::new(),
@@ -87,6 +91,7 @@ impl Session {
     #[cfg(all(feature = "terminal", unix))]
     pub(crate) fn from_document(document: Document, size: Size, options: SessionOptions) -> Self {
         let history = options.search_history.clone();
+        let wrap = options.wrap;
         Self {
             size,
             options,
@@ -94,6 +99,7 @@ impl Session {
             search: SearchState::with_history(history),
             top: 0,
             horizontal_offset: 0,
+            wrap,
             finished: true,
             frame: Vec::with_capacity(size.rows.saturating_mul(size.columns).max(1024)),
             search_ranges: Vec::new(),
@@ -216,6 +222,8 @@ impl Session {
             ranges,
             &self.options.title,
             !self.finished,
+            self.wrap,
+            self.size.columns,
         )?;
         output.write_all(&self.frame)
     }
@@ -251,7 +259,7 @@ impl Session {
     }
     fn max_top(&self) -> usize {
         self.document
-            .line_count()
+            .visual_line_count(self.wrap, self.size.columns)
             .saturating_sub(self.content_rows())
     }
     fn clamp_top(&mut self) {
@@ -672,6 +680,7 @@ mod tests {
             SessionOptions {
                 title: "test".into(),
                 search_history: Vec::new(),
+                wrap: false,
             },
         )
     }
@@ -739,6 +748,7 @@ mod tests {
             SessionOptions {
                 title: "test".into(),
                 search_history: vec!["previous".into()],
+                wrap: false,
             },
         );
         pager.handle(Event::Text('/'));
@@ -783,5 +793,25 @@ mod tests {
             pager.search.session.as_ref().unwrap().selected_line(),
             Some(1)
         );
+    }
+
+    #[test]
+    fn wrap_mode_scrolls_visual_rows() {
+        let mut pager = Session::new(
+            Size {
+                rows: 4,
+                columns: 4,
+            },
+            SessionOptions {
+                title: "test".into(),
+                search_history: Vec::new(),
+                wrap: true,
+            },
+        );
+        pager.push_chunk("abcdefghij\nx\n");
+        pager.finish();
+        assert_eq!(pager.max_top(), 2);
+        pager.handle(Event::Down);
+        assert_eq!(pager.top, 1);
     }
 }
