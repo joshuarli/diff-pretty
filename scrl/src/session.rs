@@ -14,10 +14,10 @@ use std::time::Duration;
 use crate::document::{Document, Range};
 use crate::search::SearchState;
 const RESET: &str = "\x1b[0m";
-#[cfg(all(feature = "terminal", unix))]
-use crate::terminal::RawMode;
 #[cfg(feature = "terminal")]
 use crate::terminal::read_event;
+#[cfg(all(feature = "terminal", unix))]
+use crate::terminal::{RawMode, SignalGuard, terminated};
 #[cfg(feature = "terminal")]
 use crate::{ChunkSource, ExitReason, RunOptions};
 
@@ -433,10 +433,14 @@ pub(crate) fn run_terminal<S: ChunkSource>(
             return Ok(ExitReason::EndOfInput);
         }
     };
+    let _signals = SignalGuard::install();
     output.write_all(b"\x1b[?1049h\x1b[?7l\x1b[?25l\x1b[H")?;
     let mut result = session.draw(output);
     if result.is_ok() {
         loop {
+            if terminated() {
+                break;
+            }
             match read_event(&mut &tty)? {
                 None => break,
                 Some(event) => match session.handle(event) {
@@ -512,6 +516,7 @@ pub(crate) fn run_retained_terminal(
             return Ok(ExitReason::EndOfInput);
         }
     };
+    let _signals = SignalGuard::install();
     let key_tty = tty.try_clone()?;
     let (key_sender, key_receiver) = mpsc::sync_channel(8);
     thread::spawn(move || {
@@ -531,6 +536,9 @@ pub(crate) fn run_retained_terminal(
     output.write_all(b"\x1b[?1049h\x1b[?7l\x1b[?25l\x1b[H")?;
     let mut result = session.draw(output);
     while result.is_ok() {
+        if terminated() {
+            break;
+        }
         match key_receiver.recv_timeout(Duration::from_millis(50)) {
             Ok(event) => match session.handle(event) {
                 Action::Quit => break,
@@ -599,6 +607,7 @@ fn run_terminal_live<S: ChunkSource>(
             return Ok(ExitReason::EndOfInput);
         }
     };
+    let _signals = SignalGuard::install();
 
     enum LoadEvent {
         Chunk(String),
@@ -645,6 +654,12 @@ fn run_terminal_live<S: ChunkSource>(
     let mut finished = false;
     let mut quit = false;
     while result.is_ok() && !finished {
+        if terminated() {
+            finished = true;
+            quit = true;
+            cancelled.store(true, Ordering::Relaxed);
+            break;
+        }
         loop {
             match key_receiver.try_recv() {
                 Ok(event) => {
@@ -690,6 +705,10 @@ fn run_terminal_live<S: ChunkSource>(
     }
     if result.is_ok() && finished && !cancelled.load(Ordering::Relaxed) {
         loop {
+            if terminated() {
+                quit = true;
+                break;
+            }
             match key_receiver.recv_timeout(Duration::from_millis(50)) {
                 Ok(event) => match session.handle(event) {
                     Action::Quit => {

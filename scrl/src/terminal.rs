@@ -1,7 +1,52 @@
 use std::io::{self, Read};
+#[cfg(unix)]
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
 
 use crate::Event;
+
+#[cfg(unix)]
+static TERMINATED: AtomicBool = AtomicBool::new(false);
+
+#[cfg(unix)]
+unsafe extern "C" {
+    fn signal(signal: std::ffi::c_int, handler: usize) -> usize;
+}
+
+#[cfg(unix)]
+unsafe extern "C" fn handle_term(_signal: std::ffi::c_int) {
+    TERMINATED.store(true, Ordering::Relaxed);
+}
+
+#[cfg(unix)]
+pub(crate) struct SignalGuard {
+    previous: usize,
+}
+
+#[cfg(unix)]
+impl SignalGuard {
+    pub(crate) fn install() -> Self {
+        TERMINATED.store(false, Ordering::Relaxed);
+        // SIGTERM is delivered asynchronously; the handler only flips an
+        // atomic. The owning loop observes it and performs normal cleanup.
+        let previous = unsafe { signal(15, handle_term as *const () as usize) };
+        Self { previous }
+    }
+}
+
+#[cfg(unix)]
+impl Drop for SignalGuard {
+    fn drop(&mut self) {
+        unsafe {
+            signal(15, self.previous);
+        }
+    }
+}
+
+#[cfg(unix)]
+pub(crate) fn terminated() -> bool {
+    TERMINATED.load(Ordering::Relaxed)
+}
 
 pub(crate) fn read_event<R: Read>(input: &mut R) -> io::Result<Option<Event>> {
     let mut decoder = KeyDecoder::new();
