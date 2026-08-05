@@ -1167,4 +1167,20 @@ mod tests {
 
         assert_eq!(output, render(input).as_bytes());
     }
+
+    #[test]
+    fn incremental_large_log_matches_retained_rendering() {
+        let mut input = String::new();
+        for commit in 0..512 {
+            input.push_str(&format!(
+                "commit {commit:07x}\nAuthor: Synthetic <synthetic@example.test>\nDate:   Thu Jan 1 00:00:00 1970 +0000\n\n    synthetic commit {commit}\n\n"
+            ));
+        }
+        let document = render_reader_document(input.as_bytes()).unwrap();
+        let mut incremental = Vec::new();
+        document.write_to(&mut incremental).unwrap();
+
+        assert_eq!(incremental, render(&input).as_bytes());
+        assert_eq!(document.line_count(), 512 * 6 + 1);
+    }
 }

@@ -35,8 +35,17 @@ impl DocumentBuilder {
 
 impl Document {
     pub(crate) fn append(&mut self, chunk: &str) {
+        let (raw_start, visible_start) = if let Some(&(raw_start, _)) = self.raw_lines.last() {
+            let visible_start = self.visible_lines.last().map_or(0, |&(start, _)| start);
+            self.raw_lines.pop();
+            self.visible_lines.pop();
+            self.visible.truncate(visible_start);
+            (raw_start, visible_start)
+        } else {
+            (0, 0)
+        };
         self.raw.push_str(chunk);
-        self.reindex();
+        self.reindex_from(raw_start, visible_start);
     }
 
     pub(crate) fn filtered(&self, pattern: &Regex) -> Self {
@@ -54,14 +63,9 @@ impl Document {
         builder.finish()
     }
 
-    fn reindex(&mut self) {
-        self.visible.clear();
-        self.raw_lines.clear();
-        self.visible_lines.clear();
-        let mut raw_start = 0;
-        let mut visible_start = 0;
+    fn reindex_from(&mut self, mut raw_start: usize, mut visible_start: usize) {
         let bytes = self.raw.as_bytes();
-        let mut index = 0;
+        let mut index = raw_start;
         while index < bytes.len() {
             if bytes[index] == b'\n' {
                 self.raw_lines.push((raw_start, index));

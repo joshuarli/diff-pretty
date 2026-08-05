@@ -19,7 +19,7 @@ use std::sync::OnceLock;
 
 use divan::{AllocProfiler, Bencher, black_box};
 
-use diff_pretty::{render, render_document, render_reader_to};
+use diff_pretty::{render, render_document, render_reader_document, render_reader_to};
 
 #[global_allocator]
 static ALLOC: AllocProfiler = AllocProfiler::system();
@@ -148,6 +148,22 @@ fn render_log_000_color(b: Bencher) {
 fn render_plain_unified(b: Bencher) {
     let input = fixture("plain_unified");
     b.bench_local(|| black_box(render(input).len()));
+}
+
+fn synthetic_git_log(commits: usize) -> String {
+    let mut input = String::with_capacity(commits * 160);
+    for commit in 0..commits {
+        input.push_str(&format!(
+            "commit {commit:07x}\nAuthor: Synthetic <synthetic@example.test>\nDate:   Thu Jan 1 00:00:00 1970 +0000\n\n    synthetic commit {commit}\n\n"
+        ));
+    }
+    input
+}
+
+#[divan::bench]
+fn render_reader_document_synthetic_git_log_10000(b: Bencher) {
+    let input = synthetic_git_log(10_000);
+    b.bench_local(|| black_box(render_reader_document(input.as_bytes()).unwrap()));
 }
 
 #[divan::bench]
