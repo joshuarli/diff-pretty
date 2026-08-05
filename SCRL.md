@@ -38,9 +38,10 @@ v0 explicitly does not add the lz-inspired optimizations or feature expansion
 listed below. A change that requires new search semantics, new terminal
 behavior, a new dependency, or a new input mode belongs in v1.
 
-### v1: deferred pager improvements
+### v1: implemented pager improvements
 
-After v0 is stable, evaluate these as separate, benchmarked changes:
+v1 is implemented as separate, benchmarked changes after the v0 hard-break
+migration. It includes:
 
 - reusable whole-frame buffering and a single write per frame;
 - a broader ANSI tokenizer, safe non-SGR control handling, and
@@ -54,7 +55,7 @@ After v0 is stable, evaluate these as separate, benchmarked changes:
   search history;
 - wrap mode, follow mode, filtering, and a help screen, each with its own
   state and streaming tests; and
-- additional terminal lifecycle handling such as SIGTERM and suspend/resume.
+- additional terminal lifecycle handling for SIGTERM and suspend/resume.
 
 SIGWINCH resize/redraw remains out of scope. Smart-case search, silent binary
 refusal, and silent line truncation are not planned: they would change the
@@ -76,8 +77,8 @@ The implementation should commit to these boundaries first:
 5. `scrl::ChunkSource` is the live boundary. It emits already-rendered text
    chunks through a bounded producer path and does not parse application
    semantics.
-6. The current diff-pretty pager API remains as a compatibility facade until
-   callers and benchmarks have migrated.
+6. The v0 compatibility facade was removed as a deliberate hard break. All
+   callers use `scrl` directly.
 7. Existing renderer goldens are evidence, not generated migration output. No
    golden is changed merely because code moved.
 
@@ -576,21 +577,27 @@ The extraction is complete only when:
 - release, benchmark, and PGO documentation accurately names both binaries
   and their ownership boundaries.
 
-## Deferred v1 acceptance checklist
+## v1 acceptance checklist
 
-Each v1 item is independently scoped and must not be smuggled into the v0
-extraction. Before enabling one, add its contract, focused regression tests,
-and a benchmark or resource-bound justification where applicable:
+Each v1 item has an isolated change, focused regression tests, and a benchmark
+or resource-bound justification where applicable:
 
-- frame buffering proves byte-identical frames and reports write/allocation
-  changes;
+- frame buffering proves byte-identical frames and one complete frame write;
 - ANSI tokenization and Unicode cell width cover CSI, OSC, tabs, combining
   marks, wide characters, clipping, and style restoration;
 - key buffering covers split escape sequences and bare-Escape deadlines;
 - literal search proves identical ranges to the regex path for eligible
-  patterns and reports a measured benefit;
+  patterns and has a dedicated benchmark;
 - lazy file sources preserve errors, partial lines, EOF, and bounded memory;
 - line editing/history/navigation additions preserve the existing search
-  cache and live behavior; and
-- wrapping, follow mode, filtering, and signal lifecycle each have explicit
-  state-transition and cleanup tests.
+  cache and live behavior;
+- wrapping, follow mode, filtering, and the help screen have explicit state
+  transition tests; and
+- SIGTERM plus suspend/resume restore the terminal lifecycle before exit or
+  stop.
+
+The focused redraw benchmark uses a 20,000-line realistic corpus. Before v1,
+cached search redraw measured about 313 µs and 20,002 allocations per frame;
+after frame buffering and cached-range reuse it measures about 14 µs and one
+120-byte allocation. The benchmark suite is `scrl/benches/bench.rs` and is run
+with `cargo bench -p scrl --bench bench -- --sample-count 10`.

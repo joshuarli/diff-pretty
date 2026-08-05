@@ -28,16 +28,16 @@ rendered text stream.
 
 ## Version scope
 
-The v0 design is an extraction contract, not a feature expansion. It preserves
+The v0 design was an extraction contract, not a feature expansion. It preserves
 the current pager's SGR scope, cell-width implementation, key decoding,
 retained/live behavior, and no-resize terminal lifecycle while moving ownership
 into `scrl`. The lz-inspired optimizations and additional less-like features
-are deferred to v1 and must not be prerequisites for the extraction.
+were intentionally left for the separately committed v1 changes below.
 
-Deferred v1 candidates are reusable frame buffering, broader ANSI/token-cell
+The v1 pager includes reusable frame buffering, broader ANSI/token-cell
 handling, a fixed key-byte buffer, literal-search acceleration, lazy seekable
 sources and file operands, richer search editing/history/navigation, wrapping,
-follow mode, filtering, help, and additional signal lifecycle handling.
+follow mode, filtering, help, and SIGTERM/suspend-resume lifecycle handling.
 SIGWINCH resize/redraw remains out of scope. Smart-case search, silent binary
 refusal, and silent line truncation are not part of the design.
 
@@ -284,14 +284,16 @@ The `scrl` binary reads stdin and writes stdout. It treats stdin as content and
 opens the controlling terminal separately for keys, matching the current pager
 behavior when stdin is a pipe.
 
-The v0 command is stdin-only. File operands, follow mode, binary detection, and
-line-length policies are deferred; the reusable library must not silently
-refuse or mutate content.
+The command accepts stdin or file operands. `--follow`, `--wrap`, and
+`--filter=REGEX` configure the corresponding session modes. Binary detection
+and line-length policies remain outside the contract; the reusable library
+must not silently refuse or mutate content.
 
 Supported flags are intentionally few:
 
 ```text
 scrl [--paging=auto|always|never] [--no-pager]
+     [--wrap] [--follow] [--filter=REGEX] [FILE ...]
 ```
 
 `auto` pages only when stdout is a terminal and the content exceeds one screen;
