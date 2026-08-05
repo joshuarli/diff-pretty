@@ -62,6 +62,7 @@ pub struct Session {
     top: usize,
     horizontal_offset: usize,
     finished: bool,
+    frame: Vec<u8>,
 }
 
 impl Session {
@@ -74,6 +75,7 @@ impl Session {
             top: 0,
             horizontal_offset: 0,
             finished: false,
+            frame: Vec::with_capacity(size.rows.saturating_mul(size.columns).max(1024)),
         }
     }
 
@@ -87,6 +89,7 @@ impl Session {
             top: 0,
             horizontal_offset: 0,
             finished: true,
+            frame: Vec::with_capacity(size.rows.saturating_mul(size.columns).max(1024)),
         }
     }
 
@@ -183,8 +186,9 @@ impl Session {
                 .map(|line| session.ranges(&self.document, line).to_vec())
                 .collect::<Vec<Vec<Range>>>()
         });
+        self.frame.clear();
         self.document.write_viewport_search(
-            output,
+            &mut self.frame,
             self.top,
             self.size.rows,
             true,
@@ -192,7 +196,8 @@ impl Session {
             ranges.as_deref(),
             &self.options.title,
             !self.finished,
-        )
+        )?;
+        output.write_all(&self.frame)
     }
 
     pub fn document(&self) -> &Document {
@@ -625,6 +630,19 @@ impl Document {
 mod tests {
     use super::*;
 
+    struct WriteCounter(usize);
+
+    impl Write for WriteCounter {
+        fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+            self.0 += 1;
+            Ok(bytes.len())
+        }
+
+        fn flush(&mut self) -> io::Result<()> {
+            Ok(())
+        }
+    }
+
     fn session() -> Session {
         Session::new(
             Size {
@@ -678,5 +696,15 @@ mod tests {
         let mut output = Vec::new();
         pager.draw(&mut output).unwrap();
         assert!(output.windows(3).any(|window| window == b"red"));
+    }
+
+    #[test]
+    fn draw_emits_one_complete_frame_write() {
+        let mut pager = session();
+        pager.push_chunk("one\ntwo\n");
+        pager.finish();
+        let mut output = WriteCounter(0);
+        pager.draw(&mut output).unwrap();
+        assert_eq!(output.0, 1);
     }
 }
