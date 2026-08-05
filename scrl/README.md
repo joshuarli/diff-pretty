@@ -116,10 +116,12 @@ controlling terminal when available; `run_document` handles an already
 retained document. Redirected output is always written directly without
 alternate-screen controls.
 
-The producer-to-session path uses a small bounded channel and cancellation
-flag. A source may remain blocked inside its own `read` until that read
-returns, but the pager does not accumulate an unbounded queue merely because
-the user has not consumed output.
+The producer-to-session path uses a one-chunk channel and cancellation flag.
+The runner initially pulls only enough chunks to fill the first viewport, then
+stops requesting source data while the user is idle. Forward navigation pulls
+one more chunk; `End` and a submitted search pull through EOF. Already loaded
+content is retained, so scrolling backward never requires replaying the pipe,
+but an untouched large input does not become a resident in-memory document.
 
 ## Command line
 
@@ -135,7 +137,9 @@ scrl [--paging=auto|always|never] [--no-pager]
 - `--wrap` wraps logical lines at terminal cell boundaries;
 - `--follow` keeps the viewport at the newest content while a source grows;
 - `--filter=REGEX` displays only matching logical lines; and
-- file operands are opened lazily and streamed with bounded memory.
+- file operands are opened lazily and streamed with bounded memory; and
+- live paging retains the loaded prefix but applies backpressure at the
+  viewport instead of reading the entire source eagerly.
 
 The command never consults `$PAGER` or invokes an external pager. Invalid
 paging values are rejected. Input is not silently treated as binary and

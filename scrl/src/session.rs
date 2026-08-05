@@ -4,7 +4,7 @@ use std::io::{self, Write};
 use std::sync::{
     Arc,
     atomic::{AtomicBool, Ordering},
-    mpsc::{self, TryRecvError},
+    mpsc,
 };
 #[cfg(feature = "terminal")]
 use std::thread;
@@ -61,11 +61,18 @@ pub enum Action {
     Quit,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum SourcePull {
+    None,
+    One,
+    All,
+}
+
 pub struct Session {
     size: Size,
     options: SessionOptions,
     document: Document,
-    source_document: Document,
+    source_document: Option<Document>,
     search: SearchState,
     top: usize,
     horizontal_offset: usize,
@@ -91,7 +98,7 @@ impl Session {
             size,
             options,
             document: Document::default(),
-            source_document: Document::default(),
+            source_document: filter.as_ref().map(|_| Document::default()),
             search: SearchState::with_history(history),
             top: 0,
             horizontal_offset: 0,
@@ -114,15 +121,16 @@ impl Session {
             .filter
             .as_deref()
             .and_then(|query| Regex::new(query).ok());
-        let display_document = filter
-            .as_ref()
-            .map(|pattern| document.filtered(pattern))
-            .unwrap_or_else(|| document.clone());
+        let (display_document, source_document) = if let Some(pattern) = &filter {
+            (document.filtered(pattern), Some(document))
+        } else {
+            (document, None)
+        };
         Self {
             size,
             options,
             document: display_document,
-            source_document: document,
+            source_document,
             search: SearchState::with_history(history),
             top: 0,
             horizontal_offset: 0,
@@ -138,10 +146,12 @@ impl Session {
 
     pub fn push_chunk(&mut self, chunk: &str) {
         if !self.finished {
-            self.source_document.append_for_session(chunk);
-            if let Some(pattern) = &self.filter {
-                self.document = self.source_document.filtered(pattern);
-                self.search.session = None;
+            if let Some(source_document) = &mut self.source_document {
+                source_document.append_for_session(chunk);
+                if let Some(pattern) = &self.filter {
+                    self.document = source_document.filtered(pattern);
+                    self.search.session = None;
+                }
             } else {
                 self.document.append_for_session(chunk);
             }
@@ -631,7 +641,7 @@ fn run_terminal_live<S: ChunkSource>(
         Finished(io::Result<()>),
     }
     let cancelled = Arc::new(AtomicBool::new(false));
-    let (sender, receiver) = mpsc::sync_channel(2);
+    let (sender, receiver) = mpsc::sync_channel(1);
     let worker_cancelled = Arc::clone(&cancelled);
     thread::spawn(move || {
         let result = source.produce(&mut |chunk: &str| {
@@ -681,118 +691,138 @@ fn run_terminal_live<S: ChunkSource>(
     };
     let mut finished = false;
     let mut quit = false;
-    while result.is_ok() && !finished {
+    let receive = |session: &mut Session| -> io::Result<bool> {
+        match receiver.recv() {
+            Ok(LoadEvent::Chunk(chunk)) => {
+                session.push_chunk(&chunk);
+                Ok(false)
+            }
+            Ok(LoadEvent::Finished(source_result)) => {
+                source_result?;
+                session.finish();
+                Ok(true)
+            }
+            Err(_) => Err(io::Error::new(
+                io::ErrorKind::UnexpectedEof,
+                "source stopped before EOF",
+            )),
+        }
+    };
+
+    // Pull only enough source data to make the first viewport useful. Once
+    // this loop ends, the producer is blocked on the one-slot channel until a
+    // navigation or search action asks for more data.
+    while result.is_ok()
+        && !finished
+        && (session.follow || !pager_started || session.document().line_count() <= size.rows)
+    {
+        match receive(&mut session) {
+            Ok(done) => finished = done,
+            Err(error) => {
+                result = Err(error);
+                break;
+            }
+        }
+        if !pager_started && session.document().line_count() > size.rows {
+            pager_started = true;
+            output.write_all(b"\x1b[?1049h\x1b[?7l\x1b[?25l\x1b[H")?;
+        }
+        if session.follow
+            && pager_started
+            && last_draw.is_none_or(|last| last.elapsed() >= Duration::from_millis(16))
+        {
+            result = session.draw(output);
+            last_draw = Some(Instant::now());
+        }
+    }
+
+    if result.is_ok() && pager_started {
+        result = session.draw(output);
+        last_draw = Some(Instant::now());
+    } else if result.is_ok() && !pager_started {
+        session.document().write_to(output)?;
+        output.flush()?;
+    }
+
+    while pager_started && result.is_ok() && !quit {
         if terminated() {
-            finished = true;
             quit = true;
             cancelled.store(true, Ordering::Relaxed);
             break;
         }
         if suspend_requested() {
-            if pager_started {
-                suspend(output, &raw)?;
-                result = session.draw(output);
-                last_draw = Some(Instant::now());
+            suspend(output, &raw)?;
+            result = session.draw(output);
+            last_draw = Some(Instant::now());
+            continue;
+        }
+        if session.follow && !finished {
+            match receiver.recv_timeout(Duration::from_millis(10)) {
+                Ok(LoadEvent::Chunk(chunk)) => {
+                    session.push_chunk(&chunk);
+                    if last_draw.is_none_or(|last| last.elapsed() >= Duration::from_millis(16)) {
+                        result = session.draw(output);
+                        last_draw = Some(Instant::now());
+                    }
+                }
+                Ok(LoadEvent::Finished(source_result)) => {
+                    result = source_result;
+                    if result.is_ok() {
+                        session.finish();
+                        result = session.draw(output);
+                        last_draw = Some(Instant::now());
+                    }
+                    finished = true;
+                }
+                Err(mpsc::RecvTimeoutError::Timeout) => {}
+                Err(mpsc::RecvTimeoutError::Disconnected) => {
+                    result = Err(io::Error::new(
+                        io::ErrorKind::UnexpectedEof,
+                        "source stopped before EOF",
+                    ));
+                }
             }
             continue;
         }
-        loop {
-            match key_receiver.try_recv() {
-                Ok(event) => {
-                    if matches!(session.handle(event), Action::Quit) {
-                        finished = true;
-                        quit = true;
-                        cancelled.store(true, Ordering::Relaxed);
-                        break;
+
+        match key_receiver.recv_timeout(Duration::from_millis(50)) {
+            Ok(event) => {
+                let pull = source_pull_request(&session, finished, event);
+                let mut loaded = false;
+                if !matches!(pull, SourcePull::None) {
+                    loop {
+                        match receive(&mut session) {
+                            Ok(done) => {
+                                loaded = true;
+                                finished = done;
+                            }
+                            Err(error) => {
+                                result = Err(error);
+                                break;
+                            }
+                        }
+                        if finished || matches!(pull, SourcePull::One) {
+                            break;
+                        }
                     }
                 }
-                Err(TryRecvError::Empty) | Err(TryRecvError::Disconnected) => break,
-            }
-        }
-        if finished {
-            break;
-        }
-        match receiver.recv_timeout(Duration::from_millis(10)) {
-            Ok(LoadEvent::Chunk(chunk)) => {
-                session.push_chunk(&chunk);
-                if !pager_started && session.document().line_count() > size.rows {
-                    pager_started = true;
-                    output.write_all(b"\x1b[?1049h\x1b[?7l\x1b[?25l\x1b[H")?;
-                }
-                let frame_due =
-                    last_draw.is_none_or(|last| last.elapsed() >= Duration::from_millis(16));
-                if pager_started && frame_due {
-                    result = session.draw(output);
-                    last_draw = Some(Instant::now());
-                }
-            }
-            Ok(LoadEvent::Finished(source_result)) => {
-                result = source_result;
                 if result.is_ok() {
-                    session.finish();
-                    if pager_started {
-                        result = session.draw(output);
-                        last_draw = Some(Instant::now());
-                    } else {
-                        session.document().write_to(output)?;
-                        output.flush()?;
+                    match session.handle(event) {
+                        Action::Quit => quit = true,
+                        Action::Continue { changed } => {
+                            if changed || loaded {
+                                result = session.draw(output);
+                            }
+                        }
                     }
                 }
-                finished = true;
             }
             Err(mpsc::RecvTimeoutError::Timeout) => {
-                if pager_started && session.advance() {
+                if finished && session.advance() {
                     result = session.draw(output);
-                    last_draw = Some(Instant::now());
                 }
             }
-            Err(mpsc::RecvTimeoutError::Disconnected) => {
-                result = Err(io::Error::new(
-                    io::ErrorKind::UnexpectedEof,
-                    "source stopped before EOF",
-                ));
-                finished = true;
-            }
-        }
-    }
-    if pager_started && result.is_ok() && finished && !cancelled.load(Ordering::Relaxed) {
-        loop {
-            if terminated() {
-                quit = true;
-                break;
-            }
-            if suspend_requested() {
-                suspend(output, &raw)?;
-                result = session.draw(output);
-                if result.is_err() {
-                    break;
-                }
-                continue;
-            }
-            match key_receiver.recv_timeout(Duration::from_millis(50)) {
-                Ok(event) => match session.handle(event) {
-                    Action::Quit => {
-                        quit = true;
-                        break;
-                    }
-                    Action::Continue { changed: true } => {
-                        result = session.draw(output);
-                        if result.is_err() {
-                            break;
-                        }
-                    }
-                    Action::Continue { changed: false } => {}
-                },
-                Err(mpsc::RecvTimeoutError::Timeout) => {
-                    if session.advance() {
-                        result = session.draw(output);
-                        if result.is_err() {
-                            break;
-                        }
-                    }
-                }
-                Err(mpsc::RecvTimeoutError::Disconnected) => break,
-            }
+            Err(mpsc::RecvTimeoutError::Disconnected) => break,
         }
     }
     cancelled.store(true, Ordering::Relaxed);
@@ -812,6 +842,36 @@ fn run_terminal_live<S: ChunkSource>(
             ExitReason::EndOfInput
         }
     })
+}
+
+fn source_pull_request(session: &Session, finished: bool, event: Event) -> SourcePull {
+    if finished {
+        return SourcePull::None;
+    }
+    if session.search.input.is_some() {
+        return if event == Event::Enter {
+            SourcePull::All
+        } else {
+            SourcePull::None
+        };
+    }
+    if (session.search.session.is_some() && matches!(event, Event::Text('n' | 'N')))
+        || matches!(event, Event::Text('G') | Event::End)
+    {
+        return SourcePull::All;
+    }
+    if matches!(
+        event,
+        Event::Down | Event::Text('j') | Event::PageDown | Event::Text(' ')
+    ) && session.top.saturating_add(session.content_rows())
+        >= session
+            .document
+            .visual_line_count(session.wrap, session.size.columns)
+    {
+        SourcePull::One
+    } else {
+        SourcePull::None
+    }
 }
 
 #[cfg(all(feature = "terminal", not(unix)))]
@@ -867,6 +927,33 @@ mod tests {
                 filter: None,
             },
         )
+    }
+
+    #[test]
+    fn source_pull_waits_at_loaded_viewport_until_navigation_needs_more() {
+        let mut pager = session();
+        pager.push_chunk("one\ntwo\nthree\nfour\nfive\nsix\nseven\neight\n");
+
+        assert_eq!(
+            source_pull_request(&pager, false, Event::Text('j')),
+            SourcePull::None
+        );
+
+        pager.handle(Event::End);
+        assert_eq!(
+            source_pull_request(&pager, false, Event::Text('j')),
+            SourcePull::One
+        );
+        assert_eq!(
+            source_pull_request(&pager, false, Event::End),
+            SourcePull::All
+        );
+
+        pager.handle(Event::Text('/'));
+        assert_eq!(
+            source_pull_request(&pager, false, Event::Enter),
+            SourcePull::All
+        );
     }
 
     #[test]

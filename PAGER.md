@@ -18,8 +18,11 @@ boundary from the renderer's point of view.
 - the adapter that turns rendered patch units into `scrl::ChunkSource`.
 
 `scrl` owns the generic document, viewport, search, input decoding, source
-backpressure, and terminal lifecycle. It does not know about Git, hunks,
-files, line-number styles, or the fixed width of the renderer.
+backpressure, and terminal lifecycle. The live runner pulls only the initial
+viewport and requests more rendered chunks for forward navigation, `End`, or
+full-input search; it retains the loaded prefix rather than evicting it. It
+does not know about Git, hunks, files, line-number styles, or the fixed width
+of the renderer.
 
 The dependency direction is one-way:
 
