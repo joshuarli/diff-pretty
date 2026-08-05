@@ -72,6 +72,10 @@ in the relevant documentation or test.
 - `scripts/diff.sh` — shows an ANSI-stripped diff for one fixture.
 - `scripts/bench-baseline.py` and `scripts/diff-baselines.py` — run and compare
   the curated benchmark baselines.
+- `scripts/pgo-workload.py` — launch the explicit application binary for the
+  deterministic PGO scenario and optional repeated timing samples.
+- `PGO.md` — PGO contamination audit, workflow boundaries, POC assumptions,
+  provenance checks, and deferred workload design.
 - `GITOXIDE-INTEGRATION.md` and `NATIVE-INTEGRATION.md` — research notes for
   possible structured integrations; they are not part of the current runtime
   path.
@@ -86,29 +90,36 @@ make diff FIXTURE=show_003    # ANSI-stripped diff for one fixture
 make bench                    # run benchmarks and persist a host baseline
 make bench-diff AFTER=...     # compare a candidate baseline with the saved one
 make release                  # release build (no PGO): build-std + aggressive flags
-make pgo-profile              # collect equally weighted profiles from the bench suite
+make pgo-instrument           # build the isolated instrumented application binary
+make pgo-instrument-linux     # instrument the dynamic musl application (Linux)
+make pgo-instrument-linux-static # instrument the static musl application (Linux)
+make pgo-profile              # run the application workload and merge its profiles
+make pgo-merge                # merge already-produced application .profraw files
 make release-pgo              # PGO-optimized release for the host target
 make release-pgo-linux        # PGO + dynamically linked musl (Linux only)
 make release-pgo-linux-static # PGO + statically linked musl (Linux only)
-make bench-pgo                # benchmark regular vs PGO and compare baselines
 make verify-release           # ELF checks for the static musl release
 make verify-release-dynamic   # ELF checks for the dynamic musl release
 ```
 
 PGO release targets:
 
-- `pgo-profile` runs `cargo bench --bench bench -- --sample-size 1` with
-  `-Cprofile-generate` and merges the profiles with
-  `$(LLVM_BIN)/llvm-profdata`. No `build-std` or `-Cpanic=immediate-abort`
-  here: the profiler runtime needs unwinding.
+- `pgo-instrument` builds the actual `diff-pretty` release binary into an
+  isolated target directory with target-scoped `-Cprofile-generate` flags.
+  `pgo-profile` invokes that explicit binary through
+  `scripts/pgo-workload.py`; it does not invoke Cargo, Divan, a benchmark
+  binary, or the benchmark allocator. The raw profiles and merged report live
+  under `target/pgo-profiles/`.
+- `pgo-profile-linux` and `pgo-profile-linux-static` keep dynamic and static
+  musl instrumentation separate. Run them inside the matching `Dockerfile`
+  image, as the release workflow does.
 - `release-pgo` (and the Linux variants) rebuild with `-Cprofile-use` plus
   `-Zlocation-detail=none -Zunstable-options -Cpanic=immediate-abort` and
   `build-std`. Linux builds need the `diff-pretty-crt` stub objects and the
   clang/musl toolchain provided by the `Dockerfile`; the dynamic variant links
   against the musl loader, the static variant does not.
-- `bench-pgo` compares a persisted regular baseline against a `pgo` variant
-  baseline (`benches/<host>-baseline.txt` vs `benches/<host>-pgo-baseline.txt`)
-  via `scripts/diff-baselines.py`.
+- The audit, POC scenario, profile provenance checks, comparison procedure, and
+  deferred workload design are recorded in `PGO.md`.
 
 The release workflow (`.github/workflows/release.yml`, manual dispatch) builds
 macOS and Linux artifacts inside the `Dockerfile` image on each target, runs
@@ -137,14 +148,10 @@ Do not run pre-commit hooks. Do not push to a remote.
 `make bench` runs the suite through the release-built crate with fat LTO. The
 suite measures the paths that matter to this project:
 
-- End-to-end rendering of all checked-in input classes and synthetic 100 KB,
-  1 MB, and 10 MB diffs.
-- Color-sequence stripping and tab-heavy input.
-- Word-diff inference for balanced, identical, highly imbalanced, and long-line
-  cases.
-- Number padding, including the per-cell allocation-sensitive primitive.
-- Streaming and retained-document rendering at 1 MB and 10 MB.
-- A fixed 24-row pager viewport using a preallocated output sink.
+- End-to-end rendering of the representative Git-show corpus, metadata-heavy
+  cases, multi-commit logs, and plain unified diffs.
+- Real multi-commit, colorized, plain unified, streaming, retained-document,
+  and pager viewport paths over checked-in fixtures.
 
 When optimizing, run the narrowest relevant benchmark first, then compare a
 persisted baseline. Report time, peak simultaneously-live bytes, total bytes,
