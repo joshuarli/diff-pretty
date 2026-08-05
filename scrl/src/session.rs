@@ -288,7 +288,8 @@ impl Session {
             self.wrap,
             self.size.columns,
         )?;
-        output.write_all(&self.frame)
+        output.write_all(&self.frame)?;
+        output.flush()
     }
 
     fn draw_help<W: Write + ?Sized>(&mut self, output: &mut W) -> io::Result<()> {
@@ -320,7 +321,8 @@ impl Session {
                 .extend_from_slice(b"\n\x1b[2K\r\x1b[7m help  press h or Escape to return ");
             self.frame.extend_from_slice(RESET.as_bytes());
         }
-        output.write_all(&self.frame)
+        output.write_all(&self.frame)?;
+        output.flush()
     }
 
     pub fn document(&self) -> &Document {
@@ -795,15 +797,19 @@ impl Document {
 mod tests {
     use super::*;
 
-    struct WriteCounter(usize);
+    struct WriteCounter {
+        writes: usize,
+        flushes: usize,
+    }
 
     impl Write for WriteCounter {
         fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
-            self.0 += 1;
+            self.writes += 1;
             Ok(bytes.len())
         }
 
         fn flush(&mut self) -> io::Result<()> {
+            self.flushes += 1;
             Ok(())
         }
     }
@@ -872,9 +878,13 @@ mod tests {
         let mut pager = session();
         pager.push_chunk("one\ntwo\n");
         pager.finish();
-        let mut output = WriteCounter(0);
+        let mut output = WriteCounter {
+            writes: 0,
+            flushes: 0,
+        };
         pager.draw(&mut output).unwrap();
-        assert_eq!(output.0, 1);
+        assert_eq!(output.writes, 1);
+        assert_eq!(output.flushes, 1);
     }
 
     #[test]
