@@ -48,6 +48,7 @@ pub(crate) fn terminated() -> bool {
     TERMINATED.load(Ordering::Relaxed)
 }
 
+#[cfg(test)]
 pub(crate) fn read_event<R: Read>(input: &mut R) -> io::Result<Option<Event>> {
     read_event_inner(input, false)
 }
