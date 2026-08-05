@@ -14,7 +14,7 @@ mod terminal;
 
 pub use document::{Document, DocumentBuilder};
 pub use session::{Action, Event, Session, SessionOptions, Size};
-pub use source::{ChunkSource, ReaderSource};
+pub use source::{ChunkSource, FileSource, FilesSource, ReaderSource};
 
 use std::io::{self, BufRead, IsTerminal, Write};
 

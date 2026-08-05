@@ -2,8 +2,9 @@ use std::io::BufReader;
 
 use scrl::{PagingMode, RunOptions, SessionOptions};
 
-fn parse_paging() -> Result<PagingMode, String> {
+fn parse_args() -> Result<(PagingMode, Vec<String>), String> {
     let mut mode = PagingMode::Auto;
+    let mut paths = Vec::new();
     for argument in std::env::args().skip(1) {
         if argument == "--no-pager" {
             mode = PagingMode::Never;
@@ -14,16 +15,19 @@ fn parse_paging() -> Result<PagingMode, String> {
                 "never" => PagingMode::Never,
                 _ => return Err(format!("invalid paging mode: {value}")),
             };
+        } else if argument == "--help" || argument == "-h" {
+            println!("usage: scrl [--paging=auto|always|never] [--no-pager] [FILE ...]");
+            std::process::exit(0);
         } else {
-            return Err(format!("unexpected argument: {argument}"));
+            paths.push(argument);
         }
     }
-    Ok(mode)
+    Ok((mode, paths))
 }
 
 fn main() {
-    let mode = match parse_paging() {
-        Ok(mode) => mode,
+    let (mode, paths) = match parse_args() {
+        Ok(arguments) => arguments,
         Err(error) => {
             eprintln!("scrl: {error}");
             std::process::exit(2);
@@ -35,7 +39,14 @@ fn main() {
             title: "scrl".into(),
         },
     };
-    if let Err(error) = scrl::run_reader(BufReader::new(std::io::stdin()), options) {
+    let result = if paths.is_empty() {
+        scrl::run_reader(BufReader::new(std::io::stdin()), options)
+    } else if paths.len() == 1 {
+        scrl::run_source(scrl::FileSource::new(&paths[0]), options)
+    } else {
+        scrl::run_source(scrl::FilesSource::new(&paths), options)
+    };
+    if let Err(error) = result {
         eprintln!("scrl: {error}");
         std::process::exit(1);
     }
