@@ -37,6 +37,6 @@ struct DiffSource<R> {
 impl<R: BufRead + Send + 'static> ChunkSource for DiffSource<R> {
     fn produce(self, emit: &mut dyn FnMut(&str) -> io::Result<()>) -> io::Result<()> {
         let mut input = self.input;
-        crate::render::for_each_render_chunk(&mut input, emit)
+        crate::render::for_each_rendered_chunk(&mut input, emit)
     }
 }

@@ -551,6 +551,28 @@ pub(crate) fn for_each_render_chunk<R: BufRead>(
     Ok(())
 }
 
+/// Emit incrementally rendered chunks for the interactive pager source.
+/// Unlike the raw parser boundary helper, this also completes the renderer at
+/// EOF so the final file decoration and pending state are not left unstyled.
+pub(crate) fn for_each_rendered_chunk<R: BufRead>(
+    input: &mut R,
+    mut emit: impl FnMut(&str) -> io::Result<()>,
+) -> io::Result<()> {
+    let mut state = RenderState::new();
+    let mut rendered = String::with_capacity(64 * 1024);
+    for_each_render_chunk(input, |chunk| {
+        rendered.clear();
+        render_chunk(chunk, &mut rendered, &mut state, false);
+        emit(&rendered)
+    })?;
+    rendered.clear();
+    render_chunk("", &mut rendered, &mut state, true);
+    if !rendered.is_empty() {
+        emit(&rendered)?;
+    }
+    Ok(())
+}
+
 /// Render into the retained representation consumed directly by the pager.
 pub fn render_document(input: &str) -> scrl::Document {
     let mut document = scrl::DocumentBuilder::new();
@@ -1150,6 +1172,71 @@ mod tests {
         assert!(chunks.len() > 1);
         assert!(chunks[0] > 0);
         assert_eq!(output, render(input).as_bytes());
+    }
+
+    #[test]
+    fn incremental_colorized_chunk_renders_diff_lines_before_eof() {
+        let input = concat!(
+            "\x1b[33mcommit 0123456789abcdef\x1b[m\n",
+            "\x1b[1mdiff --git a/a b/a\x1b[m\n",
+            "\x1b[1mindex 1111111..2222222 100644\x1b[m\n",
+            "\x1b[1m--- a/a\x1b[m\n",
+            "\x1b[1m+++ b/a\x1b[m\n",
+            "\x1b[36m@@ -1 +1 @@\x1b[m\n",
+            "-old\n",
+            "+new\n",
+            "\x1b[1mdiff --git a/b b/b\x1b[m\n",
+        );
+        let mut renderer = IncrementalDocumentRenderer::new();
+        let mut first_file = None;
+        for_each_render_chunk(&mut input.as_bytes(), |chunk| {
+            renderer.push_chunk(chunk);
+            if chunk.contains("diff --git a/a b/a") {
+                let mut snapshot = Vec::new();
+                renderer.document().write_to(&mut snapshot).unwrap();
+                first_file = Some(snapshot);
+            }
+            Ok(())
+        })
+        .unwrap();
+        let document = renderer.document();
+        let mut output = Vec::new();
+        document.write_to(&mut output).unwrap();
+        assert!(std::str::from_utf8(&output).unwrap().contains("Δ a"));
+        assert!(
+            !std::str::from_utf8(&output)
+                .unwrap()
+                .contains("@@ -1 +1 @@")
+        );
+        let first_file = std::str::from_utf8(first_file.as_deref().unwrap()).unwrap();
+        assert!(first_file.contains("\x1b[31mold"));
+        assert!(!first_file.contains("@@ -1 +1 @@"));
+    }
+
+    #[test]
+    fn interactive_chunks_are_rendered_and_flushed_at_eof() {
+        let input = concat!(
+            "\x1b[33mcommit 0123456789abcdef\x1b[m\n",
+            "\x1b[1mdiff --git a/a b/a\x1b[m\n",
+            "\x1b[1mindex 1111111..2222222 100644\x1b[m\n",
+            "\x1b[1m--- a/a\x1b[m\n",
+            "\x1b[1m+++ b/a\x1b[m\n",
+            "\x1b[36m@@ -1 +1 @@\x1b[m\n",
+            "-old\n",
+            "+new\n",
+        );
+        let mut chunks = Vec::new();
+        for_each_rendered_chunk(&mut input.as_bytes(), |chunk| {
+            assert!(!chunk.contains("@@ -1 +1 @@"));
+            chunks.push(chunk.to_owned());
+            Ok(())
+        })
+        .unwrap();
+        let streamed = chunks.concat();
+
+        assert!(streamed.contains("Δ a"));
+        assert!(streamed.contains("\x1b[31mold"));
+        assert_eq!(streamed, render(input));
     }
 
     #[test]

@@ -9,7 +9,7 @@ use std::sync::{
 #[cfg(feature = "terminal")]
 use std::thread;
 #[cfg(feature = "terminal")]
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use crate::document::{Document, Range};
 use crate::search::SearchState;
@@ -377,7 +377,12 @@ pub(crate) fn run_terminal<S: ChunkSource>(
     options: RunOptions,
     output: &mut dyn Write,
 ) -> io::Result<ExitReason> {
-    if matches!(options.paging, crate::PagingMode::Always) || options.session.follow {
+    if options.session.follow
+        || matches!(
+            options.paging,
+            crate::PagingMode::Always | crate::PagingMode::Auto
+        )
+    {
         return run_terminal_live(source, options, output);
     }
     #[cfg(unix)]
@@ -661,8 +666,19 @@ fn run_terminal_live<S: ChunkSource>(
     });
 
     let mut session = Session::new(size, options.session);
-    output.write_all(b"\x1b[?1049h\x1b[?7l\x1b[?25l\x1b[H")?;
-    let mut result = session.draw(output);
+    let auto = matches!(options.paging, crate::PagingMode::Auto) && !session.follow;
+    let mut pager_started = !auto;
+    let mut last_draw = None;
+    if pager_started {
+        output.write_all(b"\x1b[?1049h\x1b[?7l\x1b[?25l\x1b[H")?;
+    }
+    let mut result = if pager_started {
+        let result = session.draw(output);
+        last_draw = Some(Instant::now());
+        result
+    } else {
+        Ok(())
+    };
     let mut finished = false;
     let mut quit = false;
     while result.is_ok() && !finished {
@@ -673,8 +689,11 @@ fn run_terminal_live<S: ChunkSource>(
             break;
         }
         if suspend_requested() {
-            suspend(output, &raw)?;
-            result = session.draw(output);
+            if pager_started {
+                suspend(output, &raw)?;
+                result = session.draw(output);
+                last_draw = Some(Instant::now());
+            }
             continue;
         }
         loop {
@@ -696,19 +715,35 @@ fn run_terminal_live<S: ChunkSource>(
         match receiver.recv_timeout(Duration::from_millis(10)) {
             Ok(LoadEvent::Chunk(chunk)) => {
                 session.push_chunk(&chunk);
-                result = session.draw(output);
+                if !pager_started && session.document().line_count() > size.rows {
+                    pager_started = true;
+                    output.write_all(b"\x1b[?1049h\x1b[?7l\x1b[?25l\x1b[H")?;
+                }
+                let frame_due =
+                    last_draw.is_none_or(|last| last.elapsed() >= Duration::from_millis(16));
+                if pager_started && frame_due {
+                    result = session.draw(output);
+                    last_draw = Some(Instant::now());
+                }
             }
             Ok(LoadEvent::Finished(source_result)) => {
                 result = source_result;
                 if result.is_ok() {
                     session.finish();
-                    result = session.draw(output);
+                    if pager_started {
+                        result = session.draw(output);
+                        last_draw = Some(Instant::now());
+                    } else {
+                        session.document().write_to(output)?;
+                        output.flush()?;
+                    }
                 }
                 finished = true;
             }
             Err(mpsc::RecvTimeoutError::Timeout) => {
-                if session.advance() {
+                if pager_started && session.advance() {
                     result = session.draw(output);
+                    last_draw = Some(Instant::now());
                 }
             }
             Err(mpsc::RecvTimeoutError::Disconnected) => {
@@ -720,7 +755,7 @@ fn run_terminal_live<S: ChunkSource>(
             }
         }
     }
-    if result.is_ok() && finished && !cancelled.load(Ordering::Relaxed) {
+    if pager_started && result.is_ok() && finished && !cancelled.load(Ordering::Relaxed) {
         loop {
             if terminated() {
                 quit = true;
@@ -761,9 +796,13 @@ fn run_terminal_live<S: ChunkSource>(
         }
     }
     cancelled.store(true, Ordering::Relaxed);
-    let cleanup = output
-        .write_all(b"\x1b[0m\x1b[?7h\x1b[?25h\x1b[?1049l")
-        .and_then(|()| output.flush());
+    let cleanup = if pager_started {
+        output
+            .write_all(b"\x1b[0m\x1b[?7h\x1b[?25h\x1b[?1049l")
+            .and_then(|()| output.flush())
+    } else {
+        Ok(())
+    };
     #[cfg(unix)]
     drop(raw);
     result.and(cleanup).map(|()| {
