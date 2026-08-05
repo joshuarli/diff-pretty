@@ -1,3 +1,4 @@
+use regex_lite::Regex;
 use std::io::{self, Write};
 #[cfg(feature = "terminal")]
 use std::sync::{
@@ -30,6 +31,8 @@ pub struct SessionOptions {
     pub title: String,
     pub search_history: Vec<String>,
     pub wrap: bool,
+    pub follow: bool,
+    pub filter: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -61,10 +64,13 @@ pub struct Session {
     size: Size,
     options: SessionOptions,
     document: Document,
+    source_document: Document,
     search: SearchState,
     top: usize,
     horizontal_offset: usize,
     wrap: bool,
+    follow: bool,
+    filter: Option<Regex>,
     finished: bool,
     frame: Vec<u8>,
     search_ranges: Vec<Vec<Range>>,
@@ -74,14 +80,22 @@ impl Session {
     pub fn new(size: Size, options: SessionOptions) -> Self {
         let history = options.search_history.clone();
         let wrap = options.wrap;
+        let follow = options.follow;
+        let filter = options
+            .filter
+            .as_deref()
+            .and_then(|query| Regex::new(query).ok());
         Self {
             size,
             options,
             document: Document::default(),
+            source_document: Document::default(),
             search: SearchState::with_history(history),
             top: 0,
             horizontal_offset: 0,
             wrap,
+            follow,
+            filter,
             finished: false,
             frame: Vec::with_capacity(size.rows.saturating_mul(size.columns).max(1024)),
             search_ranges: Vec::new(),
@@ -92,14 +106,26 @@ impl Session {
     pub(crate) fn from_document(document: Document, size: Size, options: SessionOptions) -> Self {
         let history = options.search_history.clone();
         let wrap = options.wrap;
+        let follow = options.follow;
+        let filter = options
+            .filter
+            .as_deref()
+            .and_then(|query| Regex::new(query).ok());
+        let display_document = filter
+            .as_ref()
+            .map(|pattern| document.filtered(pattern))
+            .unwrap_or_else(|| document.clone());
         Self {
             size,
             options,
-            document,
+            document: display_document,
+            source_document: document,
             search: SearchState::with_history(history),
             top: 0,
             horizontal_offset: 0,
             wrap,
+            follow,
+            filter,
             finished: true,
             frame: Vec::with_capacity(size.rows.saturating_mul(size.columns).max(1024)),
             search_ranges: Vec::new(),
@@ -108,14 +134,29 @@ impl Session {
 
     pub fn push_chunk(&mut self, chunk: &str) {
         if !self.finished {
-            self.document.append_for_session(chunk);
+            self.source_document.append_for_session(chunk);
+            if let Some(pattern) = &self.filter {
+                self.document = self.source_document.filtered(pattern);
+                self.search.session = None;
+            } else {
+                self.document.append_for_session(chunk);
+            }
+            if self.follow {
+                self.top = self.max_top();
+            }
         }
-        self.clamp_top();
+        if !self.follow {
+            self.clamp_top();
+        }
     }
 
     pub fn finish(&mut self) {
         self.finished = true;
-        self.clamp_top();
+        if self.follow {
+            self.top = self.max_top();
+        } else {
+            self.clamp_top();
+        }
     }
 
     pub fn handle(&mut self, event: Event) -> Action {
@@ -280,7 +321,7 @@ pub(crate) fn run_terminal<S: ChunkSource>(
     options: RunOptions,
     output: &mut dyn Write,
 ) -> io::Result<ExitReason> {
-    if matches!(options.paging, crate::PagingMode::Always) {
+    if matches!(options.paging, crate::PagingMode::Always) || options.session.follow {
         return run_terminal_live(source, options, output);
     }
     #[cfg(unix)]
@@ -681,6 +722,8 @@ mod tests {
                 title: "test".into(),
                 search_history: Vec::new(),
                 wrap: false,
+                follow: false,
+                filter: None,
             },
         )
     }
@@ -749,6 +792,8 @@ mod tests {
                 title: "test".into(),
                 search_history: vec!["previous".into()],
                 wrap: false,
+                follow: false,
+                filter: None,
             },
         );
         pager.handle(Event::Text('/'));
@@ -806,6 +851,8 @@ mod tests {
                 title: "test".into(),
                 search_history: Vec::new(),
                 wrap: true,
+                follow: false,
+                filter: None,
             },
         );
         pager.push_chunk("abcdefghij\nx\n");
@@ -813,5 +860,49 @@ mod tests {
         assert_eq!(pager.max_top(), 2);
         pager.handle(Event::Down);
         assert_eq!(pager.top, 1);
+    }
+
+    #[test]
+    fn filter_rebuilds_the_display_without_losing_source_chunks() {
+        let mut pager = Session::new(
+            Size {
+                rows: 4,
+                columns: 40,
+            },
+            SessionOptions {
+                title: "test".into(),
+                search_history: Vec::new(),
+                wrap: false,
+                follow: false,
+                filter: Some("keep".into()),
+            },
+        );
+        pager.push_chunk("drop one\nkeep first\n");
+        pager.push_chunk("keep second\ndrop two\n");
+        assert_eq!(pager.document.line_count(), 3);
+        assert_eq!(pager.document.line_text(0), Some("keep first"));
+        assert_eq!(pager.document.line_text(1), Some("keep second"));
+        assert_eq!(pager.document.line_text(2), Some(""));
+    }
+
+    #[test]
+    fn follow_mode_pins_new_chunks_to_the_bottom() {
+        let mut pager = Session::new(
+            Size {
+                rows: 3,
+                columns: 40,
+            },
+            SessionOptions {
+                title: "test".into(),
+                search_history: Vec::new(),
+                wrap: false,
+                follow: true,
+                filter: None,
+            },
+        );
+        pager.push_chunk("one\ntwo\nthree\n");
+        assert_eq!(pager.top, 2);
+        pager.push_chunk("four\n");
+        assert_eq!(pager.top, 3);
     }
 }

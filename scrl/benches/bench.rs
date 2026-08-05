@@ -49,6 +49,8 @@ fn session(document_text: &str) -> Session {
             title: "bench".into(),
             search_history: Vec::new(),
             wrap: false,
+            follow: false,
+            filter: None,
         },
     );
     pager.push_chunk(document_text);
@@ -166,6 +168,8 @@ fn live_search_chunk_and_redraw(bencher: Bencher) {
                 title: "bench".into(),
                 search_history: Vec::new(),
                 wrap: false,
+                follow: false,
+                filter: None,
             },
         );
         pager.push_chunk(&first);

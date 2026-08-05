@@ -1,5 +1,6 @@
 use std::io::{self, Write};
 
+use regex_lite::Regex;
 use unicode_width::UnicodeWidthChar;
 
 const RESET: &str = "\x1b[0m";
@@ -36,6 +37,21 @@ impl Document {
     pub(crate) fn append(&mut self, chunk: &str) {
         self.raw.push_str(chunk);
         self.reindex();
+    }
+
+    pub(crate) fn filtered(&self, pattern: &Regex) -> Self {
+        let mut builder = DocumentBuilder::new();
+        for line in 0..self.line_count() {
+            if !pattern.is_match(self.line_text(line).unwrap_or_default()) {
+                continue;
+            }
+            let (start, end) = self.raw_lines[line];
+            builder.push_str(&self.raw[start..end]);
+            if self.raw.as_bytes().get(end) == Some(&b'\n') {
+                builder.push_str("\n");
+            }
+        }
+        builder.finish()
     }
 
     fn reindex(&mut self) {

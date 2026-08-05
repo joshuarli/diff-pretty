@@ -2,15 +2,21 @@ use std::io::BufReader;
 
 use scrl::{PagingMode, RunOptions, SessionOptions};
 
-fn parse_args() -> Result<(PagingMode, bool, Vec<String>), String> {
+fn parse_args() -> Result<(PagingMode, bool, bool, Option<String>, Vec<String>), String> {
     let mut mode = PagingMode::Auto;
     let mut wrap = false;
+    let mut follow = false;
+    let mut filter = None;
     let mut paths = Vec::new();
     for argument in std::env::args().skip(1) {
         if argument == "--no-pager" {
             mode = PagingMode::Never;
         } else if argument == "--wrap" {
             wrap = true;
+        } else if argument == "--follow" {
+            follow = true;
+        } else if let Some(value) = argument.strip_prefix("--filter=") {
+            filter = Some(value.to_owned());
         } else if let Some(value) = argument.strip_prefix("--paging=") {
             mode = match value {
                 "auto" => PagingMode::Auto,
@@ -19,17 +25,19 @@ fn parse_args() -> Result<(PagingMode, bool, Vec<String>), String> {
                 _ => return Err(format!("invalid paging mode: {value}")),
             };
         } else if argument == "--help" || argument == "-h" {
-            println!("usage: scrl [--paging=auto|always|never] [--no-pager] [--wrap] [FILE ...]");
+            println!(
+                "usage: scrl [--paging=auto|always|never] [--no-pager] [--wrap] [--follow] [--filter=REGEX] [FILE ...]"
+            );
             std::process::exit(0);
         } else {
             paths.push(argument);
         }
     }
-    Ok((mode, wrap, paths))
+    Ok((mode, wrap, follow, filter, paths))
 }
 
 fn main() {
-    let (mode, wrap, paths) = match parse_args() {
+    let (mode, wrap, follow, filter, paths) = match parse_args() {
         Ok(arguments) => arguments,
         Err(error) => {
             eprintln!("scrl: {error}");
@@ -42,6 +50,8 @@ fn main() {
             title: "scrl".into(),
             search_history: Vec::new(),
             wrap,
+            follow,
+            filter,
         },
     };
     let result = if paths.is_empty() {

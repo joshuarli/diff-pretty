@@ -23,6 +23,8 @@ pub fn emit_reader<R: BufRead + Send + 'static>(input: R, mode: PagingMode) -> i
             title: "diff-pretty".into(),
             search_history: Vec::new(),
             wrap: false,
+            follow: false,
+            filter: None,
         },
     };
     scrl::run_source(DiffSource { input }, options).map(|_: ExitReason| ())
