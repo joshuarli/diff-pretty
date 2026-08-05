@@ -28,6 +28,7 @@ pub struct Size {
 #[derive(Clone, Debug, Default)]
 pub struct SessionOptions {
     pub title: String,
+    pub search_history: Vec<String>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -69,11 +70,12 @@ pub struct Session {
 
 impl Session {
     pub fn new(size: Size, options: SessionOptions) -> Self {
+        let history = options.search_history.clone();
         Self {
             size,
             options,
             document: Document::default(),
-            search: SearchState::new(),
+            search: SearchState::with_history(history),
             top: 0,
             horizontal_offset: 0,
             finished: false,
@@ -84,11 +86,12 @@ impl Session {
 
     #[cfg(all(feature = "terminal", unix))]
     pub(crate) fn from_document(document: Document, size: Size, options: SessionOptions) -> Self {
+        let history = options.search_history.clone();
         Self {
             size,
             options,
             document,
-            search: SearchState::new(),
+            search: SearchState::with_history(history),
             top: 0,
             horizontal_offset: 0,
             finished: true,
@@ -110,23 +113,21 @@ impl Session {
     }
 
     pub fn handle(&mut self, event: Event) -> Action {
-        if let Some(input) = self.search.input.as_mut() {
+        if self.search.input.is_some() {
             match event {
                 Event::Interrupt => return Action::Quit,
                 Event::Escape => self.search.cancel(),
                 Event::Enter => self.search.submit(&self.document, self.finished),
-                Event::Backspace => {
-                    input.pop();
-                    self.search.error = None;
-                }
-                Event::CtrlU => {
-                    input.clear();
-                    self.search.error = None;
-                }
-                Event::Text(character) => {
-                    input.push(character);
-                    self.search.error = None;
-                }
+                Event::Backspace => self.search.backspace(),
+                Event::Delete => self.search.delete(),
+                Event::CtrlU => self.search.clear_input(),
+                Event::Left => self.search.move_cursor(false),
+                Event::Right => self.search.move_cursor(true),
+                Event::Home => self.search.cursor_start(),
+                Event::End => self.search.cursor_end(),
+                Event::Up => self.search.history_previous(),
+                Event::Down => self.search.history_next(),
+                Event::Text(character) => self.search.insert(character),
                 _ => return Action::Continue { changed: false },
             }
             return Action::Continue { changed: true };
@@ -134,8 +135,18 @@ impl Session {
         match event {
             Event::Interrupt | Event::Text('q' | 'Q') => return Action::Quit,
             Event::Text('/') => {
-                self.search.begin();
+                self.search.begin(true);
                 return Action::Continue { changed: true };
+            }
+            Event::Text('?') => {
+                self.search.begin(false);
+                return Action::Continue { changed: true };
+            }
+            Event::Text('n') => {
+                self.move_match(self.search.forward);
+            }
+            Event::Text('N') => {
+                self.move_match(!self.search.forward);
             }
             Event::Up => {
                 if !self.move_match(false) {
@@ -660,6 +671,7 @@ mod tests {
             },
             SessionOptions {
                 title: "test".into(),
+                search_history: Vec::new(),
             },
         )
     }
@@ -715,5 +727,61 @@ mod tests {
         let mut output = WriteCounter(0);
         pager.draw(&mut output).unwrap();
         assert_eq!(output.0, 1);
+    }
+
+    #[test]
+    fn search_editing_tracks_unicode_cursor_and_history() {
+        let mut pager = Session::new(
+            Size {
+                rows: 4,
+                columns: 40,
+            },
+            SessionOptions {
+                title: "test".into(),
+                search_history: vec!["previous".into()],
+            },
+        );
+        pager.handle(Event::Text('/'));
+        for character in "éx".chars() {
+            pager.handle(Event::Text(character));
+        }
+        pager.handle(Event::Left);
+        pager.handle(Event::Text('!'));
+        assert_eq!(pager.search.input.as_ref().unwrap().text, "é!x");
+        pager.handle(Event::Delete);
+        assert_eq!(pager.search.input.as_ref().unwrap().text, "é!");
+        pager.handle(Event::Backspace);
+        assert_eq!(pager.search.input.as_ref().unwrap().text, "é");
+        pager.handle(Event::CtrlU);
+        pager.handle(Event::Up);
+        assert_eq!(pager.search.input.as_ref().unwrap().text, "previous");
+        pager.handle(Event::Down);
+        assert_eq!(pager.search.input.as_ref().unwrap().text, "");
+    }
+
+    #[test]
+    fn reverse_search_and_n_navigation_use_the_same_cached_matches() {
+        let mut pager = session();
+        pager.push_chunk("alpha\nbeta alpha\nomega\n");
+        pager.finish();
+        pager.handle(Event::Text('?'));
+        for character in "alpha".chars() {
+            pager.handle(Event::Text(character));
+        }
+        pager.handle(Event::Enter);
+        assert_eq!(
+            pager.search.session.as_ref().unwrap().selected_line(),
+            Some(1)
+        );
+        pager.handle(Event::Text('n'));
+        assert_eq!(
+            pager.search.session.as_ref().unwrap().selected_line(),
+            Some(0)
+        );
+        pager.handle(Event::Text('N'));
+        assert_eq!(
+            pager.search.session.as_ref().unwrap().selected_line(),
+            Some(1)
+        );
     }
 }

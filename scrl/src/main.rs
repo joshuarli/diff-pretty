@@ -37,6 +37,7 @@ fn main() {
         paging: mode,
         session: SessionOptions {
             title: "scrl".into(),
+            search_history: Vec::new(),
         },
     };
     let result = if paths.is_empty() {

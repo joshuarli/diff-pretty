@@ -4,9 +4,18 @@ use crate::document::{Document, Range};
 
 #[derive(Clone, Debug)]
 pub(crate) struct SearchState {
-    pub(crate) input: Option<String>,
+    pub(crate) input: Option<SearchInput>,
     pub(crate) error: Option<String>,
     pub(crate) session: Option<SearchSession>,
+    history: Vec<String>,
+    history_index: Option<usize>,
+    pub(crate) forward: bool,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct SearchInput {
+    pub(crate) text: String,
+    pub(crate) cursor: usize,
 }
 
 #[derive(Clone, Debug)]
@@ -91,17 +100,25 @@ fn is_literal(query: &str) -> bool {
 }
 
 impl SearchState {
-    pub(crate) fn new() -> Self {
+    pub(crate) fn with_history(history: Vec<String>) -> Self {
         Self {
             input: None,
             error: None,
             session: None,
+            history,
+            history_index: None,
+            forward: true,
         }
     }
 
-    pub(crate) fn begin(&mut self) {
-        self.input = Some(String::new());
+    pub(crate) fn begin(&mut self, forward: bool) {
+        self.input = Some(SearchInput {
+            text: String::new(),
+            cursor: 0,
+        });
         self.error = None;
+        self.history_index = None;
+        self.forward = forward;
     }
 
     pub(crate) fn cancel(&mut self) {
@@ -110,9 +127,10 @@ impl SearchState {
     }
 
     pub(crate) fn submit(&mut self, document: &Document, finished: bool) {
-        let Some(query) = self.input.take() else {
+        let Some(input) = self.input.take() else {
             return;
         };
+        let query = input.text;
         if query.is_empty() {
             self.session = None;
             return;
@@ -124,22 +142,140 @@ impl SearchState {
                 Ok(regex) => Matcher::Regex(regex),
                 Err(error) => {
                     self.error = Some(error.to_string());
-                    self.input = Some(query);
+                    self.input = Some(SearchInput {
+                        cursor: query.len(),
+                        text: query,
+                    });
                     return;
                 }
             }
         };
+        if self.history.last() != Some(&query) {
+            self.history.push(query.clone());
+        }
         let mut session = SearchSession {
             matcher,
             cache: vec![None; document.line_count()],
             selected: None,
             final_no_match: false,
         };
-        session.scan_until_match(document, 0);
+        if self.forward {
+            session.scan_until_match(document, 0);
+        } else {
+            session.scan_until_match_reverse(document);
+        }
         if session.selected.is_none() && finished && session.cache.iter().all(Option::is_some) {
             session.final_no_match = true;
         }
         self.session = Some(session);
+    }
+
+    pub(crate) fn insert(&mut self, character: char) {
+        if let Some(input) = self.input.as_mut() {
+            input.text.insert(input.cursor, character);
+            input.cursor += character.len_utf8();
+            self.error = None;
+        }
+    }
+
+    pub(crate) fn backspace(&mut self) {
+        if let Some(input) = self.input.as_mut() {
+            if input.cursor > 0 {
+                let start = input.text[..input.cursor]
+                    .char_indices()
+                    .next_back()
+                    .map(|(index, _)| index)
+                    .unwrap_or(0);
+                input.text.drain(start..input.cursor);
+                input.cursor = start;
+                self.error = None;
+            }
+        }
+    }
+
+    pub(crate) fn delete(&mut self) {
+        if let Some(input) = self.input.as_mut() {
+            if input.cursor < input.text.len() {
+                let end = input.text[input.cursor..]
+                    .char_indices()
+                    .nth(1)
+                    .map(|(index, _)| input.cursor + index)
+                    .unwrap_or(input.text.len());
+                input.text.drain(input.cursor..end);
+                self.error = None;
+            }
+        }
+    }
+
+    pub(crate) fn clear_input(&mut self) {
+        if let Some(input) = self.input.as_mut() {
+            input.text.clear();
+            input.cursor = 0;
+            self.error = None;
+        }
+    }
+
+    pub(crate) fn move_cursor(&mut self, forward: bool) {
+        if let Some(input) = self.input.as_mut() {
+            if forward {
+                input.cursor = input.text[input.cursor..]
+                    .char_indices()
+                    .nth(1)
+                    .map(|(index, _)| input.cursor + index)
+                    .unwrap_or(input.text.len());
+            } else if input.cursor > 0 {
+                input.cursor = input.text[..input.cursor]
+                    .char_indices()
+                    .next_back()
+                    .map(|(index, _)| index)
+                    .unwrap_or(0);
+            }
+        }
+    }
+
+    pub(crate) fn cursor_start(&mut self) {
+        if let Some(input) = self.input.as_mut() {
+            input.cursor = 0;
+        }
+    }
+
+    pub(crate) fn cursor_end(&mut self) {
+        if let Some(input) = self.input.as_mut() {
+            input.cursor = input.text.len();
+        }
+    }
+
+    pub(crate) fn history_previous(&mut self) {
+        if self.history.is_empty() {
+            return;
+        }
+        let index = self
+            .history_index
+            .unwrap_or(self.history.len())
+            .saturating_sub(1);
+        self.history_index = Some(index);
+        self.replace_input(self.history[index].clone());
+    }
+
+    pub(crate) fn history_next(&mut self) {
+        let Some(index) = self.history_index else {
+            return;
+        };
+        if index + 1 >= self.history.len() {
+            self.history_index = None;
+            self.replace_input(String::new());
+        } else {
+            self.history_index = Some(index + 1);
+            self.replace_input(self.history[index + 1].clone());
+        }
+    }
+
+    fn replace_input(&mut self, text: String) {
+        self.input = Some(SearchInput {
+            cursor: text.len(),
+            text,
+        });
+        self.error = None;
     }
 }
 
@@ -162,6 +298,15 @@ impl SearchSession {
         for line in start..document.line_count() {
             if !self.scan_line(document, line).is_empty() {
                 self.selected = Some((line, 0));
+                return;
+            }
+        }
+    }
+
+    fn scan_until_match_reverse(&mut self, document: &Document) {
+        for line in (0..document.line_count()).rev() {
+            if !self.scan_line(document, line).is_empty() {
+                self.selected = Some((line, self.scan_line(document, line).len() - 1));
                 return;
             }
         }
