@@ -23,13 +23,16 @@ RELEASE_TARGET_LINKER ?=
 RELEASE_LINKER_ENV = $(if $(RELEASE_TARGET_LINKER),CARGO_TARGET_$(TARGET_ENV)_LINKER=$(RELEASE_TARGET_LINKER))
 PGO_USE_FLAGS = -Cprofile-use=$(PGO_MERGED) -Cllvm-args=-pgo-warn-missing-function
 
-.PHONY: test check lint diff bench bench-diff release verify-release verify-release-dynamic \
+.PHONY: test scrl check lint diff bench bench-diff release verify-release verify-release-dynamic \
 	release-pgo release-pgo-linux release-pgo-linux-static pgo-instrument pgo-instrument-linux \
 	pgo-instrument-linux-static pgo-profile \
 	pgo-merge pgo-profile-linux pgo-profile-linux-static install
 
 test:
-	cargo test --release
+	cargo test --workspace --release
+
+scrl:
+	cargo build --release -p scrl
 
 check:
 	@scripts/check.sh
@@ -56,7 +59,7 @@ bench-diff:
 
 test-ci:
 	@test -x "target/$(TARGET)/release/$(NAME)"
-	CARGO_TARGET_$(TARGET_ENV)_RUSTFLAGS="$(MUSL_NATIVE_RUSTFLAGS)" cargo test --quiet --release
+	CARGO_TARGET_$(TARGET_ENV)_RUSTFLAGS="$(MUSL_NATIVE_RUSTFLAGS)" cargo test --workspace --quiet --release
 
 release:
 	cargo clean -p $(NAME) --release --target $(TARGET)

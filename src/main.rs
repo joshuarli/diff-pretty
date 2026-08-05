@@ -1,6 +1,6 @@
 use std::io::{BufReader, Write};
 
-use diff_pretty::pager::{self, PagingMode};
+use diff_pretty::source::{PagingMode, emit_reader, should_use_pager};
 
 /// Parse `--paging=auto|always|never` (or `--no-pager`). Default `auto`.
 fn parse_paging() -> PagingMode {
@@ -21,8 +21,8 @@ fn parse_paging() -> PagingMode {
 
 fn main() {
     let mode = parse_paging();
-    let result = if pager::should_use_pager(mode) {
-        pager::emit_reader(BufReader::new(std::io::stdin()), mode)
+    let result = if should_use_pager(mode) {
+        emit_reader(BufReader::new(std::io::stdin()), mode)
     } else {
         let stdout = std::io::stdout();
         let mut output = stdout.lock();

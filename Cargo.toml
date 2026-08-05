@@ -3,11 +3,16 @@ name = "diff-pretty"
 version = "0.0.1"
 edition = "2024"
 
+[workspace]
+members = ["scrl"]
+resolver = "2"
+
 [features]
 bench-internals = []
 
 [dependencies]
 regex-lite = "0.1.9"
+scrl = { path = "scrl" }
 
 [dev-dependencies]
 divan = "0.1"

@@ -59,6 +59,7 @@ dependencies = [
  "divan",
  "regex-lite",
  "rustix",
+ "scrl",
 ]
 
 [[package]]
@@ -143,6 +144,14 @@ dependencies = [
  "libc",
  "linux-raw-sys",
  "windows-sys",
+]
+
+[[package]]
+name = "scrl"
+version = "0.0.1"
+dependencies = [
+ "regex-lite",
+ "rustix",
 ]
 
 [[package]]

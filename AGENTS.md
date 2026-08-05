@@ -47,16 +47,17 @@ in the relevant documentation or test.
 
 - `src/lib.rs` — public crate API and the fixed output width.
 - `src/render.rs` — patch parser, styling, decorations, streaming sinks, and
-  retained `RenderedDocument` support. Public entry points include `render`,
+  scrl document construction. Public entry points include `render`,
   `render_to`, `render_reader_to`, `render_document`, and
   `render_reader_document`.
 - `src/config.rs` — fixed colors, ANSI constants, number formatting, and layout
   primitives.
 - `src/align.rs` — reusable sequence-alignment implementation.
 - `src/edits.rs` — word tokenization, pairing, and word-diff inference.
-- `src/pager.rs` — the built-in terminal pager and viewport renderer.
-- `src/pager_search.rs` — lazy regex search state, per-line scan cache, and
-  match navigation shared by retained and live pagers.
+- `src/source.rs` — the diff-pretty rendered-chunk source adapter for `scrl`.
+- `scrl/src/document.rs`, `search.rs`, `session.rs`, and `source.rs` — the
+  standalone pager library's generic document, search, session, and source
+  boundaries; its `scrl/src/main.rs` is the stdin command.
 - `src/main.rs` — command-line stdin/stdout plumbing and paging flags.
 - `benches/bench.rs` — curated throughput, allocation, alignment, rendering,
   and viewport benchmarks.
@@ -85,6 +86,7 @@ in the relevant documentation or test.
 
 ```sh
 make test                     # release-mode Rust tests and golden snapshots
+make scrl                     # release build of the standalone scrl command
 make check                    # byte-for-byte binary check over every fixture
 make diff FIXTURE=show_003    # ANSI-stripped diff for one fixture
 make bench                    # run benchmarks and persist a host baseline
@@ -126,11 +128,17 @@ macOS and Linux artifacts inside the `Dockerfile` image on each target, runs
 `make verify-release[-dynamic]` and `make test-ci`, then uploads the binaries
 and creates a pre-release.
 
-The binary reads from stdin and writes to stdout:
+Both binaries read from stdin and write to stdout. The diff renderer reads:
 
 ```sh
 cargo run --release < fixtures/show_003.patch
 cargo run --release -- --paging=never < fixtures/show_003.patch
+```
+
+The standalone pager accepts the same paging flags and can be run with:
+
+```sh
+cargo run -p scrl -- --paging=never < fixtures/show_003.patch
 ```
 
 Paging flags are:
@@ -159,7 +167,8 @@ and allocation count when those measurements are relevant.
 
 ## Paging
 
-The pager is built into the binary and does not consult `$PAGER`.
+The pager is linked into diff-pretty and is also distributed as the
+standalone `scrl` binary; neither path consults `$PAGER`.
 
 In `--paging=auto`, output that fits on one screen is written directly to
 stdout so it remains in terminal scrollback. Only multi-screen output enters
@@ -196,7 +205,7 @@ pairing needs the complete hunk context.
   decorations, parser boundaries, or pager lifecycle as contract changes. Update
   tests and goldens deliberately rather than accepting incidental churn.
 - Keep the renderer independent of terminal state. Terminal detection, raw mode,
-  alternate-screen handling, and key input belong in `src/pager.rs`.
+  alternate-screen handling, and key input belong in `scrl/src/terminal.rs`.
 - Avoid new dependencies unless they are necessary and explicitly justified.
 - Use the nearest hard judge first: `cargo test`, `make check`, a focused test,
   or a benchmark. Broaden validation when the change affects shared behavior.
