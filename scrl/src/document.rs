@@ -1,5 +1,7 @@
 use std::io::{self, Write};
 
+use unicode_width::UnicodeWidthChar;
+
 const RESET: &str = "\x1b[0m";
 const SEARCH_STYLE: &str = "\x1b[48;5;226;30m";
 
@@ -51,7 +53,7 @@ impl Document {
                 index += 1;
                 raw_start = index;
                 visible_start = self.visible.len();
-            } else if let Some(end) = sgr_end(bytes, index) {
+            } else if let Some((end, _)) = control_end(bytes, index) {
                 index = end;
             } else {
                 let character = self.raw[index..].chars().next().expect("valid UTF-8 input");
@@ -151,9 +153,11 @@ impl Document {
         let clip = self.clip_byte(line, offset);
         let mut index = start;
         while index < end {
-            if let Some(sgr_end) = sgr_end(self.raw.as_bytes(), index) {
-                output.write_all(self.raw[index..sgr_end].as_bytes())?;
-                index = sgr_end;
+            if let Some((end, is_sgr)) = control_end(self.raw.as_bytes(), index) {
+                if is_sgr {
+                    output.write_all(self.raw[index..end].as_bytes())?;
+                }
+                index = end;
             } else {
                 let character = self.raw[index..].chars().next().unwrap();
                 if index >= clip {
@@ -181,22 +185,26 @@ impl Document {
         let mut style = SgrState::default();
         let mut overlay = false;
         while index < end {
-            if let Some(sgr_end) = sgr_end(self.raw.as_bytes(), index) {
+            if let Some((end, is_sgr)) = control_end(self.raw.as_bytes(), index) {
                 if overlay {
                     output.write_all(RESET.as_bytes())?;
                     style.write(output)?;
                     overlay = false;
                 }
-                output.write_all(self.raw[index..sgr_end].as_bytes())?;
-                style.apply(&self.raw[index..sgr_end]);
-                if ranges.iter().any(|range| {
-                    range.start <= visible && visible < range.end && range.start < range.end
-                }) {
+                if is_sgr {
+                    output.write_all(self.raw[index..end].as_bytes())?;
+                    style.apply(&self.raw[index..end]);
+                }
+                if is_sgr
+                    && ranges.iter().any(|range| {
+                        range.start <= visible && visible < range.end && range.start < range.end
+                    })
+                {
                     output.write_all(RESET.as_bytes())?;
                     output.write_all(SEARCH_STYLE.as_bytes())?;
                     overlay = true;
                 }
-                index = sgr_end;
+                index = end;
                 continue;
             }
             let character = self.raw[index..].chars().next().unwrap();
@@ -236,7 +244,7 @@ impl Document {
         let mut cells = 0;
         let mut index = start;
         while index < end {
-            if let Some(next) = sgr_end(self.raw.as_bytes(), index) {
+            if let Some((next, _)) = control_end(self.raw.as_bytes(), index) {
                 index = next;
                 continue;
             }
@@ -261,28 +269,37 @@ pub(crate) struct Range {
     pub end: usize,
 }
 
-fn sgr_end(bytes: &[u8], start: usize) -> Option<usize> {
-    (bytes.get(start) == Some(&0x1b) && bytes.get(start + 1) == Some(&b'['))
-        .then(|| {
-            bytes[start + 2..]
+/// Return the end and whether an escape sequence is an SGR style change.
+/// Unsupported controls stay out of visible text and are not replayed into a
+/// viewport, so input cannot move the terminal cursor or rewrite its title.
+fn control_end(bytes: &[u8], start: usize) -> Option<(usize, bool)> {
+    if bytes.get(start) != Some(&0x1b) {
+        return None;
+    }
+    match bytes.get(start + 1).copied() {
+        Some(b'[') => {
+            let final_offset = bytes[start + 2..]
                 .iter()
-                .position(|&byte| byte == b'm')
-                .map(|end| start + 3 + end)
-        })
-        .flatten()
+                .position(|byte| (0x40..=0x7e).contains(byte))?;
+            let end = start + 3 + final_offset;
+            Some((end, bytes[end - 1] == b'm'))
+        }
+        Some(b']') => {
+            let rest = &bytes[start + 2..];
+            if let Some(offset) = rest.iter().position(|&byte| byte == 0x07) {
+                Some((start + 3 + offset, false))
+            } else {
+                let offset = rest.windows(2).position(|pair| pair == [0x1b, b'\\'])?;
+                Some((start + 2 + offset + 2, false))
+            }
+        }
+        Some(_) => Some((start + 2, false)),
+        None => Some((start + 1, false)),
+    }
 }
 
 fn cell_width(character: char) -> usize {
-    let code = character as u32;
-    if matches!(code, 0x0300..=0x036f | 0x1ab0..=0x1aff | 0x1dc0..=0x1dff | 0x20d0..=0x20ff | 0xfe00..=0xfe0f | 0xfe20..=0xfe2f)
-    {
-        0
-    } else if matches!(code, 0x1100..=0x115f | 0x2329..=0x232a | 0x2e80..=0xa4cf | 0xac00..=0xd7a3 | 0xf900..=0xfaff | 0xfe10..=0xfe6f | 0xff00..=0xff60 | 0xffe0..=0xffe6 | 0x1f000..=0x1faff | 0x20000..=0x3fffd)
-    {
-        2
-    } else {
-        1
-    }
+    UnicodeWidthChar::width(character).unwrap_or(0)
 }
 
 fn write_status<W: Write + ?Sized>(output: &mut W, text: &str, columns: usize) -> io::Result<()> {

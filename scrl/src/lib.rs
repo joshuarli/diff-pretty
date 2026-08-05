@@ -135,4 +135,17 @@ mod tests {
         assert_eq!(output, b"one\ntwo\n");
         assert!(!output.windows(6).any(|window| window == b"\x1b[?1049h"));
     }
+
+    #[test]
+    fn viewport_strips_non_sgr_controls_but_keeps_visible_text() {
+        let mut builder = DocumentBuilder::new();
+        builder.push_str("\x1b[2Jsafe\x1b]0;unsafe title\x07\n");
+        let document = builder.finish();
+        assert_eq!(document.line_text(0), Some("safe"));
+        let mut output = Vec::new();
+        document.write_viewport(&mut output, 0, 1).unwrap();
+        assert!(output.windows(4).any(|window| window == b"safe"));
+        assert!(!output.windows(4).any(|window| window == b"2Jsa"));
+        assert!(!output.windows(2).any(|window| window == b"\x1b]"));
+    }
 }
