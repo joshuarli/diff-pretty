@@ -35,7 +35,7 @@ into `scrl`. The lz-inspired optimizations and additional less-like features
 were intentionally left for the separately committed v1 changes below.
 
 The v1 pager includes reusable frame buffering, broader ANSI/token-cell
-handling, a fixed key-byte buffer, literal-search acceleration, lazy seekable
+handling, a fixed key-byte buffer, literal-search acceleration, lazy file
 sources and file operands, richer search editing/history/navigation, wrapping,
 follow mode, filtering, help, and SIGTERM/suspend-resume lifecycle handling.
 SIGWINCH resize/redraw remains out of scope. Smart-case search, silent binary
@@ -177,6 +177,10 @@ pub struct Session { /* document, viewport, search, loading state */ }
 
 pub struct SessionOptions {
     pub title: String,
+    pub search_history: Vec<String>,
+    pub wrap: bool,
+    pub follow: bool,
+    pub filter: Option<String>,
 }
 
 pub struct Size {
@@ -197,6 +201,7 @@ pub enum Event {
     Enter,
     Escape,
     Backspace,
+    Delete,
     CtrlU,
     Text(char),
 }
@@ -245,6 +250,8 @@ pub trait ChunkSource: Send + 'static {
 }
 
 pub struct ReaderSource<R>(R);
+pub struct FileSource;
+pub struct FilesSource;
 
 pub enum PagingMode { Auto, Always, Never }
 
@@ -387,25 +394,13 @@ contract and must remain unchanged.
 The integration is a library call, not a child process and not an environment
 lookup.
 
-### Type and module migration
+### Current integration
 
-The generic `scrl::Document` replaces the pager-oriented portion of
-diff-pretty's `RenderedDocument`. During migration, diff-pretty should keep:
-
-```rust
-pub type RenderedDocument = scrl::Document;
-```
-
-or an equivalent compatibility wrapper if Rust-version or documentation
-constraints make a type alias impractical. Existing methods used by
-`tests/golden.rs` and `benches/bench.rs` must continue to produce the same
-bytes.
-
-`diff-pretty::pager` becomes a small compatibility facade. It re-exports or
-adapts `scrl::PagingMode` and retains `emit`, `emit_reader`, and
-`should_use_pager` for current callers. The facade owns the diff renderer
-adapter; it must not duplicate `Session`, search, terminal, or ANSI viewport
-logic.
+The v0 hard break is complete: diff-pretty uses `scrl::Document` directly and
+has no `RenderedDocument` alias or pager compatibility facade. Its small
+`source` module owns only the diff-specific `ChunkSource` adapter, paging-mode
+policy, and direct-output fallback. Existing methods used by
+`tests/golden.rs` and `benches/bench.rs` continue to produce the same bytes.
 
 ### Render path
 
@@ -427,11 +422,9 @@ pairing requires a complete hunk/file context. `scrl` must not infer or split
 Git structures. The renderer's existing `for_each_render_chunk` remains a
 diff-pretty concern and feeds the generic source callback.
 
-The diff-pretty status title may remain `diff-pretty` during a compatibility
-period only if the status API explicitly accepts a caller label. The preferred
-design is a generic `SessionOptions { title: String }` with `scrl` defaulting to
-`scrl` and diff-pretty passing `diff-pretty`; this is presentation metadata, not
-a dependency on either application.
+The status title is generic session metadata: scrl defaults to `scrl`, while
+diff-pretty passes `diff-pretty`. This is presentation metadata, not a
+dependency on either application.
 
 ## Error and cleanup contract
 
@@ -448,7 +441,7 @@ a dependency on either application.
 - A blocked custom reader cannot be forcibly interrupted through `BufRead`; the
   source worker remains responsible for that read, as in the current design.
 
-## Compatibility invariants
+## Output invariants
 
 The extraction is successful only if all of these remain true:
 

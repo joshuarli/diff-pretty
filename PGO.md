@@ -27,7 +27,7 @@ objectives:
 | Objective | Evidence | POC status |
 | --- | --- | --- |
 | Non-interactive Git-log rendering | `render_reader_to_log_000`, `render_log_000`, and the application's pipe path in `src/main.rs` | Chosen |
-| Retained rendering and pager viewport work | `render_document_show_010`, `pager_viewport_show_010`, and the native pager in `src/pager.rs` | Deferred |
+| Retained rendering and pager viewport work | `render_document_show_010`, `pager_viewport_show_010`, and `scrl`'s `Document`/`Session` paths | Deferred |
 | Large, metadata-heavy, colorized, and plain input shapes | The fixture buckets and corresponding Divan benchmarks in `benches/bench.rs` | Deferred from the first profile |
 
 The initial POC assumes that a deterministic multi-commit Git-log render is
@@ -45,6 +45,52 @@ The following are explicitly deferred until usage evidence is available:
 - cold-cache versus warm-cache and empty-state versus large-state scenarios;
 - terminal-size and corpus-size matrices;
 - latency, RSS, binary-size, and regression thresholds chosen by users.
+
+## scrl implementation and performance record
+
+The generic pager contract is maintained in [PAGER.md](PAGER.md). The
+completed SCRL extraction plan is intentionally not duplicated here; this
+section records only the implementation boundary and performance evidence
+that affect release and PGO decisions.
+
+`scrl` is an independent library and executable. Its dependency direction is
+`diff-pretty → scrl`: diff-pretty parses Git patches and emits parser-safe,
+already-rendered ANSI chunks through `ChunkSource`; scrl owns the generic
+document, viewport, search, source, and terminal lifecycle. The v0 migration
+was a deliberate hard break that removed the old pager compatibility facade.
+
+The completed v1 changes are:
+
+- reusable complete-frame buffering with one output write per redraw;
+- ANSI control tokenization, safe non-SGR handling, and Unicode cell widths;
+- bounded key decoding with split-sequence handling and TTY escape deadlines;
+- literal Boyer-Moore-Horspool search with exact regex fallback;
+- lazily opened file sources alongside bounded pipe sources;
+- cursor editing, injected in-memory search history, reverse search, and
+  `n`/`N` navigation;
+- cell-based wrapping, follow mode, filtering, and an interactive help screen;
+- SIGTERM cleanup and suspend/resume terminal restoration.
+
+Diff-pretty's embedded adapter intentionally enables only the fixed pager
+contract: wrapping, follow mode, filtering, and search history remain off, and
+diff-pretty continues to accept patch text on stdin. Standalone `scrl` may
+enable its file and display-mode flags.
+
+The focused `scrl/benches/bench.rs` suite uses a 20,000-line realistic corpus
+and reports time plus allocation counts. Its representative cached-search
+redraw moved from approximately 313 µs and 20,002 allocations before v1 to
+approximately 14 µs and one 120-byte allocation after frame buffering and
+cached-range reuse. The benchmark is run separately from PGO:
+
+```sh
+cargo bench -p scrl --bench bench -- --sample-count 10
+```
+
+Do not launch this Divan benchmark from `pgo-profile`: its allocator profiler,
+benchmark setup, and harness would contaminate the application profile. A
+future PTY workload may measure scrl startup, repaint, navigation, and search
+through the actual `diff-pretty` binary when those user-weighted scenarios are
+available.
 
 ## Commands and boundaries
 
