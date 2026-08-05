@@ -7,10 +7,13 @@ use crate::Event;
 
 #[cfg(unix)]
 static TERMINATED: AtomicBool = AtomicBool::new(false);
+#[cfg(unix)]
+static SUSPEND_REQUESTED: AtomicBool = AtomicBool::new(false);
 
 #[cfg(unix)]
 unsafe extern "C" {
     fn signal(signal: std::ffi::c_int, handler: usize) -> usize;
+    fn raise(signal: std::ffi::c_int) -> std::ffi::c_int;
 }
 
 #[cfg(unix)]
@@ -19,18 +22,29 @@ unsafe extern "C" fn handle_term(_signal: std::ffi::c_int) {
 }
 
 #[cfg(unix)]
+unsafe extern "C" fn handle_tstp(_signal: std::ffi::c_int) {
+    SUSPEND_REQUESTED.store(true, Ordering::Relaxed);
+}
+
+#[cfg(unix)]
 pub(crate) struct SignalGuard {
-    previous: usize,
+    previous_term: usize,
+    previous_tstp: usize,
 }
 
 #[cfg(unix)]
 impl SignalGuard {
     pub(crate) fn install() -> Self {
         TERMINATED.store(false, Ordering::Relaxed);
+        SUSPEND_REQUESTED.store(false, Ordering::Relaxed);
         // SIGTERM is delivered asynchronously; the handler only flips an
         // atomic. The owning loop observes it and performs normal cleanup.
-        let previous = unsafe { signal(15, handle_term as *const () as usize) };
-        Self { previous }
+        let previous_term = unsafe { signal(15, handle_term as *const () as usize) };
+        let previous_tstp = unsafe { signal(20, handle_tstp as *const () as usize) };
+        Self {
+            previous_term,
+            previous_tstp,
+        }
     }
 }
 
@@ -38,7 +52,8 @@ impl SignalGuard {
 impl Drop for SignalGuard {
     fn drop(&mut self) {
         unsafe {
-            signal(15, self.previous);
+            signal(15, self.previous_term);
+            signal(20, self.previous_tstp);
         }
     }
 }
@@ -46,6 +61,28 @@ impl Drop for SignalGuard {
 #[cfg(unix)]
 pub(crate) fn terminated() -> bool {
     TERMINATED.load(Ordering::Relaxed)
+}
+
+#[cfg(unix)]
+pub(crate) fn suspend_requested() -> bool {
+    SUSPEND_REQUESTED.swap(false, Ordering::Relaxed)
+}
+
+#[cfg(unix)]
+pub(crate) fn suspend<W: io::Write + ?Sized>(output: &mut W, raw: &RawMode<'_>) -> io::Result<()> {
+    output.write_all(b"\x1b[0m\x1b[?7h\x1b[?25h\x1b[?1049l")?;
+    output.flush()?;
+    raw.restore();
+    unsafe {
+        signal(20, 0);
+        raise(20);
+    }
+    raw.reenter()?;
+    unsafe {
+        signal(20, handle_tstp as *const () as usize);
+    }
+    output.write_all(b"\x1b[?1049h\x1b[?7l\x1b[?25l\x1b[H")?;
+    output.flush()
 }
 
 #[cfg(test)]
@@ -222,6 +259,24 @@ impl<'a> RawMode<'a> {
         raw.special_codes[termios::SpecialCodeIndex::VTIME] = 1;
         termios::tcsetattr(tty, OptionalActions::Now, &raw)?;
         Ok(Self { tty, original })
+    }
+
+    pub(crate) fn restore(&self) {
+        let _ = rustix::termios::tcsetattr(
+            self.tty,
+            rustix::termios::OptionalActions::Now,
+            &self.original,
+        );
+    }
+
+    pub(crate) fn reenter(&self) -> io::Result<()> {
+        use rustix::termios::{self, OptionalActions};
+        let mut raw = self.original.clone();
+        raw.make_raw();
+        raw.special_codes[termios::SpecialCodeIndex::VMIN] = 0;
+        raw.special_codes[termios::SpecialCodeIndex::VTIME] = 1;
+        termios::tcsetattr(self.tty, OptionalActions::Now, &raw)?;
+        Ok(())
     }
 }
 

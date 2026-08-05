@@ -15,7 +15,9 @@ use crate::document::{Document, Range};
 use crate::search::SearchState;
 const RESET: &str = "\x1b[0m";
 #[cfg(all(feature = "terminal", unix))]
-use crate::terminal::{RawMode, SignalGuard, read_event_tty, terminated};
+use crate::terminal::{
+    RawMode, SignalGuard, read_event_tty, suspend, suspend_requested, terminated,
+};
 #[cfg(feature = "terminal")]
 use crate::{ChunkSource, ExitReason, RunOptions};
 
@@ -439,6 +441,11 @@ pub(crate) fn run_terminal<S: ChunkSource>(
             if terminated() {
                 break;
             }
+            if suspend_requested() {
+                suspend(output, &raw)?;
+                session.draw(output)?;
+                continue;
+            }
             match read_event_tty(&mut &tty)? {
                 None => break,
                 Some(event) => match session.handle(event) {
@@ -536,6 +543,11 @@ pub(crate) fn run_retained_terminal(
     while result.is_ok() {
         if terminated() {
             break;
+        }
+        if suspend_requested() {
+            suspend(output, &raw)?;
+            result = session.draw(output);
+            continue;
         }
         match key_receiver.recv_timeout(Duration::from_millis(50)) {
             Ok(event) => match session.handle(event) {
@@ -658,6 +670,11 @@ fn run_terminal_live<S: ChunkSource>(
             cancelled.store(true, Ordering::Relaxed);
             break;
         }
+        if suspend_requested() {
+            suspend(output, &raw)?;
+            result = session.draw(output);
+            continue;
+        }
         loop {
             match key_receiver.try_recv() {
                 Ok(event) => {
@@ -706,6 +723,14 @@ fn run_terminal_live<S: ChunkSource>(
             if terminated() {
                 quit = true;
                 break;
+            }
+            if suspend_requested() {
+                suspend(output, &raw)?;
+                result = session.draw(output);
+                if result.is_err() {
+                    break;
+                }
+                continue;
             }
             match key_receiver.recv_timeout(Duration::from_millis(50)) {
                 Ok(event) => match session.handle(event) {
