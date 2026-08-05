@@ -13,6 +13,7 @@ use std::time::Duration;
 
 use crate::document::{Document, Range};
 use crate::search::SearchState;
+const RESET: &str = "\x1b[0m";
 #[cfg(all(feature = "terminal", unix))]
 use crate::terminal::RawMode;
 #[cfg(feature = "terminal")]
@@ -71,6 +72,7 @@ pub struct Session {
     wrap: bool,
     follow: bool,
     filter: Option<Regex>,
+    help: bool,
     finished: bool,
     frame: Vec<u8>,
     search_ranges: Vec<Vec<Range>>,
@@ -96,6 +98,7 @@ impl Session {
             wrap,
             follow,
             filter,
+            help: false,
             finished: false,
             frame: Vec::with_capacity(size.rows.saturating_mul(size.columns).max(1024)),
             search_ranges: Vec::new(),
@@ -126,6 +129,7 @@ impl Session {
             wrap,
             follow,
             filter,
+            help: false,
             finished: true,
             frame: Vec::with_capacity(size.rows.saturating_mul(size.columns).max(1024)),
             search_ranges: Vec::new(),
@@ -160,6 +164,16 @@ impl Session {
     }
 
     pub fn handle(&mut self, event: Event) -> Action {
+        if self.help {
+            match event {
+                Event::Interrupt => return Action::Quit,
+                Event::Escape | Event::Text('h' | 'H' | 'q' | 'Q') => {
+                    self.help = false;
+                    return Action::Continue { changed: true };
+                }
+                _ => return Action::Continue { changed: false },
+            }
+        }
         if self.search.input.is_some() {
             match event {
                 Event::Interrupt => return Action::Quit,
@@ -187,6 +201,10 @@ impl Session {
             }
             Event::Text('?') => {
                 self.search.begin(false);
+                return Action::Continue { changed: true };
+            }
+            Event::Text('h' | 'H') => {
+                self.help = true;
                 return Action::Continue { changed: true };
             }
             Event::Text('n') => {
@@ -238,6 +256,10 @@ impl Session {
     }
 
     pub fn draw<W: Write + ?Sized>(&mut self, output: &mut W) -> io::Result<()> {
+        if self.help {
+            self.draw_help(output)?;
+            return Ok(());
+        }
         self.ensure_search();
         let top = self.top;
         let content_rows = self.content_rows();
@@ -266,6 +288,38 @@ impl Session {
             self.wrap,
             self.size.columns,
         )?;
+        output.write_all(&self.frame)
+    }
+
+    fn draw_help<W: Write + ?Sized>(&mut self, output: &mut W) -> io::Result<()> {
+        const HELP: &[&str] = &[
+            " scrl help",
+            "",
+            " j/k or arrows       scroll",
+            " PgUp/PgDn, b/space  page",
+            " g/Home, G/End       jump to top/bottom",
+            " Left/Right          shift horizontally",
+            " / or ?              search forward/backward",
+            " n/N                 next/previous match",
+            " h or Escape         close help",
+            " q or Ctrl-C         quit",
+        ];
+        self.frame.clear();
+        self.frame.extend_from_slice(b"\x1b[H");
+        for row in 0..self.content_rows() {
+            self.frame.extend_from_slice(b"\x1b[2K\r");
+            if let Some(line) = HELP.get(row) {
+                self.frame.extend_from_slice(line.as_bytes());
+            }
+            if row + 1 < self.content_rows() {
+                self.frame.push(b'\n');
+            }
+        }
+        if self.size.rows > 1 {
+            self.frame
+                .extend_from_slice(b"\n\x1b[2K\r\x1b[7m help  press h or Escape to return ");
+            self.frame.extend_from_slice(RESET.as_bytes());
+        }
         output.write_all(&self.frame)
     }
 
@@ -904,5 +958,24 @@ mod tests {
         assert_eq!(pager.top, 2);
         pager.push_chunk("four\n");
         assert_eq!(pager.top, 3);
+    }
+
+    #[test]
+    fn help_is_a_reversible_screen_state() {
+        let mut pager = session();
+        assert!(matches!(
+            pager.handle(Event::Text('h')),
+            Action::Continue { changed: true }
+        ));
+        let mut output = Vec::new();
+        pager.draw(&mut output).unwrap();
+        assert!(output.windows(9).any(|window| window == b"scrl help"));
+        assert!(matches!(
+            pager.handle(Event::Escape),
+            Action::Continue { changed: true }
+        ));
+        output.clear();
+        pager.draw(&mut output).unwrap();
+        assert!(!output.windows(9).any(|window| window == b"scrl help"));
     }
 }
