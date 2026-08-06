@@ -124,8 +124,8 @@ impl Document {
             None,
             "scrl",
             false,
-            false,
             usize::MAX,
+            None,
         )
     }
 
@@ -138,9 +138,9 @@ impl Document {
         horizontal_offset: usize,
         ranges: Option<(usize, &[Vec<Range>])>,
         title: &str,
-        loading: bool,
         wrap: bool,
         columns: usize,
+        command: Option<&str>,
     ) -> io::Result<()> {
         output.write_all(b"\x1b[H")?;
         let content_rows = rows.saturating_sub(usize::from(status)).max(1);
@@ -187,12 +187,16 @@ impl Document {
                 first_line + 1
             };
             let last = last_line.saturating_add(1).min(self.line_count());
-            let loading = if loading { "  loading" } else { "" };
-            let text = format!(
-                " {title}  {first}-{last}/{}{loading}  ↑/↓ scroll  ←/→ shift  PgUp/PgDn page  q quit",
-                self.line_count()
+            let text = command.map_or_else(
+                || {
+                    format!(
+                        " {title}  {first}-{last}/{}  ↑/↓ scroll  ←/→ shift  PgUp/PgDn page  q quit",
+                        self.line_count()
+                    )
+                },
+                str::to_owned,
             );
-            write_status(output, &text, usize::MAX)?;
+            write_status(output, &text, columns)?;
             output.write_all(RESET.as_bytes())?;
         }
         Ok(())

@@ -2,7 +2,7 @@ use std::io::{BufReader, Write};
 
 use diff_pretty::source::{PagingMode, emit_reader, should_use_pager};
 
-/// Parse `--paging=auto|always|never` (or `--no-pager`). Default `auto`.
+/// Parse `--paging=auto|always|never` (or `--no-pager`). Default `always`.
 fn parse_paging() -> PagingMode {
     for arg in std::env::args() {
         if let Some(v) = arg.strip_prefix("--paging=") {
@@ -16,7 +16,7 @@ fn parse_paging() -> PagingMode {
             return PagingMode::Never;
         }
     }
-    PagingMode::Auto
+    PagingMode::Always
 }
 
 fn main() {

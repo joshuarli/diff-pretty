@@ -285,6 +285,18 @@ impl Session {
         } else {
             None
         };
+        let command = self.search.input.as_ref().map(|input| {
+            let prefix = if self.search.forward { '/' } else { '?' };
+            let mut command = String::with_capacity(input.text.len() + 1);
+            command.push(' ');
+            command.push(prefix);
+            command.push_str(&input.text);
+            if let Some(error) = &self.search.error {
+                command.push_str("  ");
+                command.push_str(error);
+            }
+            command
+        });
         self.frame.clear();
         self.document.write_viewport_search(
             &mut self.frame,
@@ -294,9 +306,9 @@ impl Session {
             self.horizontal_offset,
             ranges,
             &self.options.title,
-            !self.finished,
             self.wrap,
             self.size.columns,
+            command.as_deref(),
         )?;
         output.write_all(&self.frame)?;
         output.flush()

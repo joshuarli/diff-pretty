@@ -143,11 +143,14 @@ cargo run -p scrl -- --paging=never < fixtures/show_003.patch
 
 Paging flags are:
 
-- `--paging=auto` — default; page only when stdout is a terminal and the output
-  exceeds one screen.
+- `--paging=auto` — page only when stdout is a terminal and the output exceeds
+  one screen.
 - `--paging=always` — use the built-in pager when stdout is a terminal; write
   directly when stdout is not a terminal.
 - `--paging=never` and `--no-pager` — always write directly to stdout.
+
+`diff-pretty` defaults to `--paging=always` when Git invokes it as the pager;
+`scrl` retains its `auto` default. Explicit paging flags override this default.
 
 Do not run pre-commit hooks. Do not push to a remote.
 
@@ -187,8 +190,8 @@ continue to scroll the viewport.
 Non-interactive rendering stays pure and writes through `render_reader_to`
 without materializing the complete ANSI output. Terminal invocations use the
 incremental reader path: input is split at complete commit or file boundaries,
-the pager can start before EOF, and its status line reports `loading` until the
-reader finishes. A boundary is never placed inside a file because word-diff
+the pager can start before EOF while the reader continues in the background. A
+boundary is never placed inside a file because word-diff
 pairing needs the complete hunk context.
 
 ## Change guidelines

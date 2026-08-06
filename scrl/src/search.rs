@@ -333,7 +333,7 @@ impl SearchSession {
     }
 
     pub(crate) fn next(&mut self, document: &Document, forward: bool) -> bool {
-        let Some((mut line, mut index)) = self.selected else {
+        let Some((selected_line, selected_index)) = self.selected else {
             self.scan_until_match(document, 0);
             return self.selected.is_some();
         };
@@ -341,35 +341,33 @@ impl SearchSession {
         if count == 0 {
             return false;
         }
-        for _ in 0..count {
-            let line_ranges = self.scan_line(document, line).to_vec();
-            if forward {
-                if index + 1 < line_ranges.len() {
-                    self.selected = Some((line, index + 1));
-                    return true;
-                }
-                line = (line + 1) % count;
-                index = usize::MAX;
+        for distance in 0..=count {
+            let line = if forward {
+                (selected_line + distance) % count
             } else {
-                if index > 0 && index != usize::MAX {
-                    self.selected = Some((line, index - 1));
+                (selected_line + count - (distance % count)) % count
+            };
+            let ranges = self.scan_line(document, line);
+            if forward {
+                let start = if distance == 0 {
+                    selected_index.saturating_add(1)
+                } else {
+                    0
+                };
+                if start < ranges.len() {
+                    self.selected = Some((line, start));
                     return true;
                 }
-                line = if line == 0 { count - 1 } else { line - 1 };
-                index = self.scan_line(document, line).len();
-                if index > 0 {
-                    index -= 1;
-                    self.selected = Some((line, index));
+            } else {
+                let end = if distance == 0 {
+                    selected_index
+                } else {
+                    ranges.len()
+                };
+                if end > 0 {
+                    self.selected = Some((line, end - 1));
                     return true;
                 }
-            }
-            if line_ranges.is_empty() && forward {
-                index = usize::MAX;
-            }
-            let ranges = self.scan_line(document, line).len();
-            if forward && ranges > 0 {
-                self.selected = Some((line, 0));
-                return true;
             }
         }
         false
