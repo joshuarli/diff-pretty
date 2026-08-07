@@ -1,4 +1,5 @@
 NAME       := diff-pretty
+RUSTYBENCH  ?= cargo run --quiet --manifest-path ../rustybench/Cargo.toml --
 HOST       := $(shell rustc -vV | awk '/^host:/ {print $$2}')
 TARGET     ?= $(subst -unknown-linux-gnu,-unknown-linux-musl,$(HOST))
 MUSL_LOADER := $(if $(findstring x86_64,$(TARGET)),/lib/ld-musl-x86_64.so.1,/lib/ld-musl-aarch64.so.1)
@@ -45,17 +46,17 @@ lint:
 diff:
 	@scripts/diff.sh $(FIXTURE)
 
-# Run the curated divan suite and persist a host baseline (see benches/bench.rs
+# Run the curated rustybench suite and persist a host baseline (see benches/bench.rs
 # for what is measured and why).
 bench:
-	@scripts/bench-baseline.py
+	@$(RUSTYBENCH) baseline --root "$(CURDIR)" --baseline "$(CURDIR)/benches/baseline.json" -- cargo bench --bench bench
 
 # Compare a candidate baseline against the persisted host baseline.
-# Usage: make bench-diff AFTER=path/to/baseline.txt
+# Usage: make bench-diff AFTER=path/to/baseline.json
 bench-diff:
-	@BASELINE=$$(scripts/bench-baseline.py --print-path); \
+	@BASELINE="$(CURDIR)/benches/baseline.json"; \
 	test -f "$$BASELINE" || { echo "no baseline yet; run 'make bench' first" >&2; exit 1; }; \
-	scripts/diff-baselines.py "$$BASELINE" "$(AFTER)"
+	$(RUSTYBENCH) diff "$$BASELINE" "$(AFTER)"
 
 test-ci:
 	@test -x "target/$(TARGET)/release/$(NAME)"
@@ -133,7 +134,7 @@ pgo-merge:
 	$(LLVM_BIN)/llvm-profdata show --all-functions --counts "$(PGO_MERGED)" > "$(PGO_DIR)/merged-functions.txt"
 	@grep -q 'diff_pretty' "$(PGO_DIR)/merged-functions.txt" || { \
 		echo 'merged profile has no diff-pretty application symbols' >&2; exit 1; }
-	@if grep -Eq 'divan|_ZN5bench' "$(PGO_DIR)/merged-functions.txt"; then \
+	@if grep -Eq 'rustybench|_ZN5bench' "$(PGO_DIR)/merged-functions.txt"; then \
 		echo 'merged profile contains benchmark symbols' >&2; exit 1; \
 	fi
 

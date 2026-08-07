@@ -3,7 +3,7 @@
 
 This is a process driver, not a benchmark target. It launches the explicit
 diff-pretty binary and feeds it a checked-in patch through stdin, so compiler,
-Cargo, Divan, and benchmark-allocator work cannot enter the child profile.
+Cargo, rustybench, and benchmark-allocator work cannot enter the child profile.
 """
 
 from __future__ import annotations

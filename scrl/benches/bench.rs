@@ -3,10 +3,10 @@
 //! These deliberately measure the work v1 is expected to change: complete
 //! viewport redraws, horizontal clipping, cached search highlighting, and a
 //! live document receiving a new chunk while search is active. Setup happens
-//! outside the steady-state redraw benchmarks. Divan's allocator profiler
+//! outside the steady-state redraw benchmarks. rustybench's allocator profiler
 //! reports time, allocation count, and allocated bytes for each operation.
 
-use divan::{AllocProfiler, Bencher, black_box};
+use rustybench::{AllocProfiler, Bencher, black_box};
 use scrl::{Document, DocumentBuilder, Event, Session, SessionOptions, Size};
 
 #[global_allocator]
@@ -58,7 +58,7 @@ fn session(document_text: &str) -> Session {
     pager
 }
 
-#[divan::bench]
+#[rustybench::bench]
 fn viewport_redraw_no_search(bencher: Bencher) {
     let document = document(&corpus(20_000));
     let mut frame = Vec::with_capacity(16 * 1024);
@@ -69,7 +69,7 @@ fn viewport_redraw_no_search(bencher: Bencher) {
     });
 }
 
-#[divan::bench]
+#[rustybench::bench]
 fn viewport_redraw_styled(bencher: Bencher) {
     let document = document(&styled_corpus(20_000));
     let mut frame = Vec::with_capacity(16 * 1024);
@@ -80,7 +80,7 @@ fn viewport_redraw_styled(bencher: Bencher) {
     });
 }
 
-#[divan::bench]
+#[rustybench::bench]
 fn viewport_redraw_horizontal_clip(bencher: Bencher) {
     let mut pager = session(&corpus(20_000));
     pager.handle(Event::Right);
@@ -92,7 +92,7 @@ fn viewport_redraw_horizontal_clip(bencher: Bencher) {
     });
 }
 
-#[divan::bench]
+#[rustybench::bench]
 fn session_redraw_without_movement(bencher: Bencher) {
     let text = corpus(20_000);
     let mut pager = session(&text);
@@ -104,7 +104,7 @@ fn session_redraw_without_movement(bencher: Bencher) {
     });
 }
 
-#[divan::bench]
+#[rustybench::bench]
 fn initial_search_late_match(bencher: Bencher) {
     let text = corpus(20_000);
     bencher.bench_local(|| {
@@ -120,7 +120,7 @@ fn initial_search_late_match(bencher: Bencher) {
     });
 }
 
-#[divan::bench]
+#[rustybench::bench]
 fn initial_regex_search_late_match(bencher: Bencher) {
     let text = corpus(20_000);
     bencher.bench_local(|| {
@@ -136,7 +136,7 @@ fn initial_regex_search_late_match(bencher: Bencher) {
     });
 }
 
-#[divan::bench]
+#[rustybench::bench]
 fn cached_search_redraw(bencher: Bencher) {
     let text = corpus(20_000);
     let mut pager = session(&text);
@@ -154,7 +154,7 @@ fn cached_search_redraw(bencher: Bencher) {
     });
 }
 
-#[divan::bench]
+#[rustybench::bench]
 fn live_search_chunk_and_redraw(bencher: Bencher) {
     let first = corpus(10_000);
     let second = "late changed_token_0002\n".repeat(100);
@@ -187,5 +187,5 @@ fn live_search_chunk_and_redraw(bencher: Bencher) {
 }
 
 fn main() {
-    divan::main();
+    rustybench::main();
 }

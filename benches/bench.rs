@@ -1,4 +1,4 @@
-//! Curated divan benchmarks for diff-pretty's hot paths.
+//! Curated rustybench benchmarks for diff-pretty's hot paths.
 //!
 //! What is curated here:
 //!
@@ -17,7 +17,7 @@
 use std::path::PathBuf;
 use std::sync::OnceLock;
 
-use divan::{AllocProfiler, Bencher, black_box};
+use rustybench::{AllocProfiler, Bencher, black_box};
 
 use diff_pretty::{render, render_document, render_reader_document, render_reader_to};
 
@@ -90,22 +90,22 @@ fn render_typical_show_fixtures() -> usize {
 // End-to-end render: real fixtures
 // ---------------------------------------------------------------------------
 
-#[divan::bench]
+#[rustybench::bench]
 fn render_show_typical(b: Bencher) {
     b.bench_local(|| black_box(render_typical_show_fixtures()));
 }
 
-#[divan::bench]
+#[rustybench::bench]
 fn render_show_metadata(b: Bencher) {
     b.bench_local(|| black_box(render_named_fixtures(SHOW_METADATA_FIXTURES)));
 }
 
-#[divan::bench]
+#[rustybench::bench]
 fn render_show_large(b: Bencher) {
     b.bench_local(|| black_box(render_named_fixtures(SHOW_LARGE_FIXTURES)));
 }
 
-#[divan::bench]
+#[rustybench::bench]
 fn render_show_corpus(b: Bencher) {
     b.bench_local(|| {
         black_box(
@@ -116,13 +116,13 @@ fn render_show_corpus(b: Bencher) {
     });
 }
 
-#[divan::bench]
+#[rustybench::bench]
 fn render_document_show_010(b: Bencher) {
     let input = fixture("show_010");
     b.bench_local(|| black_box(render_document(input)));
 }
 
-#[divan::bench]
+#[rustybench::bench]
 fn render_reader_to_log_000(b: Bencher) {
     let input = fixture("log_000");
     b.bench_local(|| {
@@ -132,19 +132,19 @@ fn render_reader_to_log_000(b: Bencher) {
     });
 }
 
-#[divan::bench]
+#[rustybench::bench]
 fn render_log_000(b: Bencher) {
     let input = fixture("log_000");
     b.bench_local(|| black_box(render(input).len()));
 }
 
-#[divan::bench]
+#[rustybench::bench]
 fn render_log_000_color(b: Bencher) {
     let input = fixture("log_000_color");
     b.bench_local(|| black_box(render(input).len()));
 }
 
-#[divan::bench]
+#[rustybench::bench]
 fn render_plain_unified(b: Bencher) {
     let input = fixture("plain_unified");
     b.bench_local(|| black_box(render(input).len()));
@@ -160,13 +160,13 @@ fn synthetic_git_log(commits: usize) -> String {
     input
 }
 
-#[divan::bench]
+#[rustybench::bench]
 fn render_reader_document_synthetic_git_log_10000(b: Bencher) {
     let input = synthetic_git_log(10_000);
     b.bench_local(|| black_box(render_reader_document(input.as_bytes()).unwrap()));
 }
 
-#[divan::bench]
+#[rustybench::bench]
 fn pager_viewport_show_010(b: Bencher) {
     let document = render_document(fixture("show_010"));
     let mut terminal = Vec::with_capacity(16 * 1024);
@@ -180,5 +180,5 @@ fn pager_viewport_show_010(b: Bencher) {
 }
 
 fn main() {
-    divan::main();
+    rustybench::main();
 }

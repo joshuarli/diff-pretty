@@ -2,9 +2,9 @@
 
 This project has two intentionally separate performance workflows:
 
-- `make bench` runs the Divan suite in `benches/bench.rs`. It measures library
+- `make bench` runs the rustybench suite in `benches/bench.rs`. It measures library
   and pager operations in-process, including benchmark setup choices and
-  Divan's allocation profiler.
+  rustybench's allocation profiler.
 - `make pgo-profile` builds and launches the release-shaped `diff-pretty`
   application. Only that child process is instrumented; the driver, Cargo,
   compiler, proc macros, tests, and benchmarks are not part of the collected
@@ -16,7 +16,7 @@ not the code paths and sampling behavior of a benchmark harness.
 ## Audit and chosen POC objective
 
 Before this separation, `pgo-profile` set an unscoped `RUSTFLAGS` and ran
-`cargo bench --bench bench`. That could profile the Divan binary, its global
+`cargo bench --bench bench`. That could profile the rustybench binary, its global
 `AllocProfiler`, benchmark setup, and the `render_pgo_training_workload`
 function in addition to the renderer. It was not a profile of the installed
 binary.
@@ -28,7 +28,7 @@ objectives:
 | --- | --- | --- |
 | Non-interactive Git-log rendering | `render_reader_to_log_000`, `render_log_000`, and the application's pipe path in `src/main.rs` | Chosen |
 | Retained rendering and pager viewport work | `render_document_show_010`, `pager_viewport_show_010`, and `scrl`'s `Document`/`Session` paths | Deferred |
-| Large, metadata-heavy, colorized, and plain input shapes | The fixture buckets and corresponding Divan benchmarks in `benches/bench.rs` | Deferred from the first profile |
+| Large, metadata-heavy, colorized, and plain input shapes | The fixture buckets and corresponding rustybench benchmarks in `benches/bench.rs` | Deferred from the first profile |
 
 The initial POC assumes that a deterministic multi-commit Git-log render is
 the most useful first target. This is an engineering assumption, not a
@@ -86,7 +86,7 @@ cached-range reuse. The benchmark is run separately from PGO:
 cargo bench -p scrl --bench bench -- --sample-count 10
 ```
 
-Do not launch this Divan benchmark from `pgo-profile`: its allocator profiler,
+Do not launch this rustybench benchmark from `pgo-profile`: its allocator profiler,
 benchmark setup, and harness would contaminate the application profile. A
 future PTY workload may measure scrl startup, repaint, navigation, and search
 through the actual `diff-pretty` binary when those user-weighted scenarios are
@@ -120,7 +120,7 @@ useful when inspecting the boundary:
    child process its own `.profraw` file.
 3. `pgo-merge` refuses to merge an empty profile directory, runs
    `llvm-profdata`, writes `merged-functions.txt`, requires `diff_pretty`
-   application symbols, and rejects Divan or benchmark symbols.
+   application symbols, and rejects rustybench or benchmark symbols.
 4. `release-pgo` first builds dependencies without profile-use, then applies
    `-Cprofile-use` and `-Cllvm-args=-pgo-warn-missing-function` only to the
    application binary through `cargo rustc`. The final verification checks for
@@ -152,7 +152,7 @@ profile from a different libc, linker, target, or LLVM toolchain.
 
 ## Comparing the same workload
 
-Divan results and end-to-end process measurements are separate reports. To
+rustybench results and end-to-end process measurements are separate reports. To
 compare binaries, preserve both application binaries under explicit names and
 run the same driver repeatedly:
 

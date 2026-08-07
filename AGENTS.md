@@ -71,8 +71,8 @@ in the relevant documentation or test.
 - `scripts/check.sh` — renders every fixture through the binary and compares it
   with its golden output.
 - `scripts/diff.sh` — shows an ANSI-stripped diff for one fixture.
-- `scripts/bench-baseline.py` and `scripts/diff-baselines.py` — run and compare
-  the curated benchmark baselines.
+- `benches/baseline.json` — local host baseline written by the rustybench tooling;
+  it is intentionally ignored because timing data is machine-specific.
 - `scripts/pgo-workload.py` — launch the explicit application binary for the
   deterministic PGO scenario and optional repeated timing samples.
 - `PGO.md` — PGO contamination audit, workflow boundaries, POC assumptions,
@@ -109,7 +109,7 @@ PGO release targets:
 - `pgo-instrument` builds the actual `diff-pretty` release binary into an
   isolated target directory with target-scoped `-Cprofile-generate` flags.
   `pgo-profile` invokes that explicit binary through
-  `scripts/pgo-workload.py`; it does not invoke Cargo, Divan, a benchmark
+  `scripts/pgo-workload.py`; it does not invoke Cargo, rustybench, a benchmark
   binary, or the benchmark allocator. The raw profiles and merged report live
   under `target/pgo-profiles/`.
 - `pgo-profile-linux` and `pgo-profile-linux-static` keep dynamic and static
