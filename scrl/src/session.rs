@@ -528,7 +528,17 @@ pub(crate) fn run_retained_terminal(
             return Ok(ExitReason::EndOfInput);
         }
     };
-    let size = rustix::termios::tcgetwinsize(&tty)
+    run_retained_terminal_with_tty(document, options, output, &tty)
+}
+
+#[cfg(all(feature = "terminal", unix))]
+pub(crate) fn run_retained_terminal_with_tty(
+    document: Document,
+    options: RunOptions,
+    output: &mut dyn Write,
+    tty: &std::fs::File,
+) -> io::Result<ExitReason> {
+    let size = rustix::termios::tcgetwinsize(tty)
         .map(|size| Size {
             rows: usize::from(size.ws_row).max(1),
             columns: usize::from(size.ws_col).max(1),
@@ -542,7 +552,7 @@ pub(crate) fn run_retained_terminal(
         output.flush()?;
         return Ok(ExitReason::EndOfInput);
     }
-    let raw = match RawMode::enter(&tty) {
+    let raw = match RawMode::enter(tty) {
         Ok(raw) => raw,
         Err(_) => {
             document.write_to(output)?;
@@ -551,7 +561,9 @@ pub(crate) fn run_retained_terminal(
         }
     };
     let _signals = SignalGuard::install();
-    let key_tty = tty.try_clone()?;
+    let key_tty = tty
+        .try_clone()
+        .map_err(|error| io::Error::new(error.kind(), format!("clone pager tty: {error}")))?;
     let (key_sender, key_receiver) = mpsc::sync_channel(8);
     thread::spawn(move || {
         let input = key_tty;
@@ -568,7 +580,9 @@ pub(crate) fn run_retained_terminal(
     });
     let mut session = Session::from_document(document, size, options.session);
     output.write_all(b"\x1b[?1049h\x1b[?7l\x1b[?25l\x1b[H")?;
-    let mut result = session.draw(output);
+    let mut result = session
+        .draw(output)
+        .map_err(|error| io::Error::new(error.kind(), format!("draw pager output: {error}")));
     while result.is_ok() {
         if terminated() {
             break;
@@ -594,7 +608,8 @@ pub(crate) fn run_retained_terminal(
     }
     let cleanup = output
         .write_all(b"\x1b[0m\x1b[?7h\x1b[?25h\x1b[?1049l")
-        .and_then(|()| output.flush());
+        .and_then(|()| output.flush())
+        .map_err(|error| io::Error::new(error.kind(), format!("cleanup pager output: {error}")));
     drop(raw);
     result.and(cleanup).map(|()| ExitReason::Quit)
 }

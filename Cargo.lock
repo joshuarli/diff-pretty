@@ -19,6 +19,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "diff-pretty-ffi"
+version = "0.0.1"
+dependencies = [
+ "diff-pretty",
+ "scrl",
+]
+
+[[package]]
 name = "errno"
 version = "0.3.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"

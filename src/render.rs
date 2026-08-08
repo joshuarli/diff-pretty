@@ -91,34 +91,72 @@ impl<W: Write> RenderSink for IoSink<'_, W> {
     }
 }
 
-/// Incrementally renders parser-safe diff chunks into scrl's generic document.
-struct IncrementalDocumentRenderer {
+/// Incrementally renders parser-safe diff chunks or Git semantic events into
+/// scrl's generic retained document.
+pub struct RenderSession {
     document: scrl::DocumentBuilder,
     state: RenderState,
+    event_buffer: String,
     complete: bool,
 }
 
-impl IncrementalDocumentRenderer {
-    fn new() -> Self {
+impl RenderSession {
+    pub fn new() -> Self {
         Self {
             document: scrl::DocumentBuilder::new(),
             state: RenderState::new(),
+            event_buffer: String::new(),
             complete: false,
         }
     }
 
-    fn push_chunk(&mut self, input: &str) {
+    pub fn push_patch(&mut self, input: &str) -> io::Result<()> {
+        if self.complete {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "cannot push input after RenderSession::finish",
+            ));
+        }
+        self.flush_event_buffer();
         render_chunk(input, &mut self.document, &mut self.state, false);
+        Ok(())
+    }
+
+    /// Accept one Git semantic event. Git's callbacks are line-granular, while
+    /// the frozen renderer needs the enclosing file header and hunk together;
+    /// buffer only until the next file header, then reuse the same parser.
+    pub fn push_event(&mut self, event: crate::event::DiffEvent<'_>) -> io::Result<()> {
+        if self.complete {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "cannot push event after RenderSession::finish",
+            ));
+        }
+        if event.kind == crate::event::HEADER && !self.event_buffer.is_empty() {
+            self.flush_event_buffer();
+        }
+        let mut fragment = String::with_capacity(event.data.len() + 8);
+        crate::event::append_patch_fragment(event, &mut fragment)?;
+        self.event_buffer.push_str(&fragment);
+        Ok(())
     }
 
     #[cfg(test)]
-    fn document(&self) -> scrl::Document {
+    pub(crate) fn document(&self) -> scrl::Document {
         self.document.clone().finish()
     }
 
-    fn finish(mut self) -> scrl::Document {
+    pub fn finish(mut self) -> scrl::Document {
+        self.flush_event_buffer();
         self.complete();
         self.document.finish()
+    }
+
+    fn flush_event_buffer(&mut self) {
+        if !self.event_buffer.is_empty() {
+            let input = std::mem::take(&mut self.event_buffer);
+            render_chunk(&input, &mut self.document, &mut self.state, false);
+        }
     }
 
     fn complete(&mut self) {
@@ -126,6 +164,12 @@ impl IncrementalDocumentRenderer {
             render_chunk("", &mut self.document, &mut self.state, true);
             self.complete = true;
         }
+    }
+}
+
+impl Default for RenderSession {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -515,11 +559,8 @@ pub fn render_reader_to<R: BufRead, W: Write>(mut input: R, output: &mut W) -> i
 /// Incrementally read into a retained document. This is the non-terminal form
 /// of the live pager pipeline and avoids retaining the complete input.
 pub fn render_reader_document<R: BufRead>(mut input: R) -> io::Result<scrl::Document> {
-    let mut renderer = IncrementalDocumentRenderer::new();
-    for_each_render_chunk(&mut input, |chunk| {
-        renderer.push_chunk(chunk);
-        Ok(())
-    })?;
+    let mut renderer = RenderSession::new();
+    for_each_render_chunk(&mut input, |chunk| renderer.push_patch(chunk))?;
     Ok(renderer.finish())
 }
 
@@ -1157,10 +1198,10 @@ mod tests {
     #[test]
     fn incremental_document_exposes_completed_chunks() {
         let input = "commit 0123456\nmessage\ndiff --git a/a b/a\n--- a/a\n+++ b/a\n@@ -1 +1 @@\n-old\n+new\n";
-        let mut renderer = IncrementalDocumentRenderer::new();
+        let mut renderer = RenderSession::new();
         let mut chunks = Vec::new();
         for_each_render_chunk(&mut input.as_bytes(), |chunk| {
-            renderer.push_chunk(chunk);
+            renderer.push_patch(chunk)?;
             chunks.push(renderer.document().line_count());
             Ok(())
         })
@@ -1187,10 +1228,10 @@ mod tests {
             "+new\n",
             "\x1b[1mdiff --git a/b b/b\x1b[m\n",
         );
-        let mut renderer = IncrementalDocumentRenderer::new();
+        let mut renderer = RenderSession::new();
         let mut first_file = None;
         for_each_render_chunk(&mut input.as_bytes(), |chunk| {
-            renderer.push_chunk(chunk);
+            renderer.push_patch(chunk)?;
             if chunk.contains("diff --git a/a b/a") {
                 let mut snapshot = Vec::new();
                 renderer.document().write_to(&mut snapshot).unwrap();
@@ -1211,6 +1252,37 @@ mod tests {
         let first_file = std::str::from_utf8(first_file.as_deref().unwrap()).unwrap();
         assert!(first_file.contains("\x1b[31mold"));
         assert!(!first_file.contains("@@ -1 +1 @@"));
+    }
+
+    #[test]
+    fn semantic_events_buffer_file_sections_for_the_existing_renderer() {
+        let mut renderer = RenderSession::new();
+        let events = [
+            crate::event::DiffEvent::new(crate::event::HEADER, 0, b"diff --git a/a b/a\n"),
+            crate::event::DiffEvent::new(crate::event::FILEPAIR_MINUS, 0, b"a/a"),
+            crate::event::DiffEvent::new(crate::event::FILEPAIR_PLUS, 0, b"b/a"),
+            crate::event::DiffEvent::new(crate::event::CONTEXT_FRAGINFO, 0, b"@@ -1 +1 @@\n"),
+            crate::event::DiffEvent::new(crate::event::MINUS, 0, b"old\n"),
+            crate::event::DiffEvent::new(crate::event::PLUS, 0, b"new\n"),
+            crate::event::DiffEvent::new(crate::event::HEADER, 0, b"diff --git a/b b/b\n"),
+            crate::event::DiffEvent::new(crate::event::FILEPAIR_MINUS, 0, b"a/b"),
+            crate::event::DiffEvent::new(crate::event::FILEPAIR_PLUS, 0, b"b/b"),
+            crate::event::DiffEvent::new(crate::event::CONTEXT_FRAGINFO, 0, b"@@ -1 +1 @@\n"),
+            crate::event::DiffEvent::new(crate::event::MINUS, 0, b"left\n"),
+            crate::event::DiffEvent::new(crate::event::PLUS, 0, b"right\n"),
+        ];
+        for event in events {
+            renderer.push_event(event).unwrap();
+        }
+        let document = renderer.finish();
+        let mut output = Vec::new();
+        document.write_to(&mut output).unwrap();
+
+        let patch = concat!(
+            "diff --git a/a b/a\n--- a/a\n+++ b/a\n@@ -1 +1 @@\n-old\n+new\n",
+            "diff --git a/b b/b\n--- a/b\n+++ b/b\n@@ -1 +1 @@\n-left\n+right\n",
+        );
+        assert_eq!(output, render(patch).as_bytes());
     }
 
     #[test]

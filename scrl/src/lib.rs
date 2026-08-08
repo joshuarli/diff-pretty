@@ -17,6 +17,8 @@ pub use session::{Action, Event, Session, SessionOptions, Size};
 pub use source::{ChunkSource, FileSource, FilesSource, ReaderSource};
 
 use std::io::{self, BufRead, IsTerminal, Write};
+#[cfg(unix)]
+use std::os::fd::{BorrowedFd, RawFd};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PagingMode {
@@ -72,7 +74,7 @@ pub fn run_source<S: ChunkSource>(source: S, options: RunOptions) -> io::Result<
     // environments fall back to direct output rather than failing a render.
     #[cfg(feature = "terminal")]
     {
-        return crate::session::run_terminal(source, options, &mut output);
+        crate::session::run_terminal(source, options, &mut output)
     }
     #[cfg(not(feature = "terminal"))]
     {
@@ -95,13 +97,53 @@ pub fn run_document(document: &Document, options: RunOptions) -> io::Result<Exit
     }
     #[cfg(all(feature = "terminal", unix))]
     {
-        return session::run_retained_terminal(document.clone(), options, &mut output);
+        session::run_retained_terminal(document.clone(), options, &mut output)
     }
     #[cfg(not(all(feature = "terminal", unix)))]
     {
         document.write_to(&mut output)?;
         output.flush()?;
         Ok(ExitReason::EndOfInput)
+    }
+}
+
+/// Run a retained document using descriptors owned by the caller.
+///
+/// The descriptors are borrowed for the duration of the call and are never
+/// closed by scrl. This is the native Git integration seam: Git keeps control
+/// of its process descriptors while scrl owns terminal mode, input, and
+/// alternate-screen cleanup.
+#[cfg(unix)]
+pub fn run_document_with_fds(
+    document: &Document,
+    options: RunOptions,
+    output_fd: RawFd,
+    tty_fd: RawFd,
+) -> io::Result<ExitReason> {
+    if output_fd < 0 {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "output descriptor must be non-negative",
+        ));
+    }
+    // Duplicate caller-owned descriptors so scrl can use ordinary `File`
+    // values without ever taking ownership of Git's descriptors.
+    let output = unsafe { BorrowedFd::borrow_raw(output_fd) }
+        .try_clone_to_owned()
+        .map(std::fs::File::from)?;
+    let mut output = output;
+    if options.paging == PagingMode::Never || !output.is_terminal() {
+        document
+            .write_to(&mut output)
+            .and_then(|()| output.flush())
+            .map(|()| ExitReason::EndOfInput)
+    } else if tty_fd >= 0 {
+        let tty = unsafe { BorrowedFd::borrow_raw(tty_fd) }
+            .try_clone_to_owned()
+            .map(std::fs::File::from)?;
+        session::run_retained_terminal_with_tty(document.clone(), options, &mut output, &tty)
+    } else {
+        session::run_retained_terminal(document.clone(), options, &mut output)
     }
 }
 

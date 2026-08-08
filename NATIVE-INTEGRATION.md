@@ -1,8 +1,12 @@
 # Native Git Integration
 
-This document records a research direction for embedding `diff-pretty` into Git
-instead of running it as an external `core.pager` process. It is deliberately a
-design note, not an implementation plan that the project has committed to.
+This document records the native Git integration contract. Stage 2 is now
+implemented for the local Git 2.55 fork: `git diff` can opt into an in-process
+Rust renderer through `builtin:diff-pretty`, while non-interactive output and
+unsupported commands retain Git's ordinary path.
+
+The remaining stages—commit/log events and retained-document optimization—are
+intentionally not part of this first usable milestone.
 
 ## Summary
 
@@ -31,23 +35,25 @@ There is still one process boundary and one pipe between Git and
 Git treats the configured value as a shell command and starts it as a child
 process.
 
-The genuinely interesting version is a Git build that calls a Rust renderer
-through an in-process adapter. Git would emit structured diff and commit events
-to `diff-pretty`; Rust would build a retained document and drive the native
-pager without serializing a complete patch first.
+The native version is now available in the companion Git fork: Git emits its
+existing diff-symbol stream through an opaque C ABI, Rust builds a retained
+document, and `scrl` drives the terminal without a Git-to-child pipe. The
+external process topology remains the compatibility path for stock Git and
+unsupported commands.
 
 ## Current Git Boundary
 
-The local Git checkout is Apple Git 2.50.1. The relevant path is:
+The integrated checkout is Git 2.55.0 under
+`/Users/josh/d/git-minimal-musl-static/src/git-2.55.0`. The relevant path is:
 
 1. `git diff` calls `setup_diff_pager()` before generating the diff in
-   `/Users/josh/d/git/builtin/diff.c:545`.
+   `builtin/diff.c`.
 2. `setup_diff_pager()` decides whether paging is allowed and calls
-   `setup_pager()` in `/Users/josh/d/git/diff.c:7867-7880`.
+   `setup_pager()` in `diff.c:setup_diff_pager()`.
 3. `git_pager()` resolves `GIT_PAGER`, `core.pager`, `PAGER`, and the default
-   pager in `/Users/josh/d/git/pager.c:93-116`.
+   pager in `pager.c:git_pager()`.
 4. `prepare_pager_args()` stores the configured command, marks it for shell
-   execution, and starts a child process in `/Users/josh/d/git/pager.c:147-193`.
+   execution, and starts a child process in `pager.c:setup_pager()`.
 5. Git duplicates the child's pipe onto file descriptor 1. Later Git output is
    ordinary writes to that redirected stdout.
 
@@ -55,8 +61,8 @@ Git also sets `COLUMNS` before redirecting stdout and exports
 `GIT_PAGER_IN_USE`. Those are useful compatibility details for an external
 pager, but they do not provide a structured integration API.
 
-`git log -p` follows a similar setup path through
-`/Users/josh/d/git/builtin/log.c:388`, while commit headers and other log output
+`git log -p` follows a similar setup path through Git's log builtin, while
+commit headers and other log output
 are produced outside the ordinary diff-line path. This matters because an
 integration that handles only diff hunks will not reproduce `git log -p`.
 
@@ -413,15 +419,23 @@ mechanism if that is easier than beginning with semantic callbacks. This stage
 would validate Git build/link integration and lifecycle behavior, but it is not
 the final memory design.
 
-### Stage 2: diff-symbol events
+### Stage 2: diff-symbol events (implemented)
 
-Add a versioned adapter around `emit_diff_symbol()` and support `git diff` and
-`git show`. Compare:
+Add a versioned adapter around `emit_diff_symbol()` and support `git diff` in
+the first milestone; keep `git show` on the existing path until commit events
+are modeled. Compare:
 
 - Event-to-document allocations.
 - Output equality against current fixtures.
 - First-paint latency.
 - Behavior for binary, rename, submodule, and incomplete-line output.
+
+The implementation uses `ffi/` for the opaque C ABI and maps Git's private
+`enum diff_symbol` at
+`git-minimal-musl-static/src/git-2.55.0/diff.c`. Explicit numeric assertions
+make a Git enum reorder fail at compile time. The Rust side buffers one file
+section before feeding the existing renderer, preserving its frozen output
+behavior without a Git-side textual capture buffer.
 
 ### Stage 3: commit/log events
 

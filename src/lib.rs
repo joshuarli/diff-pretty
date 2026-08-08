@@ -28,10 +28,13 @@
 pub mod align;
 pub mod config;
 pub mod edits;
+pub mod event;
 pub mod render;
 pub mod source;
 
-pub use render::{render, render_document, render_reader_document, render_reader_to, render_to};
+pub use render::{
+    RenderSession, render, render_document, render_reader_document, render_reader_to, render_to,
+};
 
 /// Fixed terminal width delta uses when stdout is not a tty (verified: COLUMNS
 /// is ignored and the default equals `--width 80`).

@@ -4,7 +4,7 @@ version = "0.0.1"
 edition = "2024"
 
 [workspace]
-members = ["scrl"]
+members = ["scrl", "ffi"]
 resolver = "2"
 
 [dependencies]

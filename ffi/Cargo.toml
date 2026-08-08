@@ -1,0 +1,11 @@
+[package]
+name = "diff-pretty-ffi"
+version = "0.0.1"
+edition = "2024"
+
+[lib]
+crate-type = ["rlib", "staticlib"]
+
+[dependencies]
+diff-pretty = { path = ".." }
+scrl = { path = "../scrl" }
