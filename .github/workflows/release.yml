@@ -111,7 +111,15 @@ jobs:
           path: dist
           merge-multiple: true
 
-      - name: Create pre-release
+      - name: Checksum FFI packages
+        run: |
+          for archive in dist/diff-pretty-ffi-*.tar.gz; do
+            name="${archive##*/}"
+            hash="$(sha256sum "$archive" | awk '{print $1}')"
+            printf '%s  %s\n' "$hash" "$name" > "dist/$name.sha256"
+          done
+
+      - name: Create release
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: release-${{ github.sha }}
