@@ -13,7 +13,7 @@ unicode-width = "0.2"
 rustix = { version = "1.1", optional = true, features = ["termios"] }
 
 [dev-dependencies]
-rustybench = { path = "../../rustybench" }
+rustybench = "0.1"
 
 [[bin]]
 name = "scrl"
