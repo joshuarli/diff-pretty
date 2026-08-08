@@ -59,7 +59,9 @@ jobs:
 
       - name: Build macOS release
         if: endsWith(matrix.target, '-apple-darwin')
-        run: make release-pgo TARGET=${{ matrix.target }}
+        run: |
+          make ffi-release-package TARGET=${{ matrix.target }}
+          make release-pgo TARGET=${{ matrix.target }}
 
       - name: Run macOS tests
         if: endsWith(matrix.target, '-apple-darwin')
@@ -73,6 +75,7 @@ jobs:
             --workdir /diff-pretty \
             "diff-pretty-builder:${{ matrix.target }}" \
             sh -ec '
+              make ffi-release-package TARGET=${{ matrix.target }}
               make release-pgo-linux TARGET=${{ matrix.target }}
               make verify-release-dynamic TARGET=${{ matrix.target }}
               make test-ci TARGET=${{ matrix.target }}
@@ -80,11 +83,16 @@ jobs:
               make release-pgo-linux-static TARGET=${{ matrix.target }}
               make verify-release TARGET=${{ matrix.target }}
               cp "target/${{ matrix.target }}/release/diff-pretty" "diff-pretty-${{ matrix.target }}-static"
+              cp "dist/ffi/${{ matrix.target }}/diff-pretty-ffi-${{ matrix.target }}.tar.gz" \
+                "diff-pretty-ffi-${{ matrix.target }}.tar.gz"
             '
 
       - name: Save macOS release
         if: endsWith(matrix.target, '-apple-darwin')
-        run: cp "target/${{ matrix.target }}/release/diff-pretty" "diff-pretty-${{ matrix.target }}"
+        run: |
+          cp "target/${{ matrix.target }}/release/diff-pretty" "diff-pretty-${{ matrix.target }}"
+          cp "dist/ffi/${{ matrix.target }}/diff-pretty-ffi-${{ matrix.target }}.tar.gz" \
+            "diff-pretty-ffi-${{ matrix.target }}.tar.gz"
 
       - uses: actions/upload-artifact@v4
         with:

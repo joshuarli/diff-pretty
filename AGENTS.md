@@ -87,6 +87,7 @@ in the relevant documentation or test.
 ```sh
 make test                     # release-mode Rust tests and golden snapshots
 make scrl                     # release build of the standalone scrl command
+make ffi-release-package TARGET=... # target-specific static C FFI package
 make check                    # byte-for-byte binary check over every fixture
 make diff FIXTURE=show_003    # ANSI-stripped diff for one fixture
 make bench                    # run benchmarks and persist a host baseline
@@ -125,8 +126,11 @@ PGO release targets:
 
 The release workflow (`.github/workflows/release.yml`, manual dispatch) builds
 macOS and Linux artifacts inside the `Dockerfile` image on each target, runs
-`make verify-release[-dynamic]` and `make test-ci`, then uploads the binaries
-and creates a pre-release.
+`make verify-release[-dynamic]` and `make test-ci`, then uploads the binaries,
+the target-specific `diff-pretty-ffi-<target>.tar.gz` static C packages, and
+creates a pre-release. The FFI package contains `include/diff_pretty.h`,
+`lib/libdiff_pretty_ffi.a`, and a small `manifest`; it is sufficient to link
+the native Git adapter without installing Rust on the Git build machine.
 
 Both binaries read from stdin and write to stdout. The diff renderer reads:
 

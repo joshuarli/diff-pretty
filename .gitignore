@@ -3,3 +3,4 @@
 scripts/__pycache__
 benches/*-baseline.json
 benches/baseline.json
+dist

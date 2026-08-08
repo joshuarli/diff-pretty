@@ -24,7 +24,7 @@ RELEASE_TARGET_LINKER ?=
 RELEASE_LINKER_ENV = $(if $(RELEASE_TARGET_LINKER),CARGO_TARGET_$(TARGET_ENV)_LINKER=$(RELEASE_TARGET_LINKER))
 PGO_USE_FLAGS = -Cprofile-use=$(PGO_MERGED) -Cllvm-args=-pgo-warn-missing-function
 
-.PHONY: test scrl ffi-release check lint diff bench bench-diff release verify-release verify-release-dynamic \
+.PHONY: test scrl ffi-release ffi-release-package check lint diff bench bench-diff release verify-release verify-release-dynamic \
 	release-pgo release-pgo-linux release-pgo-linux-static pgo-instrument pgo-instrument-linux \
 	pgo-instrument-linux-static pgo-profile \
 	pgo-merge pgo-profile-linux pgo-profile-linux-static install
@@ -40,6 +40,29 @@ ffi-release:
 	cargo build --release -p diff-pretty-ffi \
 	  $(if $(findstring -linux-musl,$(TARGET)),-Z build-std=std -Z build-std-features=,) \
 	  --target "$(TARGET)"
+
+# Produce the only Rust-built inputs needed by a C Git build. The archive is
+# target-specific because a static library cannot be shared between platforms,
+# libc implementations, or architectures.
+ffi-release-package: ffi-release
+	@set -eu; \
+		package_dir="$(CURDIR)/dist/ffi/$(TARGET)"; \
+		stage="$$(mktemp -d "$${TMPDIR:-/tmp}/diff-pretty-ffi.XXXXXXXX")"; \
+		trap 'rm -rf "$$stage"' EXIT INT TERM; \
+		mkdir -p "$$stage/include" "$$stage/lib"; \
+		cp ffi/include/diff_pretty.h "$$stage/include/"; \
+		cp "target/$(TARGET)/release/libdiff_pretty_ffi.a" "$$stage/lib/"; \
+		printf '%s\n' \
+			'format=diff-pretty-ffi-v1' \
+			'target=$(TARGET)' \
+			'library=lib/libdiff_pretty_ffi.a' \
+			'header=include/diff_pretty.h' \
+			'abi=1' > "$$stage/manifest"; \
+		mkdir -p "$$package_dir"; \
+		rm -f "$$package_dir/diff-pretty-ffi-$(TARGET).tar.gz"; \
+		tar -C "$$stage" -czf "$$package_dir/diff-pretty-ffi-$(TARGET).tar.gz" \
+			include lib manifest; \
+		echo "Wrote $$package_dir/diff-pretty-ffi-$(TARGET).tar.gz"
 
 check:
 	@scripts/check.sh
