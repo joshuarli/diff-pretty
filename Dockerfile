@@ -10,6 +10,7 @@ RUN apk add --no-cache \
     musl-dev \
     libgcc \
     git \
+    python3 \
     tzdata
 
 # Use the same prebuilt LLVM family as the Linux CI image. The archive is
